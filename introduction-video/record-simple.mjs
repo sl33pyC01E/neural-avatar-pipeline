@@ -1,8 +1,10 @@
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const CONTROL_ROOT = 'http://127.0.0.1:8788/api/control';
 const storyboardFile = process.argv[2] || './storyboard.json';
-const storyboardUrl = new URL(storyboardFile, import.meta.url);
+const storyboardUrl = path.isAbsolute(storyboardFile) ? pathToFileURL(storyboardFile) : new URL(storyboardFile, import.meta.url);
 async function loadStoryboard(url, visited = new Set()) {
   if (visited.has(url.href)) throw new Error(`Circular storyboard inheritance at ${url.href}.`);
   visited.add(url.href);

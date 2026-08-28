@@ -28,6 +28,12 @@
 /introduction-video/neural-avatar-pipeline-introduction-attempt-*.mp4
 /introduction-video/neural-avatar-pipeline-introduction-take-*.mp4
 
+# Timestamped benchmark runs (curated LATEST summaries remain tracked)
+/benchmarks/results/warm-*.json
+/benchmarks/results/cold-start-run-*.json
+/benchmarks/results/LATEST_COLD_START.json
+/benchmarks/results/LATEST_COLD_START.md
+
 # Local editor and OS state
 .DS_Store
 Thumbs.db

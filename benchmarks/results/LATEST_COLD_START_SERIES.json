@@ -1,0 +1,233 @@
+{
+  "runs": [
+    {
+      "schemaVersion": 1,
+      "timestamp": "2026-08-28T20:38:37.617Z",
+      "startedAt": "2026-08-28T20:38:32.716Z",
+      "launcherPid": 33840,
+      "stoppedLauncherPids": [
+        34176
+      ],
+      "ports": [
+        8788,
+        8793,
+        8794,
+        8795,
+        8796,
+        8797
+      ],
+      "timing": {
+        "allPortsReadyMs": 2852.49,
+        "pocketTtsReadyAfterPortsMs": 245.63,
+        "lamReadyAfterPreviousCheckMs": 441.16,
+        "fullyReadyMs": 3541.56,
+        "pocketTtsReportedLoadMs": 696.7,
+        "lamReportedLoadMs": 3251.4
+      },
+      "resources": {
+        "stopped": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 3474,
+            "freeMiB": 20665,
+            "utilizationPct": 34,
+            "temperatureC": 52,
+            "powerW": 34.13
+          },
+          "host": {
+            "RAMUsedGiB": 17.19,
+            "ProjectProcessCount": 2,
+            "ProjectWorkingSetGiB": 0.089
+          }
+        },
+        "ready": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 4421,
+            "freeMiB": 19718,
+            "utilizationPct": 4,
+            "temperatureC": 53,
+            "powerW": 78.09
+          },
+          "host": {
+            "RAMUsedGiB": 21,
+            "ProjectProcessCount": 18,
+            "ProjectWorkingSetGiB": 4.455
+          }
+        },
+        "startupVramDeltaMiB": 947,
+        "startupProjectRamDeltaGiB": 4.366
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "timestamp": "2026-08-28T20:44:05.486Z",
+      "startedAt": "2026-08-28T20:44:00.945Z",
+      "launcherPid": 38464,
+      "stoppedLauncherPids": [
+        33840
+      ],
+      "ports": [
+        8788,
+        8793,
+        8794,
+        8795,
+        8796,
+        8797
+      ],
+      "timing": {
+        "allPortsReadyMs": 2616.25,
+        "pocketTtsReadyAfterPortsMs": 248.02,
+        "lamReadyAfterPreviousCheckMs": 325.3,
+        "fullyReadyMs": 3191.77,
+        "pocketTtsReportedLoadMs": 698.5,
+        "lamReportedLoadMs": 2971.1
+      },
+      "resources": {
+        "stopped": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 3513,
+            "freeMiB": 20626,
+            "utilizationPct": 34,
+            "temperatureC": 53,
+            "powerW": 34.07
+          },
+          "host": {
+            "RAMUsedGiB": 17.51,
+            "ProjectProcessCount": 2,
+            "ProjectWorkingSetGiB": 0.089
+          }
+        },
+        "ready": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 5113,
+            "freeMiB": 19026,
+            "utilizationPct": 5,
+            "temperatureC": 54,
+            "powerW": 70.73
+          },
+          "host": {
+            "RAMUsedGiB": 20.39,
+            "ProjectProcessCount": 14,
+            "ProjectWorkingSetGiB": 3.061
+          }
+        },
+        "startupVramDeltaMiB": 1600,
+        "startupProjectRamDeltaGiB": 2.972
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "timestamp": "2026-08-28T20:44:13.837Z",
+      "startedAt": "2026-08-28T20:44:09.258Z",
+      "launcherPid": 9736,
+      "stoppedLauncherPids": [
+        38464
+      ],
+      "ports": [
+        8788,
+        8793,
+        8794,
+        8795,
+        8796,
+        8797
+      ],
+      "timing": {
+        "allPortsReadyMs": 2616.85,
+        "pocketTtsReadyAfterPortsMs": 249.06,
+        "lamReadyAfterPreviousCheckMs": 325.6,
+        "fullyReadyMs": 3193.82,
+        "pocketTtsReportedLoadMs": 712.6,
+        "lamReportedLoadMs": 2937.2
+      },
+      "resources": {
+        "stopped": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 2871,
+            "freeMiB": 21268,
+            "utilizationPct": 25,
+            "temperatureC": 53,
+            "powerW": 39.24
+          },
+          "host": {
+            "RAMUsedGiB": 17.48,
+            "ProjectProcessCount": 2,
+            "ProjectWorkingSetGiB": 0.089
+          }
+        },
+        "ready": {
+          "gpu": {
+            "name": "NVIDIA GeForce RTX 4090",
+            "driver": "610.88",
+            "totalMiB": 24564,
+            "usedMiB": 4478,
+            "freeMiB": 19661,
+            "utilizationPct": 5,
+            "temperatureC": 54,
+            "powerW": 77.62
+          },
+          "host": {
+            "RAMUsedGiB": 20.52,
+            "ProjectProcessCount": 14,
+            "ProjectWorkingSetGiB": 3.157
+          }
+        },
+        "startupVramDeltaMiB": 1607,
+        "startupProjectRamDeltaGiB": 3.068
+      }
+    }
+  ],
+  "allPortsReadyMs": {
+    "median": 2616.85,
+    "min": 2616.25,
+    "max": 2852.49
+  },
+  "fullyReadyMs": {
+    "median": 3193.82,
+    "min": 3191.77,
+    "max": 3541.56
+  },
+  "pocketTtsLoadMs": {
+    "median": 698.5,
+    "min": 696.7,
+    "max": 712.6
+  },
+  "lamLoadMs": {
+    "median": 2971.1,
+    "min": 2937.2,
+    "max": 3251.4
+  },
+  "stoppedGpuMiB": {
+    "median": 3474,
+    "min": 2871,
+    "max": 3513
+  },
+  "readyGpuMiB": {
+    "median": 4478,
+    "min": 4421,
+    "max": 5113
+  },
+  "startupVramDeltaMiB": {
+    "median": 1600,
+    "min": 947,
+    "max": 1607
+  },
+  "readyProjectWorkingSetGiB": {
+    "median": 3.16,
+    "min": 3.06,
+    "max": 4.46
+  }
+}

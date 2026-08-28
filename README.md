@@ -18,6 +18,9 @@ The application is designed to run offline once its local runtimes, models, and
 avatar have been supplied. Those large or separately licensed payloads are not
 included in the Git repository.
 
+Measured steady-state latency, generation throughput, GPU memory, system RAM,
+and MP4 export performance are documented in [`BENCHMARKS.md`](BENCHMARKS.md).
+
 ## Default pipeline
 
 | Stage | Component | Role |
