@@ -33,6 +33,9 @@
     livePosition: { x: 0, z: 0 },
     lastPathVelocity: null,
     lastPathSentAt: 0,
+    pathLoop: false,
+    plannerCenter: { x: 0, z: 0 },
+    plannerScale: 90,
   };
 
   const $ = (selector) => document.querySelector(selector);
@@ -42,6 +45,8 @@
   const playerPost = (message) => player.contentWindow?.postMessage(message, MOTION_API);
   const cueId = () => `cue-${Date.now().toString(36)}-${++state.cueSequence}`;
   const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const pathCanvas = $('#live-path-canvas');
+  const pathContext = pathCanvas.getContext('2d');
 
   function setManagerStatus(message, error = false) {
     const element = $('#embedding-manager-status');
@@ -52,7 +57,7 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 2,
+        version: 3,
         stack: state.stack,
         idleKey: state.idleKey,
         activeKey: state.activeKey,
@@ -61,6 +66,7 @@
         speechSchedule: state.speechSchedule.map(({ id, time, text }) => ({ id, time, text })),
         embeddingSchedule: state.embeddingSchedule.map(({ id, time, cacheKey }) => ({ id, time, cacheKey })),
         pathSchedule: state.pathSchedule.map(({ id, time, x, z }) => ({ id, time, x, z })),
+        pathLoop: state.pathLoop,
       }));
     } catch {}
   }
@@ -68,7 +74,7 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2].includes(saved.version)) {
+      if (!saved || ![1, 2, 3].includes(saved.version)) {
         state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
@@ -79,11 +85,12 @@
       state.activeKey = String(saved.activeKey || '');
       state.highlighted = Math.max(0, Number(saved.highlighted) || 0);
       if (Number.isFinite(Number(saved.speed))) $('#live-speed').value = String(saved.speed);
-      if (saved.version === 2) {
+      if (saved.version >= 2) {
         state.speechSchedule = Array.isArray(saved.speechSchedule) ? saved.speechSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), text: String(cue.text || '') })) : [];
         state.embeddingSchedule = Array.isArray(saved.embeddingSchedule) ? saved.embeddingSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), cacheKey: String(cue.cacheKey || '') })) : [];
         state.pathSchedule = Array.isArray(saved.pathSchedule) ? saved.pathSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), x: finite(cue.x), z: finite(cue.z) })) : [];
       }
+      if (saved.version >= 3) state.pathLoop = Boolean(saved.pathLoop);
     } catch {}
     if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
     if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
@@ -243,6 +250,130 @@
     }
   }
 
+  function rawPathEndpoints() {
+    return state.pathSchedule
+      .filter((cue) => Number.isFinite(cue.time) && Number.isFinite(cue.x) && Number.isFinite(cue.z))
+      .sort((a, b) => a.time - b.time);
+  }
+
+  function loopCycleDuration() {
+    const endpoints = rawPathEndpoints();
+    const last = endpoints[endpoints.length - 1];
+    const speed = Math.max(0.1, finite($('#live-speed').value, 0.8));
+    const returnEnd = last ? last.time + Math.hypot(last.x, last.z) / speed : 0;
+    const speechEnd = Math.max(0, ...state.speechSchedule.filter((cue) => cue.text.trim()).map((cue) => cue.time));
+    const embeddingEnd = Math.max(0, ...state.embeddingSchedule.filter((cue) => cue.cacheKey).map((cue) => cue.time));
+    return Math.max(1, returnEnd, speechEnd, embeddingEnd);
+  }
+
+  function effectivePathEndpoints() {
+    const endpoints = rawPathEndpoints();
+    if (!state.pathLoop || !endpoints.length) return endpoints;
+    const last = endpoints[endpoints.length - 1];
+    if (Math.hypot(last.x, last.z) < 0.001) return endpoints;
+    return [...endpoints, { id: '__loop-origin__', time: loopCycleDuration(), x: 0, z: 0, loopOrigin: true }];
+  }
+
+  function plannerPoint(point) {
+    return {
+      x: pathCanvas.width / 2 + (point.x - state.plannerCenter.x) * state.plannerScale,
+      y: pathCanvas.height / 2 - (point.z - state.plannerCenter.z) * state.plannerScale,
+    };
+  }
+
+  function plannerWorld(x, y) {
+    return {
+      x: state.plannerCenter.x + (x - pathCanvas.width / 2) / state.plannerScale,
+      z: state.plannerCenter.z - (y - pathCanvas.height / 2) / state.plannerScale,
+    };
+  }
+
+  function plannerRoutePoints() {
+    const points = effectivePathEndpoints();
+    if (!points.length || points[0].time > 0 || Math.hypot(points[0].x, points[0].z) > 0.001) {
+      return [{ id: '__origin__', time: 0, x: 0, z: 0, origin: true }, ...points];
+    }
+    return points.map((point, index) => index === 0 ? { ...point, origin: true } : point);
+  }
+
+  function pathDistance() {
+    const points = plannerRoutePoints();
+    let total = 0;
+    for (let index = 1; index < points.length; index += 1) total += Math.hypot(points[index].x - points[index - 1].x, points[index].z - points[index - 1].z);
+    return total;
+  }
+
+  function drawPathPlanner() {
+    if (!pathCanvas.width || !pathCanvas.height) return;
+    const ctx = pathContext;
+    ctx.fillStyle = '#090d12'; ctx.fillRect(0, 0, pathCanvas.width, pathCanvas.height);
+    const spacing = Math.max(12, state.plannerScale * 0.25);
+    const origin = plannerPoint({ x: 0, z: 0 });
+    ctx.lineWidth = 1;
+    for (let x = ((origin.x % spacing) + spacing) % spacing; x < pathCanvas.width; x += spacing) {
+      ctx.strokeStyle = Math.abs(x - origin.x) < 1 ? '#3b4654' : '#1a222d';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, pathCanvas.height); ctx.stroke();
+    }
+    for (let y = ((origin.y % spacing) + spacing) % spacing; y < pathCanvas.height; y += spacing) {
+      ctx.strokeStyle = Math.abs(y - origin.y) < 1 ? '#3b4654' : '#1a222d';
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pathCanvas.width, y); ctx.stroke();
+    }
+    const route = plannerRoutePoints();
+    for (let index = 1; index < route.length; index += 1) {
+      const from = plannerPoint(route[index - 1]); const to = plannerPoint(route[index]);
+      ctx.save();
+      if (route[index].loopOrigin) ctx.setLineDash([7, 5]);
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#67e3b599'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke(); ctx.restore();
+    }
+    route.forEach((point, index) => {
+      const screen = plannerPoint(point);
+      ctx.fillStyle = point.origin || point.loopOrigin ? '#67e3b5' : '#111821';
+      ctx.strokeStyle = '#67e3b5'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(screen.x, screen.y, point.origin || point.loopOrigin ? 5 : 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#b8c5d1'; ctx.font = `${Math.max(9, Math.round(pathCanvas.width / Math.max(1, pathCanvas.clientWidth) * 9))}px ui-monospace, monospace`;
+      ctx.fillText(point.loopOrigin ? `loop ${point.time.toFixed(1)}s` : `${index} · ${point.time.toFixed(1)}s`, screen.x + 7, screen.y - 7);
+    });
+    if (state.sessionActive) {
+      const live = plannerPoint(state.livePosition);
+      ctx.fillStyle = '#72b7ff'; ctx.beginPath(); ctx.arc(live.x, live.y, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+    const userEndpoints = rawPathEndpoints().filter((point) => point.time > 0 || Math.hypot(point.x, point.z) > 0.001);
+    $('#live-path-empty').style.display = userEndpoints.length ? 'none' : 'grid';
+    $('#live-path-stats').textContent = `${pathDistance().toFixed(2)} m · ${userEndpoints.length} endpoint${userEndpoints.length === 1 ? '' : 's'}`;
+    $('#live-loop-detail').textContent = state.pathLoop
+      ? `Origin is final · full cue cycle ${loopCycleDuration().toFixed(1)}s.`
+      : 'Return to origin, then restart every cue.';
+  }
+
+  function resizePathPlanner() {
+    const rect = pathCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    pathCanvas.width = Math.round(rect.width * dpr);
+    pathCanvas.height = Math.round(rect.height * dpr);
+    state.plannerScale = 90 * dpr;
+    drawPathPlanner();
+  }
+
+  function fitPathPlanner() {
+    const points = plannerRoutePoints();
+    const xs = points.map((point) => point.x); const zs = points.map((point) => point.z);
+    state.plannerCenter = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...zs) + Math.max(...zs)) / 2 };
+    const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1);
+    state.plannerScale = Math.min(pathCanvas.width, pathCanvas.height) * 0.68 / span;
+    drawPathPlanner();
+  }
+
+  function appendPathEndpoint(point) {
+    const endpoints = rawPathEndpoints();
+    const last = endpoints[endpoints.length - 1] || { time: 0, x: 0, z: 0 };
+    const travel = Math.hypot(point.x - last.x, point.z - last.z) / Math.max(0.1, finite($('#live-speed').value, 0.8));
+    const time = Math.round((last.time + Math.max(0.5, travel)) * 10) / 10;
+    state.pathSchedule.push({ id: cueId(), time, x: point.x, z: point.z });
+    saveWorkspace(); renderPathSchedule(); pathCanvas.focus();
+  }
+
   function renderPathSchedule() {
     const container = $('#live-path-schedule');
     container.replaceChildren();
@@ -250,11 +381,12 @@
       const row = document.createElement('div'); row.className = 'cue-row path-cue';
       const x = document.createElement('input'); x.type = 'number'; x.step = '0.1'; x.value = String(cue.x); x.setAttribute('aria-label', 'Path endpoint X in metres');
       const z = document.createElement('input'); z.type = 'number'; z.step = '0.1'; z.value = String(cue.z); z.setAttribute('aria-label', 'Path endpoint Z in metres');
-      x.addEventListener('change', () => { cue.x = finite(x.value); x.value = String(cue.x); saveWorkspace(); });
-      z.addEventListener('change', () => { cue.z = finite(z.value); z.value = String(cue.z); saveWorkspace(); });
+      x.addEventListener('change', () => { cue.x = finite(x.value); x.value = String(cue.x); saveWorkspace(); renderPathSchedule(); });
+      z.addEventListener('change', () => { cue.z = finite(z.value); z.value = String(cue.z); saveWorkspace(); renderPathSchedule(); });
       row.append(cueTimeInput(cue, renderPathSchedule), x, z, cueRemoveButton(state.pathSchedule, cue, renderPathSchedule));
       container.appendChild(row);
     }
+    drawPathPlanner();
   }
 
   function renderEmbeddingControls() {
@@ -374,9 +506,7 @@
   }
 
   function steerScheduledPath() {
-    const endpoints = state.pathSchedule
-      .filter((cue) => Number.isFinite(cue.time) && Number.isFinite(cue.x) && Number.isFinite(cue.z))
-      .sort((a, b) => a.time - b.time);
+    const endpoints = effectivePathEndpoints();
     if (!endpoints.length) {
       sendPathVelocity(null);
       $('#live-path-hud').textContent = 'path idle';
@@ -424,14 +554,22 @@
     steerScheduledPath();
     if (speechChanged) renderSpeechSchedule();
     if (embeddingChanged) renderEmbeddingSchedule();
+    drawPathPlanner();
+    if (state.pathLoop && state.elapsed >= loopCycleDuration()) {
+      const hasRoute = rawPathEndpoints().length > 0;
+      const routeComplete = !hasRoute || Math.hypot(state.livePosition.x, state.livePosition.z) < 0.2;
+      const speechBusy = state.preparing || state.speaking || state.speech.some((item) => ['queued', 'PocketTTS', 'LAM', 'ready', 'speaking'].includes(item.status));
+      if (!state.keys.size && routeComplete && !speechBusy) startTimeline(true);
+      else if (routeComplete && speechBusy) $('#live-path-hud').textContent = 'loop · finishing speech';
+    }
   }
 
-  function startTimeline() {
+  function startTimeline(preservePosition = false) {
     stopTimeline(false);
     state.firedSpeech.clear();
     state.firedEmbeddings.clear();
     state.elapsed = 0;
-    state.livePosition = { x: 0, z: 0 };
+    if (!preservePosition) state.livePosition = { x: 0, z: 0 };
     state.sessionStartedAt = performance.now();
     state.scheduleTimer = window.setInterval(tickTimeline, 100);
     renderSpeechSchedule();
@@ -630,13 +768,31 @@
     saveWorkspace(); renderEmbeddingSchedule();
   });
   $('#add-live-path-cue').addEventListener('click', () => {
-    const last = state.pathSchedule[state.pathSchedule.length - 1];
+    const last = rawPathEndpoints().at(-1);
     state.pathSchedule.push({ id: cueId(), time: last ? last.time + 5 : 0, x: last?.x || 0, z: last?.z || 0 });
     saveWorkspace(); renderPathSchedule();
   });
+  pathCanvas.addEventListener('pointerdown', (event) => {
+    const rect = pathCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const world = plannerWorld((event.clientX - rect.left) * pathCanvas.width / rect.width, (event.clientY - rect.top) * pathCanvas.height / rect.height);
+    const point = { x: Math.round(world.x * 20) / 20, z: Math.round(world.z * 20) / 20 };
+    appendPathEndpoint(point);
+  });
+  $('#live-path-undo').addEventListener('click', () => {
+    const last = rawPathEndpoints().at(-1);
+    if (!last) return;
+    const index = state.pathSchedule.indexOf(last);
+    if (index >= 0) state.pathSchedule.splice(index, 1);
+    saveWorkspace(); renderPathSchedule();
+  });
+  $('#live-path-clear').addEventListener('click', () => { state.pathSchedule = []; saveWorkspace(); renderPathSchedule(); });
+  $('#live-path-fit').addEventListener('click', fitPathPlanner);
+  $('#live-path-loop').addEventListener('change', (event) => { state.pathLoop = event.target.checked; saveWorkspace(); drawPathPlanner(); });
   $('#live-speed').addEventListener('input', (event) => {
     $('#live-speed-out').textContent = `${Number(event.target.value).toFixed(2)} m/s`;
     saveWorkspace();
+    drawPathPlanner();
     if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), speed: Number(event.target.value), smoothing: 1, keys: [...state.keys] });
   });
   for (const button of document.querySelectorAll('[data-live-key]')) {
@@ -651,7 +807,14 @@
     if (state.view !== 'live' || /textarea|input|select/i.test(event.target.tagName)) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); if (!event.repeat || event.key === 'ArrowUp' || event.key === 'ArrowDown') handleArrow(event.key); return; }
     const key = event.key.toLowerCase();
-    if (['w', 'a', 's', 'd'].includes(key)) { event.preventDefault(); setKey(key, true); }
+    if (['w', 'a', 's', 'd'].includes(key)) {
+      event.preventDefault();
+      if (!state.sessionActive && event.target === pathCanvas && !event.repeat) {
+        const last = rawPathEndpoints().at(-1) || { x: 0, z: 0 };
+        const step = 0.25 * (event.shiftKey ? 4 : 1);
+        appendPathEndpoint({ x: last.x + (key === 'd' ? step : key === 'a' ? -step : 0), z: last.z + (key === 'w' ? step : key === 's' ? -step : 0) });
+      } else setKey(key, true);
+    }
   });
   window.addEventListener('keyup', (event) => {
     if (state.view !== 'live') return;
@@ -661,6 +824,7 @@
   window.addEventListener('blur', () => { if (state.keys.size) { state.keys.clear(); updateKeyUi(); } });
   window.addEventListener('unified:view-change', (event) => {
     state.view = event.detail?.view || '';
+    if (state.view === 'live') window.setTimeout(resizePathPlanner, 0);
     if (state.view !== 'live' && state.sessionActive) setSession(false);
   });
   window.addEventListener('message', (event) => {
@@ -692,6 +856,7 @@
   });
 
   restoreWorkspace();
+  $('#live-path-loop').checked = state.pathLoop;
   $('#live-speed').dispatchEvent(new Event('input'));
   renderEmbeddingControls();
   renderSpeechQueue();
@@ -700,4 +865,5 @@
   renderPathSchedule();
   updateSessionUi();
   refreshEmbeddings();
+  new ResizeObserver(resizePathPlanner).observe(pathCanvas);
 })();

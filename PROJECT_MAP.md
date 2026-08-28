@@ -93,7 +93,7 @@ permanent cached embeddings
   → nickname / idle / stack manager
   → manual arrow cycling + timed embedding cues
   → one active key (or idle fallback) ────────────────┐
-timed X/Z endpoints → live path steering ────────────┤
+grid + timed X/Z endpoints → live path steering ─────┤
 WASD temporary override ─────────────────────────────┤
                                                      ↓
           resident ARDY Core-40 rolling horizons ─────┐
@@ -110,7 +110,9 @@ line plays. All timed cues use a session clock that begins after the first ARDY
 horizon is ready. Scheduled speech is dispatched into the live pipeline at cue
 time; it is not prerendered. Path steering replans from the reported live root
 position, so releasing a WASD override resumes the route rather than resetting
-the character.
+the character. Optional looping synthesizes a final return-to-origin endpoint;
+after origin is reached and queued speech finishes, the shared clock and all
+speech and embedding cues are rearmed without restarting the resident models.
 
 ## Repository boundaries
 

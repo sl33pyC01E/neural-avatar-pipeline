@@ -121,6 +121,17 @@ releasing the keys resumes pursuit of the current endpoint from the character's
 actual position. Manual arrow-key embedding changes remain available between
 scheduled cues.
 
+The walk-path grid mirrors the ARDY route planner: click to add snapped
+endpoints, or focus the grid and use WASD for 0.25-metre steps. Edit generated
+arrival times and X/Z values in the rows below the grid. Arrival times are
+calculated from segment distance and the current move-speed setting. Undo,
+Clear, and Fit operate on the same endpoint list. With **Loop scheduled run**
+enabled, the planner adds a dashed final leg
+back to the origin. Once the character reaches origin and queued speech is
+finished, the session clock resets and every speech and embedding cue is armed
+for the next cycle. Holding WASD pauses that restart until manual control is
+released.
+
 Enter speech and press Enter or **Speak**. PocketTTS generates Anna's audio,
 LAM computes its face track, and the prepared result is queued for synchronized
 playback without stopping the live body-motion stream. Multiple submitted lines
