@@ -161,6 +161,7 @@ class CachedTextEncoder:
         self.engine = engine
         self.device = device
         self.backend = None
+        self.tensor_cache: dict[str, torch.Tensor] = {}
         TEXT_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -197,11 +198,21 @@ class CachedTextEncoder:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if metadata.get("key") != clean_key or metadata.get("width") != 4096:
             raise ValueError("That cached text embedding is invalid.")
-        value = np.load(data_path, allow_pickle=False)
-        tensor = torch.from_numpy(np.asarray(value, dtype=np.float32).reshape(1, 1, 4096)).to(self.device)
+        tensor = self.tensor_cache.get(clean_key)
+        if tensor is None:
+            value = np.load(data_path, allow_pickle=False)
+            tensor = torch.from_numpy(np.asarray(value, dtype=np.float32).reshape(1, 1, 4096)).to(self.device)
+            self.tensor_cache[clean_key] = tensor
         return tensor, [1], metadata
 
-    def _save_one(self, text: str, value: np.ndarray) -> None:
+    @staticmethod
+    def clean_key(key: str) -> str:
+        clean_key = str(key).strip().lower()
+        if len(clean_key) != 24 or any(character not in "0123456789abcdef" for character in clean_key):
+            raise ValueError("Choose a valid cached text embedding.")
+        return clean_key
+
+    def _save_one(self, text: str, value: np.ndarray, nickname: str = "") -> None:
         clean = text.strip()
         data_path, metadata_path = self._paths(clean)
         np.save(data_path, np.asarray(value, dtype=np.float32).reshape(1, 4096), allow_pickle=False)
@@ -210,6 +221,7 @@ class CachedTextEncoder:
                 {
                     "key": self.key(clean),
                     "text": clean,
+                    "nickname": nickname.strip()[:80],
                     "width": 4096,
                     "dtype": "float32",
                     "createdAt": time.time(),
@@ -245,7 +257,7 @@ class CachedTextEncoder:
         stacked = np.stack(values, axis=0)
         return torch.from_numpy(stacked).to(self.device), [1] * len(values)
 
-    def cache(self, text: str) -> tuple[bool, dict[str, Any]]:
+    def cache(self, text: str, nickname: str = "") -> tuple[bool, dict[str, Any]]:
         """Create one permanent entry, or return the existing entry without recomputing it."""
         clean = text.strip()
         if not clean:
@@ -255,9 +267,40 @@ class CachedTextEncoder:
         created = existing is None
         if created:
             encoded, _ = self._ensure_backend()([clean])
-            self._save_one(clean, encoded.detach().float().cpu().numpy().reshape(1, 4096))
+            self._save_one(clean, encoded.detach().float().cpu().numpy().reshape(1, 4096), nickname)
         metadata_path = TEXT_CACHE_ROOT / f"{key}.json"
-        return created, json.loads(metadata_path.read_text(encoding="utf-8"))
+        entry = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if not created and nickname.strip() and entry.get("nickname") != nickname.strip()[:80]:
+            entry["nickname"] = nickname.strip()[:80]
+            metadata_path.write_text(json.dumps(entry, indent=2) + "\n", encoding="utf-8")
+        return created, entry
+
+    def set_nickname(self, key: str, nickname: str) -> dict[str, Any]:
+        clean_key = self.clean_key(key)
+        metadata_path = TEXT_CACHE_ROOT / f"{clean_key}.json"
+        data_path = TEXT_CACHE_ROOT / f"{clean_key}.npy"
+        if not (metadata_path.is_file() and data_path.is_file()):
+            raise ValueError("That cached text embedding is no longer available.")
+        entry = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if entry.get("key") != clean_key or entry.get("width") != 4096:
+            raise ValueError("That cached text embedding is invalid.")
+        entry["nickname"] = str(nickname).strip()[:80]
+        metadata_path.write_text(json.dumps(entry, indent=2) + "\n", encoding="utf-8")
+        return entry
+
+    def delete(self, key: str) -> dict[str, Any]:
+        clean_key = self.clean_key(key)
+        metadata_path = TEXT_CACHE_ROOT / f"{clean_key}.json"
+        data_path = TEXT_CACHE_ROOT / f"{clean_key}.npy"
+        if not (metadata_path.is_file() and data_path.is_file()):
+            raise ValueError("That cached text embedding is no longer available.")
+        entry = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if entry.get("key") != clean_key:
+            raise ValueError("That cached text embedding is invalid.")
+        data_path.unlink()
+        metadata_path.unlink()
+        self.tensor_cache.pop(clean_key, None)
+        return entry
 
     def entries(self) -> list[dict[str, Any]]:
         entries = []
@@ -268,7 +311,7 @@ class CachedTextEncoder:
                     entries.append(item)
             except (KeyError, OSError, ValueError):
                 continue
-        return sorted(entries, key=lambda item: item.get("text", "").casefold())
+        return sorted(entries, key=lambda item: (item.get("nickname") or item.get("text", "")).casefold())
 
 
 class MotionRuntime:
@@ -1144,9 +1187,19 @@ def make_handler(runtime: MotionRuntime):
                     with runtime.lock:
                         runtime.load()
                         runtime.load_text_encoder()
-                        created, entry = runtime.text_encoder.cache(text)
+                        created, entry = runtime.text_encoder.cache(text, str(body.get("nickname", "")))
                         runtime.text_encoder.release_backend()
                     self._send(200, {"ok": True, "created": created, "entry": entry, "entries": runtime.text_encoder.entries(), **runtime.state()})
+                elif self.path == "/text-cache/nickname":
+                    cache = runtime.text_encoder or CachedTextEncoder(runtime.engine, runtime.device)
+                    with runtime.lock:
+                        entry = cache.set_nickname(str(body.get("key", "")), str(body.get("nickname", "")))
+                    self._send(200, {"ok": True, "entry": entry, "entries": cache.entries(), **runtime.state()})
+                elif self.path == "/text-cache/delete":
+                    cache = runtime.text_encoder or CachedTextEncoder(runtime.engine, runtime.device)
+                    with runtime.lock:
+                        entry = cache.delete(str(body.get("key", "")))
+                    self._send(200, {"ok": True, "deleted": entry, "entries": cache.entries(), **runtime.state()})
                 elif self.path == "/live/start":
                     self._send(200, {"ok": True, "motion": runtime.start_live(body), **runtime.state()})
                 elif self.path == "/live/step":

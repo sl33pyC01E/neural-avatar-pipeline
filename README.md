@@ -21,7 +21,7 @@ included in the Git repository.
 | Text conditioning | Quantized LLM2Vec | Free-text and cached motion embeddings |
 | Character | User-supplied VRM | Local preview and export target |
 
-The interface has three persistent workspaces:
+The interface has four persistent workspaces:
 
 - **Facial Animation** generates or accepts speech, runs LAM, previews the
   facial track on the VRM, and exports facial animation with audio.
@@ -30,6 +30,9 @@ The interface has three persistent workspaces:
 - **Unified Character** schedules the latest face/voice and motion tracks at
   independent start times, previews them on one character, and exports the
   combined result as MP4.
+- **Live Full Flow** keeps ARDY Core-40 running under WASD control while queued
+  PocketTTS speech is passed through LAM and played with synchronized facial
+  animation on the same character.
 
 ## Quick start
 
@@ -91,6 +94,29 @@ a face offset of `0` and motion offset of `5.0` starts body motion five seconds
 after the face/voice track. Preview the result, then export the composed viewport
 and speech track as MP4.
 
+### 4. Run the live full flow
+
+Open **Live Full Flow** and use the embedding manager before starting a session:
+
+1. Create permanent embeddings from exact motion prompts and optionally give
+   each one a short nickname. Existing tensors are reused instead of recomputed.
+2. Choose one embedding as the idle fallback.
+3. Add any embeddings you want to swap between to the control stack.
+4. Start the live session, then use WASD to control locomotion.
+
+Up/Down moves the stack highlight. Right activates the highlighted embedding;
+Left releases it, allowing the idle embedding to take over. Only one stack item
+is active at a time because ARDY accepts one conditioning tensor per live
+horizon. Nicknames can be changed without altering the saved tensor, and cache
+entries can be permanently deleted from the manager.
+
+Enter speech and press Enter or **Speak**. PocketTTS generates Anna's audio,
+LAM computes its face track, and the prepared result is queued for synchronized
+playback without stopping the live body-motion stream. Multiple submitted lines
+are prepared in order and play sequentially. New embeddings are intentionally
+created while the live session is stopped so loading the text encoder cannot
+interrupt Core-40 replanning.
+
 ## Local services
 
 | Port | Service |
@@ -108,7 +134,7 @@ abnormal shutdown does not intentionally leave a model service behind.
 
 ## Repository layout
 
-- `webui/` — unified three-tab shell
+- `webui/` — unified four-workspace shell and live-flow controller
 - `face_animation/` — LAM face UI, API, and worker adapter
 - `retargetting/` — ARDY browser UI, scheduler, VRM playback, and local API
 - `motion-models/` — ARDY worker, constraints, and generated motion interface

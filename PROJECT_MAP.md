@@ -29,7 +29,7 @@ unified/
 ├─ launch.bat                         user entry point
 ├─ launcher.mjs                       service supervisor/path resolver
 ├─ verify.bat / verify.mjs            read-only bundle inventory
-├─ webui/                              three-tab application shell
+├─ webui/                              four-workspace application shell
 ├─ face_animation/
 │  ├─ webui/app/                       PocketTTS + LAM face interface
 │  ├─ webui/backend/server.py          face status, avatar, MP4 export
@@ -85,6 +85,24 @@ latest audio/face track + face start offset ─┐
 latest ARDY track + motion start offset ─────┼─ synchronized VRM playback
                                              └─ viewport + audio MP4 export
 ```
+
+### Live full flow
+
+```text
+permanent cached embeddings
+  → nickname / idle / stack manager
+  → one active key (or idle fallback)
+  → resident ARDY Core-40 + WASD velocity
+  → rolling 0.4-second motion horizons ───────────────┐
+                                                      ├─ continuous VRM output
+speech text → PocketTTS Anna → waveform → LAM frames ┘
+```
+
+The live workspace reuses the same ARDY/VRM player used by Unified Character
+instead of opening another WebGL context. Embedding tensors are loaded by cache
+key, retained by the live worker after first use, and swapped at the next ARDY
+replan. Speech lines are prepared sequentially and can queue while the current
+line plays.
 
 ## Repository boundaries
 

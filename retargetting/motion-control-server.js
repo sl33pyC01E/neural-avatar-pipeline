@@ -85,7 +85,14 @@ function ardyBindPayload() {
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" });
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+  });
   res.end(body);
 }
 
@@ -180,6 +187,14 @@ async function statePayload() {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "content-type",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+      });
+      res.end(); return;
+    }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/motion-control.html")) {
       const file = path.join(ROOT, "motion-control.html");
       const data = fs.readFileSync(file);
@@ -249,6 +264,11 @@ const server = http.createServer(async (req, res) => {
       const engine = requireEngine(String(url.searchParams.get("engine") || "ardy"));
       await ensureWorker(engine); const output = await requestWorker(engine, "GET", "/text-cache", null); sendJson(res, output.ok ? 200 : 400, output); return;
     }
+    if (req.method === "GET" && url.pathname === "/api/live/text-cache") {
+      await ensureWorker("ardyLive");
+      const output = await requestWorker("ardyLive", "GET", "/text-cache", null);
+      sendJson(res, output.ok ? 200 : 400, output); return;
+    }
     if (req.method === "POST" && url.pathname === "/api/load") {
       const body = JSON.parse(await readBody(req) || "{}"); const engine = requireEngine(String(body.engine || "ardy"));
       await ensureWorker(engine); const output = await requestWorker(engine, "POST", "/load", {}); sendJson(res, output.ok ? 200 : 400, output); return;
@@ -270,6 +290,24 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/cache-text") {
       const body = JSON.parse(await readBody(req) || "{}"); const engine = requireEngine(String(body.engine || "ardy"));
       await ensureWorker(engine); const output = await requestWorker(engine, "POST", "/cache-text", body); sendJson(res, output.ok ? 200 : 400, output); return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/live/cache-text") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      await ensureWorker("ardyLive");
+      const output = await requestWorker("ardyLive", "POST", "/cache-text", body);
+      sendJson(res, output.ok ? 200 : 400, output); return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/live/text-cache/nickname") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      await ensureWorker("ardyLive");
+      const output = await requestWorker("ardyLive", "POST", "/text-cache/nickname", body);
+      sendJson(res, output.ok ? 200 : 400, output); return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/live/text-cache/delete") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      await ensureWorker("ardyLive");
+      const output = await requestWorker("ardyLive", "POST", "/text-cache/delete", body);
+      sendJson(res, output.ok ? 200 : 400, output); return;
     }
     if (req.method === "POST" && (url.pathname === "/api/live/start" || url.pathname === "/api/live/step")) {
       const body = JSON.parse(await readBody(req) || "{}");

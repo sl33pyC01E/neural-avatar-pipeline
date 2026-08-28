@@ -5,6 +5,9 @@
   const faceHome = document.querySelector('#face-view');
   const motionHome = document.querySelector('#motion-view');
   const unifiedView = document.querySelector('#unified-view');
+  const liveView = document.querySelector('#live-view');
+  const unifiedStage = document.querySelector('#unified-stage');
+  const liveStage = document.querySelector('#live-stage');
   const audio = document.querySelector('#unified-audio');
   const state = { view: 'face', face: null, motion: null, audioContext: null, audioDecode: null, audioSource: null, timer: 0, stopTimer: 0, startedAt: 0, total: 0, exporting: false };
 
@@ -16,13 +19,20 @@
   function setView(name) {
     state.view = name;
     document.querySelectorAll('button[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
-    for (const [viewName, element] of [['face', faceHome], ['motion', motionHome], ['unified', unifiedView]]) element.classList.toggle('active', viewName === name);
+    for (const [viewName, element] of [['face', faceHome], ['motion', motionHome], ['unified', unifiedView], ['live', liveView]]) element.classList.toggle('active', viewName === name);
     if (name === 'unified') {
+      unifiedStage.prepend(unifiedPlayer);
       postPlayer({ type: 'unified:preview-mode', enabled: true });
       if (state.face) postPlayer({ type: 'unified:set-face-track', track: state.face.motionPayload });
       if (state.motion) postPlayer({ type: 'unified:set-motion-track', track: state.motion.motionPayload });
     }
+    if (name === 'live') {
+      liveStage.prepend(unifiedPlayer);
+      postPlayer({ type: 'unified:preview-mode', enabled: true });
+      postPlayer({ type: 'live-flow:status-query' });
+    }
     window.setTimeout(() => postPlayer({ type: 'unified:resize' }), 50);
+    window.dispatchEvent(new CustomEvent('unified:view-change', { detail: { view: name } }));
   }
 
   document.querySelectorAll('button[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
@@ -52,7 +62,7 @@
     document.querySelector('#play-unified').disabled = !(state.face && state.motion);
     document.querySelector('#export-unified').disabled = !(state.face && state.motion) || state.exporting;
     document.querySelector('#unified-status').textContent = state.face && state.motion
-      ? `Ready · ${seconds(total)} sequence on Zome.`
+      ? `Ready · ${seconds(total)} sequence on the local VRM.`
       : 'Waiting for a face track and an ARDY track.';
   }
 

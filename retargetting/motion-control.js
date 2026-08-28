@@ -27,6 +27,9 @@ const state = {
   liveLatencyFrames: [],
   liveCommandDirty: false,
   liveFetching: false,
+  liveExternalMode: false,
+  liveExternalCacheKey: "",
+  liveFacePlayback: null,
   liveRoot: { x: 0, z: 0 },
   liveGoal: { x: 0, z: 0 },
   exportMode: null,
@@ -800,6 +803,7 @@ function animate(now) {
       $("timeline-fill").style.width = `${((frame + 1) / state.motion.frames) * 100}%`;
     }
   }
+  updateLiveFace(now);
   if (state.vrm) state.vrm.update(deltaSeconds);
   renderer.render(scene, camera);
 }
@@ -959,7 +963,10 @@ function fillCacheSelect(select, selectedKey = "") {
     return;
   }
   select.add(new Option("Choose a cached embedding…", ""));
-  for (const entry of state.textCacheEntries) select.add(new Option(entry.text, entry.key));
+  for (const entry of state.textCacheEntries) {
+    const label = entry.nickname ? `${entry.nickname} — ${entry.text}` : entry.text;
+    select.add(new Option(label, entry.key));
+  }
   if (state.textCacheEntries.some((entry) => entry.key === selectedKey)) select.value = selectedKey;
 }
 
@@ -1406,6 +1413,41 @@ function liveVelocity() {
   return { x: x / length * speed, z: z / length * speed };
 }
 
+function publishLiveFlowStatus(extra = {}) {
+  if (!state.liveExternalMode || window.parent === window) return;
+  const velocity = liveVelocity();
+  window.parent.postMessage({
+    type: "live-flow:player-status",
+    active: state.liveActive,
+    fetching: state.liveFetching,
+    cacheKey: state.liveExternalCacheKey,
+    keys: [...state.liveKeys],
+    velocity,
+    playbackFrame: state.livePlaybackFrame,
+    maxFrame: state.liveMaxFrame,
+    ...extra,
+  }, "*");
+}
+
+function updateLiveFace(now) {
+  const playback = state.liveFacePlayback;
+  if (!playback || !state.liveActive) return;
+  const time = (now - playback.startedAt) / 1000;
+  if (time < 0) return;
+  const track = playback.track;
+  if (time < track.duration && track.frames?.length) {
+    const frame = Math.min(track.frames.length - 1, Math.floor(time * track.fps));
+    if (frame !== playback.frame) {
+      playback.frame = frame;
+      applyUnifiedFaceFrame(track, track.frames[frame], time);
+    }
+    return;
+  }
+  clearUnifiedFace();
+  state.liveFacePlayback = null;
+  publishLiveFlowStatus({ speechEnded: true });
+}
+
 async function requestLiveSegment(start = false) {
   if (!state.liveActive || state.liveFetching) return;
   state.liveFetching = true;
@@ -1414,7 +1456,10 @@ async function requestLiveSegment(start = false) {
   const playbackFrame = start ? 0 : state.livePlaybackFrame;
   const requestStartedAt = performance.now();
   try {
-    const liveTextInput = $("text-enabled").checked ? currentTextInput() : { mode: "text", prompt: "", cacheKey: "" };
+    const liveTextEnabled = state.liveExternalMode ? Boolean(state.liveExternalCacheKey) : $("text-enabled").checked;
+    const liveTextInput = state.liveExternalMode
+      ? { mode: "cache", prompt: "", cacheKey: state.liveExternalCacheKey }
+      : liveTextEnabled ? currentTextInput() : { mode: "text", prompt: "", cacheKey: "" };
     const response = await fetch(start ? "/api/live/start" : "/api/live/step", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1430,7 +1475,7 @@ async function requestLiveSegment(start = false) {
         replanBufferFrames: state.liveReplanBufferFrames,
         liveSmoothingSeconds: Number($("live-smoothing").value),
         headingEnabled: $("heading-enabled").checked,
-        textEnabled: $("text-enabled").checked,
+        textEnabled: liveTextEnabled,
         textMode: liveTextInput.mode,
         prompt: liveTextInput.prompt,
         cacheKey: liveTextInput.cacheKey,
@@ -1471,8 +1516,14 @@ async function requestLiveSegment(start = false) {
     $("export-current").disabled = false;
     $("export-current").textContent = "Export Live Video";
     $("status").textContent = `Live ARDY · ${velocity.x.toFixed(1)}, ${velocity.z.toFixed(1)} m/s · ${result.motion.generationSeconds.toFixed(2)}s replan · ${result.motion.historyFrames} history frames · buffer ${state.liveReplanBufferFrames}`;
+    publishLiveFlowStatus({
+      generationSeconds: result.motion.generationSeconds,
+      realtimeFactor: result.motion.realtimeFactor,
+      historyFrames: result.motion.historyFrames,
+    });
   } catch (error) {
     $("status").textContent = error.message;
+    publishLiveFlowStatus({ error: error.message });
     stopLive();
   } finally {
     state.liveFetching = false;
@@ -1488,6 +1539,7 @@ function liveCommandChanged(requestReplan = true) {
   };
   updateGoalMarker();
   document.querySelectorAll(".key").forEach((element) => element.classList.toggle("active", state.liveKeys.has(element.dataset.key)));
+  publishLiveFlowStatus();
   if (requestReplan && state.liveActive) {
     state.liveCommandDirty = true;
     requestLiveSegment(false);
@@ -1512,7 +1564,9 @@ function startLive() {
   $("export-current").disabled = true;
   state.motion = null;
   state.playing = false;
+  state.unifiedPlayback = null;
   state.vrm?.springBoneManager?.reset();
+  setViewerMode("vrm");
   $("live-toggle").textContent = "Stop Live";
   $("live-toggle").style.borderColor = configs.ardy.color;
   $("live-speed-field").hidden = false;
@@ -1525,6 +1579,7 @@ function startLive() {
   $("status").textContent = state.runtimeReady.ardy ? "Starting live ARDY…" : "Warming up ARDY once for live mode…";
   updateGroundRoute();
   updateGoalMarker();
+  publishLiveFlowStatus({ starting: true });
   requestLiveSegment(true);
 }
 
@@ -1537,6 +1592,8 @@ function stopLive() {
   state.liveMaxFrame = -1;
   state.liveLatencyFrames = [];
   state.liveCommandDirty = false;
+  state.liveFacePlayback = null;
+  clearUnifiedFace();
   $("live-toggle").textContent = "Start Live ARDY";
   $("live-toggle").style.borderColor = "";
   $("live-speed-field").hidden = true;
@@ -1548,6 +1605,7 @@ function stopLive() {
   updateReadouts();
   updateGroundRoute();
   updateGoalMarker();
+  publishLiveFlowStatus();
 }
 
 function resetHumanoid() {
@@ -1855,7 +1913,54 @@ async function exportUnifiedSequence(options) {
 }
 
 window.addEventListener('message', (event) => {
-  if (event.origin !== 'http://127.0.0.1:8788' || !event.data?.type) return;
+  if (!['http://127.0.0.1:8788', 'http://localhost:8788'].includes(event.origin) || !event.data?.type) return;
+  if (event.data.type === 'live-flow:start') {
+    state.liveExternalMode = true;
+    state.liveExternalCacheKey = String(event.data.cacheKey || '');
+    if (Number.isFinite(Number(event.data.speed))) $("live-speed").value = String(event.data.speed);
+    if (Number.isFinite(Number(event.data.smoothing))) $("live-smoothing").value = String(event.data.smoothing);
+    state.liveKeys = new Set(Array.isArray(event.data.keys) ? event.data.keys.filter((key) => ["w", "a", "s", "d"].includes(key)) : []);
+    document.documentElement.classList.add('unified-preview');
+    if (!state.liveActive) startLive(); else liveCommandChanged();
+    publishLiveFlowStatus();
+    return;
+  }
+  if (event.data.type === 'live-flow:set-embedding') {
+    state.liveExternalMode = true;
+    state.liveExternalCacheKey = String(event.data.cacheKey || '');
+    if (state.liveActive) liveCommandChanged();
+    publishLiveFlowStatus();
+    return;
+  }
+  if (event.data.type === 'live-flow:keys') {
+    state.liveExternalMode = true;
+    state.liveKeys = new Set(Array.isArray(event.data.keys) ? event.data.keys.filter((key) => ["w", "a", "s", "d"].includes(key)) : []);
+    liveCommandChanged(state.liveActive);
+    return;
+  }
+  if (event.data.type === 'live-flow:speak') {
+    const track = event.data.track;
+    if (track?.frames?.length) {
+      state.liveFacePlayback = {
+        track,
+        frame: -1,
+        startedAt: performance.now() + Math.max(0, Number(event.data.delay) || 0) * 1000,
+      };
+      publishLiveFlowStatus({ speechStarted: true, speechDuration: track.duration });
+    }
+    return;
+  }
+  if (event.data.type === 'live-flow:stop') {
+    stopLive();
+    state.liveExternalCacheKey = '';
+    state.liveExternalMode = false;
+    return;
+  }
+  if (event.data.type === 'live-flow:status-query') {
+    state.liveExternalMode = true;
+    publishLiveFlowStatus();
+    return;
+  }
   if (event.data.type === 'unified:preview-mode') {
     document.documentElement.classList.toggle('unified-preview', Boolean(event.data.enabled));
     window.setTimeout(() => { resizeViewport(); resizeRoute(); }, 30);
@@ -1942,6 +2047,11 @@ document.querySelectorAll(".key").forEach((element) => {
 });
 window.addEventListener("keydown", (event) => {
   if (/textarea|input|select/i.test(event.target.tagName)) return;
+  if (state.liveExternalMode && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+    event.preventDefault();
+    window.parent.postMessage({ type: "live-flow:arrow", key: event.key }, "*");
+    return;
+  }
   const key = event.key.toLowerCase();
   if (["w", "a", "s", "d"].includes(key)) {
     event.preventDefault();

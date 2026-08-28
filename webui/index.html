@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Unified Character Lab</title>
+  <title>Neural Avatar Pipeline</title>
   <style>
     :root { color-scheme: dark; --bg:#080b10; --panel:#101720; --line:#253140; --text:#e8eef4; --muted:#8b9aaa; --mint:#67e3b5; --blue:#72b7ff; --amber:#f1bf68; }
     * { box-sizing:border-box; }
@@ -54,16 +54,72 @@
     .play-status { min-height:34px; margin-top:10px; color:var(--muted); font-size:11px; line-height:1.45; }
     .unified-stage { position:relative; min-width:0; background:#080b10; }
     .time-chip { position:absolute; z-index:4; right:16px; top:14px; padding:7px 10px; border:1px solid var(--line); border-radius:999px; background:#080c12dd; font:700 11px ui-monospace,monospace; color:var(--mint); pointer-events:none; }
-    @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } }
+    .live-view { display:grid; grid-template-columns:420px minmax(0,1fr); gap:1px; background:var(--line); }
+    .live-console { overflow:auto; padding:16px; background:#0c1219; }
+    .live-title-row,.live-section-head,.live-actions,.live-create-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .live-title-row h2 { margin:0; font-size:18px; }
+    .live-state { padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; }
+    .live-state.online { border-color:#3d6b59; color:var(--mint); }
+    .live-section { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:13px; background:#111923; }
+    .live-section-head strong { font-size:12px; }
+    .live-section-head span,.live-help,.live-subtext { color:var(--muted); font-size:10px; line-height:1.45; }
+    .live-console textarea,.live-console input,.live-console select { width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 10px; background:#090e14; color:var(--text); outline:none; }
+    .live-console textarea:focus,.live-console input:focus,.live-console select:focus { border-color:#4b7767; box-shadow:0 0 0 3px #67e3b510; }
+    #live-speech-text { min-height:74px; resize:vertical; margin-top:9px; }
+    .live-actions { margin-top:8px; }
+    .live-actions button.primary,.live-create-actions button { border-color:var(--mint); background:var(--mint); color:#07110d; }
+    .live-actions button:disabled,.live-create-actions button:disabled { opacity:.45; cursor:not-allowed; }
+    .live-queue { display:grid; gap:5px; margin-top:8px; }
+    .live-queue-item { display:flex; justify-content:space-between; gap:8px; padding:7px 8px; border-radius:8px; background:#0a1017; font-size:10px; }
+    .live-queue-item span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .live-queue-item span:last-child { flex:none; color:var(--muted); }
+    .idle-row,.stack-add-row { display:grid; grid-template-columns:94px minmax(0,1fr); align-items:center; gap:8px; margin-top:9px; color:var(--muted); font-size:10px; }
+    .stack-add-row { grid-template-columns:minmax(0,1fr) auto; }
+    .embedding-stack { display:grid; gap:6px; margin-top:9px; }
+    .stack-empty { padding:13px; border:1px dashed var(--line); border-radius:9px; color:var(--muted); text-align:center; font-size:10px; }
+    .stack-item { display:grid; grid-template-columns:18px minmax(0,1fr) auto; align-items:center; gap:8px; padding:8px; border:1px solid var(--line); border-radius:10px; background:#0a1017; cursor:pointer; }
+    .stack-item.highlighted { border-color:var(--blue); box-shadow:0 0 0 2px #72b7ff18; }
+    .stack-item.active { border-color:var(--mint); background:#10251e; }
+    .stack-toggle { width:13px; height:13px; border:1px solid #536272; border-radius:50%; }
+    .stack-item.active .stack-toggle { border-color:var(--mint); background:var(--mint); box-shadow:0 0 8px #67e3b580; }
+    .stack-copy { min-width:0; }
+    .stack-copy strong,.stack-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .stack-copy strong { font-size:11px; }
+    .stack-copy small { margin-top:2px; color:var(--muted); font-size:9px; }
+    .stack-remove { padding:4px 7px; border-radius:7px; color:var(--muted); }
+    .keyboard-map { margin-top:8px; padding:8px; border-radius:9px; background:#090e14; color:var(--muted); font:10px ui-monospace,monospace; line-height:1.55; }
+    .manager-create { display:grid; gap:7px; margin-top:9px; }
+    #embedding-manager-list { display:grid; gap:7px; margin-top:10px; }
+    .manager-item { padding:9px; border:1px solid var(--line); border-radius:10px; background:#0a1017; }
+    .manager-item-top { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px; }
+    .manager-item button { padding:7px 9px; }
+    .manager-item button.danger { color:#ff9c9c; border-color:#593536; }
+    .manager-text { margin-top:6px; color:var(--muted); font-size:9px; line-height:1.35; overflow-wrap:anywhere; }
+    .live-stage { position:relative; min-width:0; background:#080b10; }
+    .live-stage iframe { z-index:1; }
+    .live-hud { position:absolute; z-index:5; left:14px; top:14px; display:flex; gap:6px; pointer-events:none; }
+    .hud-chip { padding:7px 9px; border:1px solid var(--line); border-radius:999px; background:#080c12df; color:var(--muted); font:700 10px ui-monospace,monospace; }
+    .hud-chip.active { color:var(--mint); border-color:#36594d; }
+    .wasd-pad { position:absolute; z-index:5; left:18px; bottom:18px; display:grid; grid-template-columns:44px 44px 44px; grid-template-rows:44px 44px; gap:5px; }
+    .wasd-pad button { padding:0; border-radius:10px; background:#0b1118dd; backdrop-filter:blur(8px); font:800 14px ui-monospace,monospace; user-select:none; touch-action:none; }
+    .wasd-pad button.down { border-color:var(--mint); color:var(--mint); background:#143126dd; }
+    .wasd-pad [data-live-key="w"] { grid-column:2; }
+    .wasd-pad [data-live-key="a"] { grid-column:1; grid-row:2; }
+    .wasd-pad [data-live-key="s"] { grid-column:2; grid-row:2; }
+    .wasd-pad [data-live-key="d"] { grid-column:3; grid-row:2; }
+    .live-speed { display:grid; grid-template-columns:72px 1fr 54px; align-items:center; gap:7px; margin-top:9px; color:var(--muted); font-size:10px; }
+    .live-speed output { text-align:right; color:var(--mint); font:700 10px ui-monospace,monospace; }
+    @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } .live-view { grid-template-columns:340px minmax(0,1fr); } }
   </style>
 </head>
 <body>
   <header>
-    <div class="brand"><strong>Unified Character Lab</strong><span>Voice · face · full-body motion</span></div>
+    <div class="brand"><strong>Neural Avatar Pipeline</strong><span>Voice · face · full-body motion</span></div>
     <nav>
       <button class="active" data-view="face">Facial Animation</button>
       <button data-view="motion">ARDY VRM Motion</button>
       <button data-view="unified">Unified Character</button>
+      <button data-view="live">Live Full Flow</button>
     </nav>
     <div class="service-strip" id="services"><span class="service"><i class="dot"></i>Checking local services…</span></div>
   </header>
@@ -74,7 +130,7 @@
     <section id="unified-view" class="view unified-view">
       <aside class="scheduler">
         <h2>Unified Character</h2>
-        <p class="scheduler-intro">Generate one clip in each lab. The latest completed clips are captured automatically, then played together on Zome from the offsets below.</p>
+        <p class="scheduler-intro">Generate one clip in each lab. The latest completed clips are captured automatically, then played together on the local VRM from the offsets below.</p>
         <div class="track-card" id="face-track-card">
           <div class="track-head"><strong>Face + voice</strong><span class="track-state" id="face-track-state">waiting</span></div>
           <div class="track-name" id="face-track-name">Create and run a facial track</div>
@@ -97,6 +153,43 @@
         <audio id="unified-audio" preload="auto"></audio>
       </aside>
       <div class="unified-stage" id="unified-stage"><iframe id="unified-player" title="Unified Zome playback" src="http://127.0.0.1:8793/"></iframe><div class="time-chip" id="unified-clock">0.0s</div></div>
+    </section>
+    <section id="live-view" class="view live-view">
+      <aside class="live-console">
+        <div class="live-title-row"><h2>Live Full Flow</h2><span class="live-state" id="live-session-state">stopped</span></div>
+        <p class="scheduler-intro">Speak through Anna + LAM while Core-40 continuously follows WASD and the active cached motion embedding.</p>
+        <div class="live-actions"><button class="primary" id="live-session-toggle">Start live session</button><span class="live-subtext" id="live-latency">Ready to connect</span></div>
+
+        <section class="live-section">
+          <div class="live-section-head"><strong>Speech</strong><span>Enter sends · Shift+Enter adds a line</span></div>
+          <textarea id="live-speech-text" maxlength="800" placeholder="What should Anna say?" aria-label="Live speech text"></textarea>
+          <div class="live-actions"><button class="primary" id="live-speak">Speak</button><button id="live-clear-speech">Clear queue</button></div>
+          <div class="live-queue" id="live-speech-queue"><div class="stack-empty">Speech queue is empty.</div></div>
+        </section>
+
+        <section class="live-section">
+          <div class="live-section-head"><strong>Motion embedding stack</strong><span id="effective-embedding">idle not set</span></div>
+          <label class="idle-row"><span>Idle fallback</span><select id="live-idle-embedding" aria-label="Idle fallback embedding"><option value="">Choose idle…</option></select></label>
+          <div class="stack-add-row"><select id="live-stack-source" aria-label="Embedding to add to stack"><option value="">Choose embedding…</option></select><button id="live-stack-add">Add</button></div>
+          <div class="embedding-stack" id="live-embedding-stack"><div class="stack-empty">Add cached embeddings to the control stack.</div></div>
+          <div class="keyboard-map">↑ / ↓ highlight · → activate highlighted · ← release to idle<br>W A S D locomotion · controls work while the stage is focused</div>
+          <label class="live-speed"><span>Move speed</span><input id="live-speed" type="range" min="0.1" max="2.5" step="0.05" value="0.8"><output id="live-speed-out">0.80 m/s</output></label>
+        </section>
+
+        <details class="live-section" id="embedding-manager">
+          <summary class="live-section-head"><strong>Embedding manager</strong><span>Create · nickname · delete</span></summary>
+          <div class="manager-create">
+            <input id="new-embedding-nickname" maxlength="80" placeholder="Nickname (optional)" aria-label="New embedding nickname">
+            <textarea id="new-embedding-text" maxlength="800" placeholder="Exact motion prompt to embed" aria-label="New embedding prompt"></textarea>
+            <div class="live-create-actions"><span class="live-help" id="embedding-manager-status">Embeddings are computed once and stored permanently.</span><button id="create-embedding">Create embedding</button></div>
+          </div>
+          <div id="embedding-manager-list"></div>
+        </details>
+      </aside>
+      <div class="live-stage" id="live-stage">
+        <div class="live-hud"><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
+        <div class="wasd-pad" aria-label="Live locomotion controls"><button data-live-key="w">W</button><button data-live-key="a">A</button><button data-live-key="s">S</button><button data-live-key="d">D</button></div>
+      </div>
     </section>
   </main>
   <script>
@@ -132,5 +225,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
+  <script src="/live-flow.js?v=1"></script>
 </body>
 </html>

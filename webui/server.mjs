@@ -43,10 +43,10 @@ const server = http.createServer(async (request, response) => {
     json(response, 200, { ok: true, root: process.env.UNIFIED_LAB_ROOT || path.dirname(root), services: status });
     return;
   }
-  if (url.pathname === '/unified-character.js') {
-    const file = path.join(root, 'unified-character.js');
+  if (url.pathname === '/unified-character.js' || url.pathname === '/live-flow.js') {
+    const file = path.join(root, path.basename(url.pathname));
     if (!existsSync(file)) {
-      json(response, 500, { ok: false, error: 'Unified Character controller is missing.' });
+      json(response, 500, { ok: false, error: 'Unified WebUI controller is missing.' });
       return;
     }
     response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
