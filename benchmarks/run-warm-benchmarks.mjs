@@ -309,7 +309,8 @@ function reportMarkdown(result) {
     `| ARDY Core-40, 4 steps | ${f(result.core40Standard.generationSeconds)} s | ${f(result.core40Standard.realtimeFactor)}× realtime |\n` +
     `| ARDY Core-40, 7 steps | ${f(result.core40Quality.generationSeconds)} s | ${f(result.core40Quality.realtimeFactor)}× realtime |\n` +
     `| Full Flow motion ready | ${f(result.fullFlowStart.readyMs)} ms | — |\n` +
-    `| Full Flow speech → audible | ${f(result.fullFlowSpeech.speechToAudioMs)} ms | — |\n\n` +
+    `| Full Flow speech → first audible (TTFA) | ${f(result.fullFlowSpeech.speechToAudioMs)} ms | — |\n\n` +
+    `TTFA starts when \`speech.say\` is submitted with an empty queue and ends when the UI reports the line as \`speaking\`. It is software-observed playback start, not an acoustic microphone measurement.\n\n` +
     `## Resources\n\n` +
     `- Baseline GPU memory: ${result.resources.before.gpu.usedMiB} MiB.\n` +
     `- Loaded-idle GPU memory: ${result.resources.after.gpu.usedMiB} MiB.\n` +

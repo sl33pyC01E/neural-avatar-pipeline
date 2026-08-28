@@ -20,6 +20,9 @@ included in the Git repository.
 
 Measured steady-state latency, generation throughput, GPU memory, system RAM,
 and MP4 export performance are documented in [`BENCHMARKS.md`](BENCHMARKS.md).
+On the tested system, Live Full Flow's median speech time to first audible
+playback was 2.788 seconds with an empty queue. This is measured from submitting
+`speech.say` until the UI reports the line as playing.
 
 ## Default pipeline
 

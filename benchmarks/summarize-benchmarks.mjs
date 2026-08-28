@@ -60,12 +60,12 @@ Measured August 28, 2026 on the complete local portable bundle. Each workload ha
 | ARDY Core-40, 40-frame horizon, 4 steps | ${format(warm.core40Standard.generationSeconds, ' s')} | ${format(warm.core40Standard.realtimeFactor, '×')} realtime |
 | ARDY Core-40, 40-frame horizon, 7 steps | ${format(warm.core40Quality.generationSeconds, ' s')} | ${format(warm.core40Quality.realtimeFactor, '×')} realtime |
 | Live Full Flow: session start to motion ready | ${format(warm.fullFlowStart.readyMs, ' ms')} | — |
-| Live Full Flow: speech command to audible playback | ${format(warm.fullFlowSpeech.speechToAudioMs, ' ms')} | — |
+| Live Full Flow: speech command to first audible playback (TTFA) | ${format(warm.fullFlowSpeech.speechToAudioMs, ' ms')} | — |
 | Approved introduction export, resident models | ${format(exportsResult.warmWallSeconds, ' s')} | ${round(exportsResult.mediaDurationSeconds.median / exportsResult.warmWallSeconds.median, 3)}× wall-clock media rate |
 
 The first Core-8 request also started and loaded its worker, producing ${warm.core8.runs[0].wallMs} ms HTTP wall time. Its two resident-model requests took ${warm.core8.runs[1].wallMs} and ${warm.core8.runs[2].wallMs} ms. Core-40 at the quality setting used for the approved video remained about ${warm.core40Quality.realtimeFactor.median}× faster than its generated two-second horizon.
 
-PocketTTS dominates live speech response time. Direct synthesis took ${warm.pocketTts.serverMs.median} ms, LAM then required only ${warm.lam.inferenceMs.median} ms, and the complete browser-controlled speech-to-audible path measured ${warm.fullFlowSpeech.speechToAudioMs.median} ms.
+PocketTTS dominates live speech response time. Direct synthesis took ${warm.pocketTts.serverMs.median} ms, LAM then required only ${warm.lam.inferenceMs.median} ms, and the complete browser-controlled speech-to-first-audible path measured ${warm.fullFlowSpeech.speechToAudioMs.median} ms. Each run began with an empty speech queue. TTFA is measured from submitting \`speech.say\` until the UI reports the line as \`speaking\`; it is a software-observed playback-start measurement, not an acoustic microphone measurement.
 
 ## Resource use
 
@@ -90,7 +90,7 @@ Relative to the median stopped-device baseline, the fully loaded observed VRAM i
 ## Method
 
 - Component latency: identical fixed inputs were sent directly to the local PocketTTS, LAM, and ARDY HTTP services. ARDY used cached embeddings so text-encoder loading did not contaminate motion-generation timing.
-- Full flow: the documented loopback control API started the session and queued speech while the open browser reported motion and audible-speech state.
+- Full flow: the documented loopback control API started the session, cleared the speech queue, and submitted a line while the open browser reported motion and first audible playback state.
 - Resources: GPU samples were collected every 250 ms with NVIDIA's driver utility. RAM is the summed working set of processes whose command line belongs to this project.
 - Export: the approved storyboard was exported three times with resident models and probed with bundled FFprobe.
 
