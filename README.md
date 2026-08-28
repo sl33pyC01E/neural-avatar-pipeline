@@ -125,12 +125,15 @@ The walk-path grid mirrors the ARDY route planner: click to add snapped
 endpoints, or focus the grid and use WASD for 0.25-metre steps. Edit generated
 arrival times and X/Z values in the rows below the grid. Arrival times are
 calculated from segment distance and the current move-speed setting. Undo,
-Clear, and Fit operate on the same endpoint list. With **Loop scheduled run**
-enabled, the planner adds a dashed final leg
-back to the origin. Once the character reaches origin and queued speech is
-finished, the session clock resets and every speech and embedding cue is armed
-for the next cycle. Holding WASD pauses that restart until manual control is
-released.
+Clear, and Fit operate on the same endpoint list.
+
+Speech, embeddings, and walking each have an independent loop toggle. Speech
+rearms only its own timed lines after the scheduled speech queue finishes.
+Embeddings repeat only their own timed selections. Walk-path looping adds a
+dashed final leg back to origin and restarts only the path after origin is
+reached; holding WASD postpones that path restart until manual control is
+released. None of these loops resets the main session clock or either of the
+other schedules.
 
 Enter speech and press Enter or **Speak**. PocketTTS generates Anna's audio,
 LAM computes its face track, and the prepared result is queued for synchronized

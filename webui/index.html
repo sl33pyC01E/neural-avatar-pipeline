@@ -129,11 +129,11 @@
     .path-canvas-wrap { position:relative; height:240px; }
     #live-path-canvas { width:100%; height:100%; display:block; cursor:crosshair; outline:none; touch-action:none; }
     .path-canvas-note { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); text-align:center; font-size:10px; line-height:1.45; pointer-events:none; }
-    .path-loop-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; margin-top:9px; padding:8px; border:1px solid var(--line); border-radius:9px; background:#0a1017; }
-    .path-loop-row strong,.path-loop-row small { display:block; }
-    .path-loop-row strong { font-size:10px; }
-    .path-loop-row small { margin-top:2px; color:var(--muted); font-size:9px; line-height:1.35; }
-    .path-loop-row input { width:18px; height:18px; accent-color:var(--mint); }
+    .schedule-loop-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; margin-top:9px; padding:8px; border:1px solid var(--line); border-radius:9px; background:#0a1017; }
+    .schedule-loop-row strong,.schedule-loop-row small { display:block; }
+    .schedule-loop-row strong { font-size:10px; }
+    .schedule-loop-row small { margin-top:2px; color:var(--muted); font-size:9px; line-height:1.35; }
+    .schedule-loop-row input { width:18px; height:18px; accent-color:var(--mint); }
     @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } .live-view { grid-template-columns:340px minmax(0,1fr); } }
   </style>
 </head>
@@ -191,6 +191,7 @@
           <div class="live-actions"><button class="primary" id="live-speak">Speak</button><button id="live-clear-speech">Clear queue</button></div>
           <div class="live-queue" id="live-speech-queue"><div class="stack-empty">Speech queue is empty.</div></div>
           <div class="cue-label">Scheduled lines are dispatched live at the entered seconds after Core-40 becomes ready.</div>
+          <label class="schedule-loop-row"><span><strong>Loop speech schedule</strong><small id="live-speech-loop-detail">Each line runs once per session.</small></span><input id="live-speech-loop" type="checkbox" aria-label="Loop scheduled speech"></label>
           <div class="cue-columns"><span>Start</span><span>Spoken line</span><span></span></div>
           <div class="cue-list" id="live-speech-schedule"></div>
           <button class="cue-add" id="add-live-speech-cue">+ Add spoken line</button>
@@ -204,6 +205,7 @@
           <div class="keyboard-map">↑ / ↓ highlight · → activate highlighted · ← release to idle<br>W A S D locomotion · controls work while the stage is focused</div>
           <label class="live-speed"><span>Move speed</span><input id="live-speed" type="range" min="0.1" max="2.5" step="0.05" value="0.8"><output id="live-speed-out">0.80 m/s</output></label>
           <div class="cue-label">Scheduled selections can activate any cached embedding or return to idle. Arrow controls remain live between cues.</div>
+          <label class="schedule-loop-row"><span><strong>Loop embedding schedule</strong><small id="live-embedding-loop-detail">Each selection runs once per session.</small></span><input id="live-embedding-loop" type="checkbox" aria-label="Loop scheduled embeddings"></label>
           <div class="cue-columns"><span>Start</span><span>Cached embedding</span><span></span></div>
           <div class="cue-list" id="live-embedding-schedule"></div>
           <button class="cue-add" id="add-live-embedding-cue">+ Add embedding cue</button>
@@ -216,7 +218,7 @@
             <div class="path-planner-head"><span class="path-planner-stats" id="live-path-stats">0.00 m · origin</span><div class="path-planner-tools"><button id="live-path-undo">Undo</button><button id="live-path-clear">Clear</button><button id="live-path-fit">Fit</button></div></div>
             <div class="path-canvas-wrap"><canvas id="live-path-canvas" tabindex="0" aria-label="Scheduled X Z walk-path planner"></canvas><div class="path-canvas-note" id="live-path-empty">Click the grid to add timed endpoints<br>Focus grid + W A S D for 0.25 m steps</div></div>
           </div>
-          <label class="path-loop-row"><span><strong>Loop scheduled run</strong><small id="live-loop-detail">Return to origin, then restart every cue.</small></span><input id="live-path-loop" type="checkbox" aria-label="Loop scheduled live run"></label>
+          <label class="schedule-loop-row"><span><strong>Loop walk path</strong><small id="live-loop-detail">Return to origin, then restart only the path.</small></span><input id="live-path-loop" type="checkbox" aria-label="Loop scheduled walk path"></label>
           <div class="cue-columns path"><span>Arrive</span><span>X metres</span><span>Z metres</span><span></span></div>
           <div class="cue-list" id="live-path-schedule"></div>
           <button class="cue-add" id="add-live-path-cue">+ Add path endpoint</button>
@@ -271,6 +273,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=3"></script>
+  <script src="/live-flow.js?v=4"></script>
 </body>
 </html>

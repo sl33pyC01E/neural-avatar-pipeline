@@ -33,7 +33,15 @@
     livePosition: { x: 0, z: 0 },
     lastPathVelocity: null,
     lastPathSentAt: 0,
+    speechLoop: false,
+    embeddingLoop: false,
     pathLoop: false,
+    speechCycleStartedAt: 0,
+    embeddingCycleStartedAt: 0,
+    pathCycleStartedAt: 0,
+    speechElapsed: 0,
+    embeddingElapsed: 0,
+    pathElapsed: 0,
     plannerCenter: { x: 0, z: 0 },
     plannerScale: 90,
   };
@@ -57,7 +65,7 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 3,
+        version: 4,
         stack: state.stack,
         idleKey: state.idleKey,
         activeKey: state.activeKey,
@@ -66,6 +74,8 @@
         speechSchedule: state.speechSchedule.map(({ id, time, text }) => ({ id, time, text })),
         embeddingSchedule: state.embeddingSchedule.map(({ id, time, cacheKey }) => ({ id, time, cacheKey })),
         pathSchedule: state.pathSchedule.map(({ id, time, x, z }) => ({ id, time, x, z })),
+        speechLoop: state.speechLoop,
+        embeddingLoop: state.embeddingLoop,
         pathLoop: state.pathLoop,
       }));
     } catch {}
@@ -74,7 +84,7 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2, 3].includes(saved.version)) {
+      if (!saved || ![1, 2, 3, 4].includes(saved.version)) {
         state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
@@ -91,6 +101,10 @@
         state.pathSchedule = Array.isArray(saved.pathSchedule) ? saved.pathSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), x: finite(cue.x), z: finite(cue.z) })) : [];
       }
       if (saved.version >= 3) state.pathLoop = Boolean(saved.pathLoop);
+      if (saved.version >= 4) {
+        state.speechLoop = Boolean(saved.speechLoop);
+        state.embeddingLoop = Boolean(saved.embeddingLoop);
+      }
     } catch {}
     if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
     if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
@@ -226,10 +240,13 @@
       text.dataset.cueId = cue.id;
       text.setAttribute('aria-label', 'Scheduled spoken line');
       text.addEventListener('input', () => { cue.text = text.value; saveWorkspace(); });
-      text.addEventListener('change', () => { state.firedSpeech.delete(cue.id); row.classList.remove('fired'); });
+      text.addEventListener('change', () => { state.firedSpeech.delete(cue.id); renderSpeechSchedule(); });
       row.append(cueTimeInput(cue, renderSpeechSchedule), text, cueRemoveButton(state.speechSchedule, cue, renderSpeechSchedule));
       container.appendChild(row);
     }
+    $('#live-speech-loop-detail').textContent = state.speechLoop
+      ? `Repeats independently after scheduled speech finishes · ${speechLoopDuration().toFixed(1)}s minimum cycle.`
+      : 'Each line runs once per session.';
   }
 
   function renderEmbeddingSchedule() {
@@ -244,10 +261,21 @@
       for (const entry of state.entries) select.add(new Option(labelFor(entry), entry.key));
       select.value = cue.cacheKey;
       select.setAttribute('aria-label', 'Scheduled cached embedding');
-      select.addEventListener('change', () => { cue.cacheKey = select.value; state.firedEmbeddings.delete(cue.id); row.classList.remove('fired'); saveWorkspace(); });
+      select.addEventListener('change', () => { cue.cacheKey = select.value; state.firedEmbeddings.delete(cue.id); saveWorkspace(); renderEmbeddingSchedule(); });
       row.append(cueTimeInput(cue, renderEmbeddingSchedule), select, cueRemoveButton(state.embeddingSchedule, cue, renderEmbeddingSchedule));
       container.appendChild(row);
     }
+    $('#live-embedding-loop-detail').textContent = state.embeddingLoop
+      ? `Repeats independently every ${embeddingLoopDuration().toFixed(1)}s.`
+      : 'Each selection runs once per session.';
+  }
+
+  function speechLoopDuration() {
+    return Math.max(1, ...state.speechSchedule.filter((cue) => cue.text.trim()).map((cue) => cue.time));
+  }
+
+  function embeddingLoopDuration() {
+    return Math.max(1, ...state.embeddingSchedule.filter((cue) => cue.cacheKey).map((cue) => cue.time));
   }
 
   function rawPathEndpoints() {
@@ -256,14 +284,12 @@
       .sort((a, b) => a.time - b.time);
   }
 
-  function loopCycleDuration() {
+  function pathLoopDuration() {
     const endpoints = rawPathEndpoints();
     const last = endpoints[endpoints.length - 1];
     const speed = Math.max(0.1, finite($('#live-speed').value, 0.8));
     const returnEnd = last ? last.time + Math.hypot(last.x, last.z) / speed : 0;
-    const speechEnd = Math.max(0, ...state.speechSchedule.filter((cue) => cue.text.trim()).map((cue) => cue.time));
-    const embeddingEnd = Math.max(0, ...state.embeddingSchedule.filter((cue) => cue.cacheKey).map((cue) => cue.time));
-    return Math.max(1, returnEnd, speechEnd, embeddingEnd);
+    return Math.max(1, returnEnd);
   }
 
   function effectivePathEndpoints() {
@@ -271,7 +297,7 @@
     if (!state.pathLoop || !endpoints.length) return endpoints;
     const last = endpoints[endpoints.length - 1];
     if (Math.hypot(last.x, last.z) < 0.001) return endpoints;
-    return [...endpoints, { id: '__loop-origin__', time: loopCycleDuration(), x: 0, z: 0, loopOrigin: true }];
+    return [...endpoints, { id: '__loop-origin__', time: pathLoopDuration(), x: 0, z: 0, loopOrigin: true }];
   }
 
   function plannerPoint(point) {
@@ -342,8 +368,8 @@
     $('#live-path-empty').style.display = userEndpoints.length ? 'none' : 'grid';
     $('#live-path-stats').textContent = `${pathDistance().toFixed(2)} m · ${userEndpoints.length} endpoint${userEndpoints.length === 1 ? '' : 's'}`;
     $('#live-loop-detail').textContent = state.pathLoop
-      ? `Origin is final · full cue cycle ${loopCycleDuration().toFixed(1)}s.`
-      : 'Return to origin, then restart every cue.';
+      ? `Origin is final · path cycle ${pathLoopDuration().toFixed(1)}s.`
+      : 'Return to origin, then restart only the path.';
   }
 
   function resizePathPlanner() {
@@ -485,11 +511,17 @@
     if (state.scheduleTimer) window.clearInterval(state.scheduleTimer);
     state.scheduleTimer = 0;
     state.sessionStartedAt = 0;
+    state.speechCycleStartedAt = 0;
+    state.embeddingCycleStartedAt = 0;
+    state.pathCycleStartedAt = 0;
     state.lastPathVelocity = null;
     state.lastPathSentAt = 0;
     playerPost({ type: 'live-flow:velocity', velocity: null });
     if (resetClock) {
       state.elapsed = 0;
+      state.speechElapsed = 0;
+      state.embeddingElapsed = 0;
+      state.pathElapsed = 0;
       $('#live-clock-hud').textContent = '0.0s';
       $('#live-path-hud').textContent = 'path idle';
     }
@@ -512,7 +544,7 @@
       $('#live-path-hud').textContent = 'path idle';
       return;
     }
-    const target = endpoints.find((cue) => cue.time > state.elapsed + 0.03) || endpoints[endpoints.length - 1];
+    const target = endpoints.find((cue) => cue.time > state.pathElapsed + 0.03) || endpoints[endpoints.length - 1];
     const dx = target.x - state.livePosition.x;
     const dz = target.z - state.livePosition.z;
     const distance = Math.hypot(dx, dz);
@@ -522,7 +554,7 @@
       return;
     }
     const limit = Math.max(0.1, finite($('#live-speed').value, 0.8));
-    const remaining = Math.max(0.08, target.time - state.elapsed);
+    const remaining = Math.max(0.08, target.time - state.pathElapsed);
     const speed = Math.min(limit, distance / remaining);
     const velocity = { x: dx / distance * speed, z: dz / distance * speed };
     sendPathVelocity(velocity);
@@ -532,19 +564,23 @@
 
   function tickTimeline() {
     if (!state.sessionActive || !state.motionReady || !state.sessionStartedAt) return;
-    state.elapsed = Math.max(0, (performance.now() - state.sessionStartedAt) / 1000);
+    const now = performance.now();
+    state.elapsed = Math.max(0, (now - state.sessionStartedAt) / 1000);
+    state.speechElapsed = Math.max(0, (now - state.speechCycleStartedAt) / 1000);
+    state.embeddingElapsed = Math.max(0, (now - state.embeddingCycleStartedAt) / 1000);
+    state.pathElapsed = Math.max(0, (now - state.pathCycleStartedAt) / 1000);
     $('#live-clock-hud').textContent = `${state.elapsed.toFixed(1)}s`;
     let speechChanged = false;
     let embeddingChanged = false;
     for (const cue of [...state.speechSchedule].sort((a, b) => a.time - b.time)) {
-      if (!state.firedSpeech.has(cue.id) && cue.time <= state.elapsed && cue.text.trim() && document.activeElement?.dataset?.cueId !== cue.id) {
+      if (!state.firedSpeech.has(cue.id) && cue.time <= state.speechElapsed && cue.text.trim() && document.activeElement?.dataset?.cueId !== cue.id) {
         state.firedSpeech.add(cue.id);
         speechChanged = true;
-        enqueueSpeech(cue.text, `scheduled ${cue.time.toFixed(1)}s`);
+        enqueueSpeech(cue.text, 'schedule');
       }
     }
     for (const cue of [...state.embeddingSchedule].sort((a, b) => a.time - b.time)) {
-      if (!state.firedEmbeddings.has(cue.id) && cue.time <= state.elapsed && cue.cacheKey) {
+      if (!state.firedEmbeddings.has(cue.id) && cue.time <= state.embeddingElapsed && cue.cacheKey) {
         state.firedEmbeddings.add(cue.id);
         embeddingChanged = true;
         state.activeKey = cue.cacheKey === '__idle__' || !entryFor(cue.cacheKey) ? '' : cue.cacheKey;
@@ -555,12 +591,30 @@
     if (speechChanged) renderSpeechSchedule();
     if (embeddingChanged) renderEmbeddingSchedule();
     drawPathPlanner();
-    if (state.pathLoop && state.elapsed >= loopCycleDuration()) {
+    if (state.speechLoop && state.speechElapsed >= speechLoopDuration()) {
+      const scheduledSpeechBusy = state.speech.some((item) => item.source === 'schedule' && ['queued', 'PocketTTS', 'LAM', 'ready', 'speaking'].includes(item.status));
+      if (!scheduledSpeechBusy) {
+        state.speechCycleStartedAt = now;
+        state.speechElapsed = 0;
+        state.firedSpeech.clear();
+        renderSpeechSchedule();
+      }
+    }
+    if (state.embeddingLoop && state.embeddingElapsed >= embeddingLoopDuration()) {
+      state.embeddingCycleStartedAt = now;
+      state.embeddingElapsed = 0;
+      state.firedEmbeddings.clear();
+      renderEmbeddingSchedule();
+    }
+    if (state.pathLoop && state.pathElapsed >= pathLoopDuration()) {
       const hasRoute = rawPathEndpoints().length > 0;
       const routeComplete = !hasRoute || Math.hypot(state.livePosition.x, state.livePosition.z) < 0.2;
-      const speechBusy = state.preparing || state.speaking || state.speech.some((item) => ['queued', 'PocketTTS', 'LAM', 'ready', 'speaking'].includes(item.status));
-      if (!state.keys.size && routeComplete && !speechBusy) startTimeline(true);
-      else if (routeComplete && speechBusy) $('#live-path-hud').textContent = 'loop · finishing speech';
+      if (!state.keys.size && routeComplete) {
+        state.pathCycleStartedAt = now;
+        state.pathElapsed = 0;
+        sendPathVelocity(null, true);
+        steerScheduledPath();
+      }
     }
   }
 
@@ -569,8 +623,14 @@
     state.firedSpeech.clear();
     state.firedEmbeddings.clear();
     state.elapsed = 0;
+    state.speechElapsed = 0;
+    state.embeddingElapsed = 0;
+    state.pathElapsed = 0;
     if (!preservePosition) state.livePosition = { x: 0, z: 0 };
     state.sessionStartedAt = performance.now();
+    state.speechCycleStartedAt = state.sessionStartedAt;
+    state.embeddingCycleStartedAt = state.sessionStartedAt;
+    state.pathCycleStartedAt = state.sessionStartedAt;
     state.scheduleTimer = window.setInterval(tickTimeline, 100);
     renderSpeechSchedule();
     renderEmbeddingSchedule();
@@ -788,7 +848,21 @@
   });
   $('#live-path-clear').addEventListener('click', () => { state.pathSchedule = []; saveWorkspace(); renderPathSchedule(); });
   $('#live-path-fit').addEventListener('click', fitPathPlanner);
-  $('#live-path-loop').addEventListener('change', (event) => { state.pathLoop = event.target.checked; saveWorkspace(); drawPathPlanner(); });
+  $('#live-speech-loop').addEventListener('change', (event) => {
+    state.speechLoop = event.target.checked;
+    if (state.speechLoop && state.sessionActive) { state.speechCycleStartedAt = performance.now(); state.speechElapsed = 0; state.firedSpeech.clear(); }
+    saveWorkspace(); renderSpeechSchedule();
+  });
+  $('#live-embedding-loop').addEventListener('change', (event) => {
+    state.embeddingLoop = event.target.checked;
+    if (state.embeddingLoop && state.sessionActive) { state.embeddingCycleStartedAt = performance.now(); state.embeddingElapsed = 0; state.firedEmbeddings.clear(); }
+    saveWorkspace(); renderEmbeddingSchedule();
+  });
+  $('#live-path-loop').addEventListener('change', (event) => {
+    state.pathLoop = event.target.checked;
+    if (state.pathLoop && state.sessionActive) { state.pathCycleStartedAt = performance.now(); state.pathElapsed = 0; }
+    saveWorkspace(); drawPathPlanner();
+  });
   $('#live-speed').addEventListener('input', (event) => {
     $('#live-speed-out').textContent = `${Number(event.target.value).toFixed(2)} m/s`;
     saveWorkspace();
@@ -856,6 +930,8 @@
   });
 
   restoreWorkspace();
+  $('#live-speech-loop').checked = state.speechLoop;
+  $('#live-embedding-loop').checked = state.embeddingLoop;
   $('#live-path-loop').checked = state.pathLoop;
   $('#live-speed').dispatchEvent(new Event('input'));
   renderEmbeddingControls();

@@ -110,9 +110,10 @@ line plays. All timed cues use a session clock that begins after the first ARDY
 horizon is ready. Scheduled speech is dispatched into the live pipeline at cue
 time; it is not prerendered. Path steering replans from the reported live root
 position, so releasing a WASD override resumes the route rather than resetting
-the character. Optional looping synthesizes a final return-to-origin endpoint;
-after origin is reached and queued speech finishes, the shared clock and all
-speech and embedding cues are rearmed without restarting the resident models.
+the character. Speech, embedding, and walk-path loops have independent cycle
+clocks. Path looping synthesizes a final return-to-origin endpoint and rearms
+only the route; speech waits for its own scheduled queue before repeating, and
+embedding cues repeat on their own interval. None restarts the resident models.
 
 ## Repository boundaries
 
