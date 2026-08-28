@@ -64,7 +64,7 @@ class FacePipelineHandler(BaseHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "content-type")
+        self.send_header("Access-Control-Allow-Headers", "content-type, x-export-duration")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -126,10 +126,18 @@ class FacePipelineHandler(BaseHTTPRequestHandler):
             ffmpeg = shutil.which("ffmpeg")
             if not ffmpeg:
                 raise FileNotFoundError("The local MP4 encoder is unavailable.")
+            expected_duration = None
+            try:
+                requested_duration = float(self.headers.get("X-Export-Duration", ""))
+                if 0.1 <= requested_duration <= 3600:
+                    expected_duration = requested_duration
+            except (TypeError, ValueError):
+                pass
             with tempfile.TemporaryDirectory(prefix="neural-avatar-export-") as temp_dir:
-                source = Path(temp_dir) / "capture.webm"
+                source = Path(temp_dir) / "capture.media"
                 output = Path(temp_dir) / "facial-animation.mp4"
                 source.write_bytes(self.rfile.read(length))
+                duration_args = ["-t", f"{expected_duration:.6f}"] if expected_duration is not None else []
                 completed = subprocess.run(
                     [
                         ffmpeg,
@@ -137,22 +145,49 @@ class FacePipelineHandler(BaseHTTPRequestHandler):
                         "-loglevel",
                         "error",
                         "-y",
+                        "-fflags",
+                        "+genpts+discardcorrupt",
                         "-i",
                         str(source),
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "0:a:0?",
+                        *duration_args,
                         "-vf",
-                        "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+                        "scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,setpts=PTS-STARTPTS",
                         "-c:v",
                         "libx264",
                         "-preset",
                         "veryfast",
                         "-crf",
                         "20",
+                        "-profile:v",
+                        "high",
+                        "-g",
+                        "60",
                         "-pix_fmt",
                         "yuv420p",
+                        "-fps_mode",
+                        "cfr",
                         "-c:a",
                         "aac",
                         "-b:a",
                         "160k",
+                        "-ar",
+                        "48000",
+                        "-ac",
+                        "2",
+                        "-af",
+                        "aresample=async=1:first_pts=0",
+                        "-avoid_negative_ts",
+                        "make_zero",
+                        "-video_track_timescale",
+                        "90000",
+                        "-map_metadata",
+                        "-1",
+                        "-brand",
+                        "mp42",
                         "-movflags",
                         "+faststart",
                         str(output),

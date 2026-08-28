@@ -327,7 +327,14 @@ export default function FaceLab() {
       audio.addEventListener('ended', () => { if (recorder.state !== 'inactive') recorder.stop(); }, { once: true });
       recorder.start(500); await audio.play(); setPlaying(true); stopAnimationClock(); animationRef.current = requestAnimationFrame(tick);
       const recording = await capture;
-      const response = await fetch(`${API}/api/export/mp4`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: recording });
+      const response = await fetch(`${API}/api/export/mp4`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': recording.type || 'application/octet-stream',
+          'X-Export-Duration': String(inference.duration || audio.duration),
+        },
+        body: recording,
+      });
       if (!response.ok) { const result = await response.json().catch(() => ({})) as { error?: string }; throw new Error(result.error || 'MP4 encoding failed.'); }
       const mp4 = await response.blob(); const url = URL.createObjectURL(mp4); const link = document.createElement('a');
       link.href = url; link.download = 'lam-vrm-facial-animation.mp4'; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 5000);

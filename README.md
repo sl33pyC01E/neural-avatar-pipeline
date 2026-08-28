@@ -6,6 +6,14 @@ uses PocketTTS for the voice, LAM Audio2Expression for ARKit facial motion, and
 both ARDY runtimes for body motion. A unified timeline can play the generated
 tracks together and export the result as an MP4.
 
+## Project introduction
+
+[![Watch the Neural Avatar Pipeline introduction](introduction-video/introduction-poster.jpg)](introduction-video/neural-avatar-pipeline-introduction.mp4)
+
+Select the image to watch the avatar-generated project introduction. The video
+was produced by Live Full Flow using the local control API and the included
+reproducible storyboard.
+
 The application is designed to run offline once its local runtimes, models, and
 avatar have been supplied. Those large or separately licensed payloads are not
 included in the Git repository.
@@ -119,20 +127,38 @@ Open **Live Full Flow** and use the embedding manager before starting a session:
 4. Optionally add timed speech, embedding, and walk-path cues.
 5. Start the live session, then use WASD to control locomotion.
 
+Use **Export one pass MP4** to restart the live timeline from zero and record
+the complete rendered viewport, including Anna's generated speech, LAM facial
+animation, ARDY body motion, VRM rendering, and live camera changes. During an
+export, each speech and embedding schedule runs once even if its loop toggle is
+enabled. A looping walk path completes its return leg to origin once, then the
+recording stops after the final scheduled work and queued speech have finished.
+It keeps a short post-roll so the last face motion or camera move is not cut
+off at the final syllable.
+The downloaded file is normalized to H.264 video, AAC audio, constant 30 fps,
+and web-friendly MP4 timestamps for reliable playback and social-media upload.
+
 Up/Down moves the stack highlight. Right activates the highlighted embedding;
 Left releases it, allowing the idle embedding to take over. Only one stack item
 is active at a time because ARDY accepts one conditioning tensor per live
 horizon. Nicknames can be changed without altering the saved tensor, and cache
 entries can be permanently deleted from the manager.
 
+An optional secondary idle embedding can alternate with the primary idle on a
+user-selected timer. The pair advances only while no explicit expression is
+active; scheduled expressions and arrow-key selections override it immediately,
+and returning to idle restarts the pair from the primary pose. This provides a
+gentle recurring conditioning reset without inserting a large pose change.
+
 The three cue lists share a clock that begins when Core-40's first motion
 horizon is ready—not while the model is warming up. A speech row has a start
 time and spoken line. An embedding row has a start time and cached selection,
 including an explicit return to idle. A walk-path row gives an arrival time and
 an X/Z endpoint in metres relative to the session origin. Add as many rows as
-needed with the plus buttons. WASD temporarily overrides scheduled steering;
-releasing the keys resumes pursuit of the current endpoint from the character's
-actual position. Manual arrow-key embedding changes remain available between
+needed with the plus buttons. Live routes use the same frame-indexed ARDY root
+constraints as the ARDY planner. WASD temporarily switches to target-velocity
+control; releasing it restores the scheduled constraint track. Manual
+arrow-key embedding changes remain available between
 scheduled cues.
 
 The walk-path grid mirrors the ARDY route planner: click to add snapped
@@ -156,6 +182,11 @@ are prepared in order and play sequentially. Scheduled lines enter this same
 live queue at their cue times; they are not prerendered when the session starts.
 New embeddings are intentionally created while the live session is stopped so
 loading the text encoder cannot interrupt Core-40 replanning.
+
+Core-40 produces rolling 40-frame horizons. **Horizon seam blend** smooths the
+visual pose, root, and rotation handoff across a selectable number of frames
+when a new horizon replaces the old one. It does not modify the generated
+history or relax scheduled route constraints.
 
 The live camera separates framing from facing. **Target** selects the point kept
 in frame, while **Direction anchor** selects whether camera yaw stays fixed in

@@ -1,0 +1,98 @@
+{
+  "title": "Neural Avatar Pipeline — project introduction",
+  "version": 18,
+  "estimatedDurationSeconds": 35,
+  "notes": [
+    "Approved introduction take.",
+    "Speech, embedding, and camera schedules remain independent.",
+    "Locomotion is intentionally absent from this recording."
+  ],
+  "idleEmbedding": "The person stands up straight, naturally.",
+  "idlePair": {
+    "primary": "The person stands up straight, naturally.",
+    "secondary": "The person lowers their hands and stands in a neutral pose.",
+    "intervalSeconds": 12
+  },
+  "embeddingStack": [
+    "The person stands up straight, naturally.",
+    "The person waves hello with their right hand.",
+    "The person lowers their right hand.",
+    "The person gestures naturally while explaining something.",
+    "The person raises their right hand.",
+    "The person takes a graceful bow."
+  ],
+  "speech": [
+    { "time": 1, "text": "Hello, and welcome to Neural Avatar Pipeline." },
+    { "time": 3, "text": "This fully local system combines speech, facial animation, body motion, locomotion, and camera direction in one live character." },
+    { "time": 10, "text": "Pocket T T S provides my voice, L A M animates my face, and nvidia's Ardy generates my movement from cached text embeddings." },
+    { "time": 17.5, "text": "A local control API coordinates every part of the performance." },
+    { "time": 22, "text": "Thanks for watching." }
+  ],
+  "embeddings": [
+    { "time": 0, "selector": "The person stands up straight, naturally." },
+    { "time": 1, "selector": "The person waves hello with their right hand." },
+    { "time": 4, "selector": "The person lowers their right hand." },
+    { "time": 6, "selector": "The person gestures naturally while explaining something." },
+    { "time": 12, "selector": "The person raises their right hand." },
+    { "time": 17, "selector": "The person lowers their right hand." },
+    { "time": 19.5, "selector": "The person gestures naturally while explaining something." },
+    { "time": 25, "selector": "The person stands up straight, naturally." },
+    { "time": 27.5, "selector": "The person takes a graceful bow." },
+    { "time": 30.5, "selector": "The person stands up straight, naturally." }
+  ],
+  "path": {
+    "curved": false,
+    "curveStrength": 0.75,
+    "endpoints": []
+  },
+  "locomotion": [],
+  "motionSettings": {
+    "speed": 0.8,
+    "steeringBlend": 1,
+    "denoisingSteps": 7,
+    "constraintGuidance": 2,
+    "textGuidance": 4,
+    "historyFrames": 8,
+    "seamBlendFrames": 6,
+    "adaptiveReplanBuffer": true,
+    "replanBufferFrames": 3,
+    "headingEnabled": true
+  },
+  "camera": [
+    {
+      "time": 0,
+      "action": "camera.cut",
+      "args": { "target": "full", "directionAnchor": "world", "follow": true, "orbit": false, "distance": 4.1, "yaw": 8, "pitch": 70 }
+    },
+    {
+      "time": 1,
+      "action": "camera.move",
+      "args": { "target": "face", "directionAnchor": "face", "follow": true, "orbit": false, "distance": 1.5, "yaw": 2, "pitch": 83, "transitionSeconds": 2.25 }
+    },
+    {
+      "time": 6,
+      "action": "camera.move",
+      "args": { "target": "face", "directionAnchor": "face", "follow": true, "orbit": false, "distance": 1.85, "yaw": 5, "pitch": 82, "transitionSeconds": 2.25 }
+    },
+    {
+      "time": 12,
+      "action": "camera.move",
+      "args": { "target": "face", "directionAnchor": "face", "follow": true, "orbit": false, "distance": 1.8, "yaw": -6, "pitch": 83, "transitionSeconds": 2.5 }
+    },
+    {
+      "time": 19.5,
+      "action": "camera.move",
+      "args": { "target": "face", "directionAnchor": "face", "follow": true, "orbit": false, "distance": 1.7, "yaw": 7, "pitch": 83, "transitionSeconds": 2.25 }
+    },
+    {
+      "time": 26,
+      "action": "camera.move",
+      "args": { "target": "full", "directionAnchor": "world", "follow": true, "orbit": false, "distance": 4.2, "yaw": 18, "pitch": 69, "transitionSeconds": 2.25 }
+    },
+    {
+      "time": 30.5,
+      "action": "camera.move",
+      "args": { "target": "face", "directionAnchor": "face", "follow": true, "orbit": false, "distance": 1.4, "yaw": 0, "pitch": 83, "transitionSeconds": 2.5 }
+    }
+  ]
+}

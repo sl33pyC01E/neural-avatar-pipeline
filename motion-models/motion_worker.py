@@ -104,6 +104,56 @@ def route_values_for_frames(
     ]
 
 
+def timed_route_sample(
+    points: list[tuple[float, float, float]],
+    seconds: float,
+    curve_strength: float = 0.0,
+) -> tuple[list[float], float]:
+    """Sample an explicitly timed X/Z route and its segment heading."""
+    if len(points) < 2:
+        raise ValueError("A live route needs at least two timed points.")
+    sample_time = max(0.0, float(seconds))
+    for index in range(1, len(points)):
+        start_time, start_x, start_z = points[index - 1]
+        end_time, end_x, end_z = points[index]
+        if sample_time <= end_time or index == len(points) - 1:
+            duration = max(1e-4, end_time - start_time)
+            alpha = min(1.0, max(0.0, (sample_time - start_time) / duration))
+            heading_dx, heading_dz = end_x - start_x, end_z - start_z
+            segment_length = math.hypot(heading_dx, heading_dz)
+            strength = min(1.0, max(0.0, float(curve_strength)))
+            if strength > 0 and segment_length > 1e-6:
+                _, previous_x, previous_z = points[max(0, index - 2)]
+                _, next_x, next_z = points[min(len(points) - 1, index + 1)]
+                first_length = math.hypot(end_x - previous_x, end_z - previous_z) or 1.0
+                second_length = math.hypot(next_x - start_x, next_z - start_z) or 1.0
+                handle = segment_length * strength / 3.0
+                c1_x = start_x + (end_x - previous_x) / first_length * handle
+                c1_z = start_z + (end_z - previous_z) / first_length * handle
+                c2_x = end_x - (next_x - start_x) / second_length * handle
+                c2_z = end_z - (next_z - start_z) / second_length * handle
+                inverse = 1.0 - alpha
+                point = [
+                    inverse**3 * start_x + 3 * inverse**2 * alpha * c1_x + 3 * inverse * alpha**2 * c2_x + alpha**3 * end_x,
+                    inverse**3 * start_z + 3 * inverse**2 * alpha * c1_z + 3 * inverse * alpha**2 * c2_z + alpha**3 * end_z,
+                ]
+                heading_dx = 3 * inverse**2 * (c1_x - start_x) + 6 * inverse * alpha * (c2_x - c1_x) + 3 * alpha**2 * (end_x - c2_x)
+                heading_dz = 3 * inverse**2 * (c1_z - start_z) + 6 * inverse * alpha * (c2_z - c1_z) + 3 * alpha**2 * (end_z - c2_z)
+            else:
+                point = [start_x + heading_dx * alpha, start_z + heading_dz * alpha]
+            if math.hypot(heading_dx, heading_dz) <= 1e-6:
+                for neighbor in range(index - 1, 0, -1):
+                    _, previous_x, previous_z = points[neighbor - 1]
+                    _, next_x, next_z = points[neighbor]
+                    if math.hypot(next_x - previous_x, next_z - previous_z) > 1e-6:
+                        heading_dx, heading_dz = next_x - previous_x, next_z - previous_z
+                        break
+            return point, math.atan2(heading_dx, heading_dz)
+    _, x, z = points[-1]
+    _, previous_x, previous_z = points[-2]
+    return [x, z], math.atan2(x - previous_x, z - previous_z)
+
+
 class ZeroTextEncoder:
     def __call__(self, texts: list[str]) -> tuple[torch.Tensor, list[int]]:
         return torch.zeros((len(texts), 1, 4096), dtype=torch.float32), [0] * len(texts)
@@ -326,6 +376,7 @@ class MotionRuntime:
         self.live_arrays: dict[str, np.ndarray] | None = None
         self.live_step_index = 0
         self.loaded_at = 0.0
+        self.keep_text_encoder_loaded = os.environ.get("TEXT_ENCODER_RESIDENCY", "ephemeral").strip().lower() == "resident"
         self.lock = threading.Lock()
 
     def load(self) -> None:
@@ -348,6 +399,10 @@ class MotionRuntime:
         if self.text_encoder is None:
             self.text_encoder = CachedTextEncoder(self.engine, self.device)
             self.model.text_encoder = self.text_encoder
+
+    def maybe_release_text_encoder(self, retain: bool = False) -> None:
+        if not retain and not self.keep_text_encoder_loaded and self.text_encoder is not None:
+            self.text_encoder.release_backend()
 
     def state(self) -> dict[str, Any]:
         return {
@@ -515,7 +570,7 @@ class MotionRuntime:
                     "textFeat": text_feat,
                     "textLengths": text_lengths,
                 })
-            self.text_encoder.release_backend()
+            self.maybe_release_text_encoder()
 
             max_window = int(10 * fps)
             # NVIDIA exposes history crop length as the prompt response/smoothness
@@ -624,7 +679,7 @@ class MotionRuntime:
                         else torch.cat([motion_tensor, new_motion], dim=1)
                     )
 
-            self.text_encoder.release_backend()
+            self.maybe_release_text_encoder()
             if motion_tensor is None or motion_tensor.shape[1] != num_frames:
                 actual = 0 if motion_tensor is None else int(motion_tensor.shape[1])
                 raise RuntimeError(f"Scheduled rollout produced {actual} frames; expected {num_frames}.")
@@ -712,6 +767,20 @@ class MotionRuntime:
             history = self.live_motion[:, history_start : history_end + 1]
 
         velocity = np.asarray([float(body.get("velocityX", 0)), float(body.get("velocityZ", 0))], dtype=np.float32)
+        route_points: list[tuple[float, float, float]] = []
+        for item in list(body.get("routePoints") or []):
+            route_points.append((float(item.get("time", 0)), float(item.get("x", 0)), float(item.get("z", 0))))
+        route_points.sort(key=lambda point: point[0])
+        route_active = len(route_points) >= 2 and any(
+            math.dist((route_points[index - 1][1], route_points[index - 1][2]), (route_points[index][1], route_points[index][2])) > 1e-5
+            for index in range(1, len(route_points))
+        )
+        route_elapsed = max(0.0, float(body.get("routeElapsed", 0)))
+        route_curve_strength = (
+            min(1.0, max(0.1, float(body.get("routeCurveStrength", 0.65))))
+            if bool(body.get("routeCurve", False))
+            else 0.0
+        )
         text_enabled = bool(body.get("textEnabled", False))
         prompt = str(body.get("prompt", "")).strip()
         resolved_text_feat = None
@@ -733,28 +802,40 @@ class MotionRuntime:
             else:
                 current_velocity = np.zeros(2, dtype=np.float32)
 
-        # NVIDIA's target-velocity controller looks two seconds ahead and places
-        # sparse goals every ten frames. The blend controls acceleration only;
-        # it does not densely pin the generated 0.4 s horizon.
+        # Scheduled routes use the same dense, frame-indexed root2d constraints
+        # as ARDY batch generation. Manual/WASD control keeps NVIDIA's rolling
+        # target-velocity controller.
         lookahead_frames = max(horizon, int(round(2.0 * fps)))
-        smoothing_seconds = max(0.05, min(float(body.get("liveSmoothingSeconds", 1.0)), 2.0))
-        smoothing_frames = max(1, min(lookahead_frames, round(smoothing_seconds * fps)))
-        future = []
-        position = current_root.copy()
-        for index in range(lookahead_frames):
-            alpha = min(1.0, (index + 1) / smoothing_frames)
-            frame_velocity = (1.0 - alpha) * current_velocity + alpha * velocity
-            position = position + frame_velocity / fps
-            future.append(position.copy())
+        if route_active:
+            constraint_offsets = list(range(1, lookahead_frames + 1))
+            sampled_route = [timed_route_sample(route_points, route_elapsed + offset / fps, route_curve_strength) for offset in constraint_offsets]
+            root_values = [sample[0] for sample in sampled_route]
+            route_headings = [sample[1] for sample in sampled_route]
+            if root_values:
+                velocity = (np.asarray(root_values[0], dtype=np.float32) - current_root) * fps
+        else:
+            smoothing_seconds = max(0.05, min(float(body.get("liveSmoothingSeconds", 1.0)), 2.0))
+            smoothing_frames = max(1, min(lookahead_frames, round(smoothing_seconds * fps)))
+            future = []
+            position = current_root.copy()
+            for index in range(lookahead_frames):
+                alpha = min(1.0, (index + 1) / smoothing_frames)
+                frame_velocity = (1.0 - alpha) * current_velocity + alpha * velocity
+                position = position + frame_velocity / fps
+                future.append(position.copy())
+            constraint_offsets = list(range(10, lookahead_frames + 1, 10))
+            root_values = [future[offset - 1].tolist() for offset in constraint_offsets]
+            route_headings = []
 
-        constraint_offsets = list(range(10, lookahead_frames + 1, 10))
         absolute_constraint_frames = [playback_frame + offset for offset in constraint_offsets]
         frame_indices = [frame - history_start for frame in absolute_constraint_frames]
-        root_values = [future[offset - 1].tolist() for offset in constraint_offsets]
         constraint: dict[str, Any] = {"type": "root2d", "frame_indices": frame_indices, "root_2d": root_values}
-        if bool(body.get("headingEnabled", True)) and np.linalg.norm(velocity) > 0.05:
-            heading = math.atan2(float(velocity[0]), float(velocity[1]))
-            constraint["global_root_heading"] = [heading] * len(frame_indices)
+        if bool(body.get("headingEnabled", True)):
+            if route_active:
+                constraint["global_root_heading"] = route_headings
+            elif np.linalg.norm(velocity) > 0.05:
+                heading = math.atan2(float(velocity[0]), float(velocity[1]))
+                constraint["global_root_heading"] = [heading] * len(frame_indices)
 
         furthest_constraint = max(frame_indices, default=history_length + horizon - 1)
         total_frames = max(history_length + horizon, furthest_constraint + 1)
@@ -772,7 +853,7 @@ class MotionRuntime:
             else:
                 self.load_text_encoder()
                 text_feat, text_lengths = self.text_encoder([prompt])
-                self.text_encoder.release_backend()
+                self.maybe_release_text_encoder(retain=bool(body.get("retainTextEncoder", False)))
             text_mask = torch.arange(text_feat.shape[1], device=self.device)[None] < torch.tensor(
                 text_lengths, device=self.device
             )[:, None]
@@ -801,6 +882,35 @@ class MotionRuntime:
                 init_first_heading_angle=(torch.zeros(1, device=self.device) if history is None else None),
             )
             new_motion = samples[:, history_length : history_length + horizon]
+            if route_active:
+                from ardy.postprocess import post_process_motion
+
+                decoded_horizon = self.model.motion_rep.inverse(new_motion, is_normalized=True)
+                new_start_offset = max(1, history_end + 1 - playback_frame)
+                horizon_samples = [
+                    timed_route_sample(route_points, route_elapsed + (new_start_offset + frame) / fps, route_curve_strength)
+                    for frame in range(horizon)
+                ]
+                horizon_constraint: dict[str, Any] = {
+                    "type": "root2d",
+                    "frame_indices": list(range(horizon)),
+                    "root_2d": [sample[0] for sample in horizon_samples],
+                }
+                if bool(body.get("headingEnabled", True)):
+                    horizon_constraint["global_root_heading"] = [sample[1] for sample in horizon_samples]
+                horizon_constraints = load_constraints_lst([horizon_constraint], self.model.skeleton)
+                corrected = post_process_motion(
+                    decoded_horizon["local_rot_mats"],
+                    decoded_horizon["root_positions"],
+                    decoded_horizon["foot_contacts"],
+                    self.model.skeleton,
+                    constraint_lst=horizon_constraints,
+                )
+                new_motion = self.model.motion_rep(
+                    local_joint_rots=corrected["local_rot_mats"],
+                    root_positions=corrected["root_positions"],
+                    to_normalize=True,
+                )
             decoded = self.model.motion_rep.inverse(new_motion, is_normalized=True, return_numpy=True)
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - started
@@ -897,6 +1007,7 @@ class MotionRuntime:
             "centeredJoints": live_centered.round(5).tolist(),
             "localRotations": live_local_rotations.round(6).tolist(),
             "velocity": velocity.tolist(),
+            "routeActive": route_active,
             "textEnabled": text_enabled,
         }
 
@@ -979,7 +1090,7 @@ class MotionRuntime:
                     progress_bar=lambda values: values,
                 )
             if text_enabled:
-                self.text_encoder.release_backend()
+                self.maybe_release_text_encoder()
             return result
 
         from ardy.constraints import load_constraints_lst
@@ -1026,7 +1137,7 @@ class MotionRuntime:
             else:
                 self.load_text_encoder()
                 text_feat, text_lengths = self.text_encoder([prompt])
-                self.text_encoder.release_backend()
+                self.maybe_release_text_encoder()
             text_mask = torch.arange(text_feat.shape[1], device=self.device)[None] < torch.tensor(
                 text_lengths, device=self.device
             )[:, None]
@@ -1188,7 +1299,7 @@ def make_handler(runtime: MotionRuntime):
                         runtime.load()
                         runtime.load_text_encoder()
                         created, entry = runtime.text_encoder.cache(text, str(body.get("nickname", "")))
-                        runtime.text_encoder.release_backend()
+                        runtime.maybe_release_text_encoder()
                     self._send(200, {"ok": True, "created": created, "entry": entry, "entries": runtime.text_encoder.entries(), **runtime.state()})
                 elif self.path == "/text-cache/nickname":
                     cache = runtime.text_encoder or CachedTextEncoder(runtime.engine, runtime.device)

@@ -21,7 +21,7 @@ const ENGINES = {
   ardy: {
     python: ARDY_PYTHON,
     workerEngine: "ardy",
-    env: { ARDY_MODEL: "core8" },
+    env: { ARDY_MODEL: "core8", TEXT_ENCODER_RESIDENCY: "resident" },
     port: 18731,
     process: null,
     log: "",
@@ -29,7 +29,7 @@ const ENGINES = {
   ardyLive: {
     python: ARDY_PYTHON,
     workerEngine: "ardy",
-    env: { ARDY_MODEL: "core40" },
+    env: { ARDY_MODEL: "core40", TEXT_ENCODER_RESIDENCY: "ephemeral" },
     port: 18733,
     process: null,
     log: "",

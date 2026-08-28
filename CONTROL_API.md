@@ -79,6 +79,20 @@ Activate an embedding by nickname after inspecting state:
 }
 ```
 
+Configure two similar idle embeddings to alternate every twelve seconds:
+
+```json
+{
+  "requestId": "director-idle-pair-001",
+  "action": "embedding.idle-pair.set",
+  "args": {
+    "primary": "The person stands up straight, naturally.",
+    "secondary": "The person lowers their hands and stands in a neutral pose.",
+    "intervalSeconds": 12
+  }
+}
+```
+
 Replace only the walk schedule and loop it independently:
 
 ```json
@@ -106,14 +120,55 @@ Hold forward and left for 800 milliseconds:
 }
 ```
 
+Set Live Full Flow motion generation controls independently of the ARDY tab:
+
+```json
+{
+  "requestId": "director-turn-004-motion-settings",
+  "action": "motion.settings.set",
+  "args": {
+    "speed": 0.8,
+    "steeringBlend": 1.0,
+    "denoisingSteps": 4,
+    "constraintGuidance": 2.0,
+    "textGuidance": 3.0,
+    "historyFrames": 8,
+    "adaptiveReplanBuffer": true,
+    "replanBufferFrames": 3,
+    "headingEnabled": true
+  }
+}
+```
+
+Restart the live timeline and export exactly one pass as a compatible MP4:
+
+```json
+{
+  "requestId": "director-turn-004-export",
+  "action": "export.single-pass",
+  "args": {}
+}
+```
+
+The export captures the rendered VRM, ARDY motion, LAM face animation, Anna
+speech, and any camera commands issued during the pass. Speech and embedding
+schedule loops are suppressed after their first pass; a looping walk path
+records one complete route including its final return to origin.
+
 ## Control boundaries
 
 - The server binds only to `127.0.0.1`; it is not a remote-control service.
 - Commands are validated and executed by the WebUI, not evaluated as code.
 - Locomotion duration is capped at 60 seconds. Use `locomotion.stop` when a
   held command is no longer wanted.
+- Live Full Flow owns its Core-40 generation settings. It does not inherit
+  denoising, guidance, history, steering, speed, or path-heading values from
+  the ARDY authoring tab.
 - The API can create cached embeddings but intentionally cannot delete them.
 - Speech, embedding, and path schedules have independent loop flags.
+- Scheduled Live Full Flow paths are sent to ARDY as dense, frame-indexed
+  `root2d` constraints. WASD temporarily switches to target-velocity control;
+  releasing it returns to the native scheduled constraint track.
 - Scheduled speech remains live: PocketTTS and LAM run when each cue is due.
 - Camera position targets and direction anchors are independent. `target`
   chooses what remains in frame; `directionAnchor` chooses which rotation the
@@ -121,5 +176,54 @@ Hold forward and left for 800 milliseconds:
 - Camera angles are expressed in degrees and distances in metres. `yaw` is an
   offset from the selected direction anchor; with `world`, it is the absolute
   world-relative angle used by earlier versions.
+
+## Camera cuts and moves
+
+Camera shot changes are explicit. Use `camera.cut` for an immediate edit and
+`camera.move` for a smooth, eased revolve. A smooth move follows the shortest
+yaw arc while continuously resolving its destination against the selected body
+direction anchor. `camera.set`, `camera.preset`, `camera.nudge`, and
+`camera.reset` also accept `transition: "cut" | "move"` and
+`transitionSeconds` (0.1–30 seconds).
+
+Camera commands begin immediately, while a scheduled speech cue begins live
+PocketTTS and LAM preparation. For a voice-led shot change, schedule the camera
+command at roughly `speech cue time + 1.0 second` as an initial timing rule, then
+tune that offset for the machine and line length. This is guidance only: camera
+timing remains fully independent and unrestricted.
+
+Cut directly to a face shot:
+
+```json
+{
+  "requestId": "director-shot-011-cut",
+  "action": "camera.cut",
+  "args": {
+    "target": "face",
+    "directionAnchor": "face",
+    "distance": 1.25,
+    "yaw": 0,
+    "pitch": 82
+  }
+}
+```
+
+Revolve smoothly to a full-body shot over 2.5 seconds:
+
+```json
+{
+  "requestId": "director-shot-012-move",
+  "action": "camera.move",
+  "args": {
+    "target": "full",
+    "directionAnchor": "feet",
+    "follow": true,
+    "distance": 4.15,
+    "yaw": 35,
+    "pitch": 68,
+    "transitionSeconds": 2.5
+  }
+}
+```
 
 The schema endpoint is authoritative for available actions and argument ranges.

@@ -191,7 +191,7 @@
       <aside class="live-console">
         <div class="live-title-row"><h2>Live Full Flow</h2><span class="live-state" id="live-session-state">stopped</span></div>
         <p class="scheduler-intro">Speak through Anna + LAM while Core-40 continuously follows WASD and the active cached motion embedding.</p>
-        <div class="live-actions"><button class="primary" id="live-session-toggle">Start live session</button><span class="live-subtext" id="live-latency">Ready to connect</span></div>
+        <div class="live-actions"><button class="primary" id="live-session-toggle">Start live session</button><button id="live-export-mp4">Export one pass MP4</button><span class="live-subtext" id="live-latency">Ready to connect</span></div>
         <div class="keyboard-map">Local LLM API · <code>GET /api/control/schema</code> · state, commands, and results are JSON</div>
 
         <section class="live-section">
@@ -208,7 +208,9 @@
 
         <section class="live-section">
           <div class="live-section-head"><strong>Motion embedding stack</strong><span id="effective-embedding">idle not set</span></div>
-          <label class="idle-row"><span>Idle fallback</span><select id="live-idle-embedding" aria-label="Idle fallback embedding"><option value="">Choose idle…</option></select></label>
+          <label class="idle-row"><span>Primary idle</span><select id="live-idle-embedding" aria-label="Primary idle embedding"><option value="">Choose idle…</option></select></label>
+          <label class="idle-row"><span>Secondary idle</span><select id="live-secondary-idle-embedding" aria-label="Secondary idle embedding"><option value="">No secondary idle</option></select></label>
+          <label class="idle-row"><span>Idle swap interval</span><input id="live-idle-swap-seconds" type="number" min="1" max="300" step="0.5" value="12" aria-label="Idle embedding swap interval in seconds"><small>seconds</small></label>
           <div class="stack-add-row"><select id="live-stack-source" aria-label="Embedding to add to stack"><option value="">Choose embedding…</option></select><button id="live-stack-add">Add</button></div>
           <div class="embedding-stack" id="live-embedding-stack"><div class="stack-empty">Add cached embeddings to the control stack.</div></div>
           <div class="keyboard-map">↑ / ↓ highlight · → activate highlighted · ← release to idle<br>W A S D locomotion · controls work while the stage is focused</div>
@@ -221,8 +223,24 @@
         </section>
 
         <section class="live-section">
+          <div class="live-section-head"><strong>Motion runtime</strong><span>Live Full Flow only</span></div>
+          <div class="live-help">These controls belong to Live Full Flow and no longer inherit hidden values from the ARDY tab.</div>
+          <label class="schedule-loop-row"><span><strong>Path heading</strong><small>Turn the generated body toward its travel direction.</small></span><input id="live-heading-enabled" type="checkbox" checked aria-label="Enable live path heading"></label>
+          <label class="camera-range"><span>Steering blend</span><input id="live-steering-blend" type="range" min="0.1" max="2" step="0.1" value="1"><output id="live-steering-blend-out">1.0 s</output></label>
+          <label class="camera-range"><span>Denoising steps</span><input id="live-denoising-steps" type="range" min="1" max="10" step="1" value="4"><output id="live-denoising-steps-out">4</output></label>
+          <label class="camera-range"><span>Constraint guidance</span><input id="live-constraint-guidance" type="range" min="0.5" max="4" step="0.1" value="2"><output id="live-constraint-guidance-out">2.0</output></label>
+          <label class="camera-range"><span>Prompt strength</span><input id="live-text-guidance" type="range" min="0.5" max="5" step="0.1" value="3"><output id="live-text-guidance-out">3.0</output></label>
+          <label class="camera-range"><span>Frame history</span><input id="live-history-frames" type="range" min="4" max="80" step="4" value="8"><output id="live-history-frames-out">8 frames</output></label>
+          <label class="camera-range"><span>Horizon seam blend</span><input id="live-seam-blend-frames" type="range" min="0" max="12" step="1" value="6"><output id="live-seam-blend-frames-out">6 frames</output></label>
+          <label class="schedule-loop-row"><span><strong>Adaptive replan buffer</strong><small>Measure generation latency and keep that many unplayed frames available.</small></span><input id="live-adaptive-replan-buffer" type="checkbox" checked aria-label="Adapt replan buffer to generation latency"></label>
+          <label class="camera-range"><span>Replan buffer frames</span><input id="live-replan-buffer-frames" type="range" min="0" max="12" step="1" value="3"><output id="live-replan-buffer-frames-out">auto · 3</output></label>
+        </section>
+
+        <section class="live-section">
           <div class="live-section-head"><strong>Scheduled walk path</strong><span>Arrival time · X · Z</span></div>
-          <div class="live-help">Endpoints are relative to the session start. ARDY steers between them live; WASD temporarily takes control and the path resumes when released.</div>
+          <div class="live-help">Endpoints are relative to the session start and become native frame-indexed ARDY root constraints. WASD temporarily switches to live velocity control; the scheduled constraint track resumes when released.</div>
+          <label class="schedule-loop-row"><span><strong>Curved path</strong><small>Use smooth Bézier segments while still passing through every timed endpoint.</small></span><input id="live-path-curved" type="checkbox" aria-label="Curve the scheduled path"></label>
+          <label class="camera-range"><span>Curve softness</span><input id="live-path-curve-strength" type="range" min="0.1" max="1" step="0.05" value="0.65" disabled><output id="live-path-curve-strength-out">0.65</output></label>
           <div class="path-planner">
             <div class="path-planner-head"><span class="path-planner-stats" id="live-path-stats">0.00 m · origin</span><div class="path-planner-tools"><button id="live-path-undo">Undo</button><button id="live-path-clear">Clear</button><button id="live-path-fit">Fit</button></div></div>
             <div class="path-canvas-wrap"><canvas id="live-path-canvas" tabindex="0" aria-label="Scheduled X Z walk-path planner"></canvas><div class="path-canvas-note" id="live-path-empty">Click the grid to add timed endpoints<br>Focus grid + W A S D for 0.25 m steps</div></div>
@@ -235,8 +253,10 @@
 
         <section class="live-section">
           <div class="live-section-head"><strong>Live camera</strong><span id="live-camera-status">torso · following</span></div>
-          <div class="live-help">Choose what stays framed and which body direction the shot turns with. Drag the stage to adjust the relative angle and use the mouse wheel to zoom.</div>
+          <div class="live-help">Choose what stays framed and which body direction the shot turns with. Drag the stage to adjust the relative angle and use the mouse wheel to zoom. For voice-led direction, start the matching camera transition about 1 second after its speech cue so live synthesis can catch up.</div>
           <div class="camera-presets"><button data-camera-preset="face">Face shot</button><button data-camera-preset="torso">Torso shot</button><button data-camera-preset="full">Full body</button></div>
+          <label class="idle-row"><span>Shot change</span><select id="live-camera-transition" aria-label="Camera shot transition"><option value="cut" selected>Cut immediately</option><option value="move">Smooth revolve</option></select></label>
+          <label class="camera-range"><span>Move duration</span><input id="live-camera-transition-seconds" type="range" min="0.25" max="10" step="0.25" value="2"><output id="live-camera-transition-seconds-out">2.00 s</output></label>
           <label class="idle-row"><span>Target</span><select id="live-camera-target" aria-label="Camera target"><option value="face">Face</option><option value="torso" selected>Torso</option><option value="hips">Hips</option><option value="full">Full character</option></select></label>
           <label class="idle-row"><span>Direction anchor</span><select id="live-camera-direction-anchor" aria-label="Camera direction anchor"><option value="world" selected>World (fixed)</option><option value="face">Face direction</option><option value="torso">Torso direction</option><option value="feet">Feet / travel direction</option></select></label>
           <div class="camera-toggles"><label class="camera-toggle"><span>Follow target</span><input id="live-camera-follow" type="checkbox" checked></label><label class="camera-toggle"><span>Auto orbit</span><input id="live-camera-orbit" type="checkbox"></label></div>
@@ -297,6 +317,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=6"></script>
+  <script src="/live-flow.js?v=19"></script>
 </body>
 </html>

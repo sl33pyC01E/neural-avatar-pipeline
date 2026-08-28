@@ -30,6 +30,20 @@ const state = {
   liveExternalMode: false,
   liveExternalCacheKey: "",
   liveExternalVelocity: null,
+  liveExternalGoal: null,
+  liveExternalRoute: { points: [], elapsed: 0, revision: 0, curved: false, curveStrength: 0.65, signature: '' },
+  liveExternalSettings: {
+    speed: 0.8,
+    steeringBlend: 1,
+    denoisingSteps: 4,
+    constraintGuidance: 2,
+    textGuidance: 3,
+    historyFrames: 8,
+    seamBlendFrames: 6,
+    adaptiveReplanBuffer: true,
+    replanBufferFrames: 3,
+    headingEnabled: true,
+  },
   liveFacePlayback: null,
   liveRoot: { x: 0, z: 0 },
   liveGoal: { x: 0, z: 0 },
@@ -64,6 +78,7 @@ const state = {
   textCacheEntries: [],
   scheduleSlots: [{ time: 0, prompt: "walk naturally", cacheKey: "" }],
 };
+let liveMp4Recording = null;
 const configs = {
   ardy: { name: "ARDY", skin: "Core-27", fps: 20, duration: 3.2, steps: 4, maxSteps: 10, seconds: 0.7, color: "#57e6b1" },
   kimodo: { name: "Kimodo", skin: "SOMA-77", fps: 30, duration: 3, steps: 20, maxSteps: 100, seconds: 1.4, color: "#9c8cff" },
@@ -133,6 +148,7 @@ let orbit = { yaw: 0.72, pitch: 1.18, radius: 4.15, target: new THREE.Vector3(0,
 let drag = null;
 let liveCameraAnchorYaw = 0;
 let liveCameraAnchorReady = false;
+let liveCameraTransition = null;
 const vrmLoader = new GLTFLoader();
 vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
 
@@ -559,8 +575,9 @@ function liveCameraState() {
     ...state.liveCamera,
     yaw: state.liveCamera.yawOffset,
     worldYaw: wrapDegrees(THREE.MathUtils.radToDeg(orbit.yaw)),
-    pitch: THREE.MathUtils.radToDeg(orbit.pitch),
-    distance: orbit.radius,
+    pitch: THREE.MathUtils.radToDeg(liveCameraTransition?.endPitch ?? orbit.pitch),
+    distance: liveCameraTransition?.endRadius ?? orbit.radius,
+    transitionActive: Boolean(liveCameraTransition),
     targetPosition: { x: orbit.target.x, y: orbit.target.y, z: orbit.target.z },
   };
 }
@@ -627,6 +644,10 @@ function liveCameraTarget() {
 function applyLiveCameraConfig(config = {}) {
   const allowedTargets = new Set(["face", "torso", "hips", "full"]);
   const allowedDirectionAnchors = new Set(["world", "face", "torso", "feet"]);
+  const startYaw = orbit.yaw;
+  const startPitch = orbit.pitch;
+  const startRadius = orbit.radius;
+  const startTarget = orbit.target.clone();
   if (allowedTargets.has(config.target)) state.liveCamera.target = config.target;
   if (allowedDirectionAnchors.has(config.directionAnchor) && config.directionAnchor !== state.liveCamera.directionAnchor) {
     state.liveCamera.directionAnchor = config.directionAnchor;
@@ -638,17 +659,41 @@ function applyLiveCameraConfig(config = {}) {
   if (Number.isFinite(Number(config.smoothing))) state.liveCamera.smoothing = Math.max(0.5, Math.min(20, Number(config.smoothing)));
   if (Number.isFinite(Number(config.targetOffsetY))) state.liveCamera.targetOffsetY = Math.max(-1, Math.min(1, Number(config.targetOffsetY)));
   if (Number.isFinite(Number(config.yaw))) state.liveCamera.yawOffset = wrapDegrees(config.yaw);
-  if (Number.isFinite(Number(config.pitch))) orbit.pitch = THREE.MathUtils.degToRad(Math.max(10, Math.min(170, Number(config.pitch))));
-  if (Number.isFinite(Number(config.distance))) orbit.radius = Math.max(0.45, Math.min(12, Number(config.distance)));
-  liveCameraAnchorYaw = liveCameraDirectionYaw();
+  const endPitch = Number.isFinite(Number(config.pitch))
+    ? THREE.MathUtils.degToRad(Math.max(10, Math.min(170, Number(config.pitch))))
+    : startPitch;
+  const endRadius = Number.isFinite(Number(config.distance))
+    ? Math.max(0.45, Math.min(12, Number(config.distance)))
+    : startRadius;
+  const desiredAnchorYaw = liveCameraDirectionYaw();
+  const transitionMode = config.transition === "move" ? "move" : "cut";
+  const transitionSeconds = Math.max(0.1, Math.min(30, Number(config.transitionSeconds ?? config.duration) || 2));
+  liveCameraAnchorYaw = desiredAnchorYaw;
   liveCameraAnchorReady = true;
-  applyLiveCameraYaw();
-  orbit.target.copy(liveCameraTarget());
+  if (transitionMode === "move") {
+    liveCameraTransition = {
+      startedAt: performance.now(),
+      durationMs: transitionSeconds * 1000,
+      startYaw,
+      startPitch,
+      startRadius,
+      startTarget,
+      endPitch,
+      endRadius,
+    };
+  } else {
+    liveCameraTransition = null;
+    orbit.pitch = endPitch;
+    orbit.radius = endRadius;
+    applyLiveCameraYaw();
+    orbit.target.copy(liveCameraTarget());
+  }
   updateCamera();
   publishLiveFlowStatus();
 }
 
 function resetLiveCamera() {
+  liveCameraTransition = null;
   state.liveCamera = { target: "torso", directionAnchor: "world", follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yawOffset: 41 };
   liveCameraAnchorYaw = 0;
   liveCameraAnchorReady = true;
@@ -661,6 +706,29 @@ function resetLiveCamera() {
 
 function updateLiveCamera(deltaSeconds) {
   if (!state.liveExternalMode) return;
+  if (liveCameraTransition) {
+    const transition = liveCameraTransition;
+    const progress = Math.min(1, Math.max(0, (performance.now() - transition.startedAt) / transition.durationMs));
+    const eased = progress * progress * (3 - 2 * progress);
+    const desiredAnchorYaw = liveCameraDirectionYaw();
+    const desiredYaw = desiredAnchorYaw + THREE.MathUtils.degToRad(state.liveCamera.yawOffset);
+    orbit.yaw = transition.startYaw + shortestAngleDelta(transition.startYaw, desiredYaw) * eased;
+    orbit.pitch = THREE.MathUtils.lerp(transition.startPitch, transition.endPitch, eased);
+    orbit.radius = THREE.MathUtils.lerp(transition.startRadius, transition.endRadius, eased);
+    orbit.target.lerpVectors(transition.startTarget, liveCameraTarget(), eased);
+    liveCameraAnchorYaw = desiredAnchorYaw;
+    liveCameraAnchorReady = true;
+    if (progress >= 1) {
+      liveCameraTransition = null;
+      orbit.yaw = desiredYaw;
+      orbit.pitch = transition.endPitch;
+      orbit.radius = transition.endRadius;
+      orbit.target.copy(liveCameraTarget());
+      publishLiveFlowStatus({ cameraTransitionEnded: true });
+    }
+    updateCamera();
+    return;
+  }
   let changed = false;
   if (state.liveCamera.follow) {
     const desired = liveCameraTarget();
@@ -1339,6 +1407,74 @@ function blendRotationFrame(previous, current, alpha) {
   return current.map((matrix, index) => blendRotationMatrix(previous[index], matrix, alpha));
 }
 
+function blendLiveSegmentBoundary(segment, replaceFrom, requestedFrames) {
+  const blendFrames = Math.min(segment.frames, Math.max(0, Math.round(Number(requestedFrames) || 0)));
+  if (!blendFrames || !state.liveSegments.length) return;
+  const previous = Array.from({ length: blendFrames }, (_, frame) => liveFrameAt(replaceFrom + frame));
+  const retained = liveFrameAt(replaceFrom - 1);
+  const beforeRetained = liveFrameAt(replaceFrom - 2) || retained;
+  for (let frame = 0; frame < blendFrames; frame += 1) {
+    const prior = previous[frame];
+    const alpha = easedBlend((frame + 1) / blendFrames);
+    const predictionSteps = Math.min(frame + 1, 2);
+    const retainedJoints = retained?.segment.joints[retained.localFrame];
+    const beforeJoints = beforeRetained?.segment.joints[beforeRetained.localFrame];
+    const priorJoints = prior
+      ? prior.segment.joints[prior.localFrame]
+      : Array.isArray(retainedJoints) && Array.isArray(beforeJoints)
+        ? retainedJoints.map((joint, index) => joint.map((value, axis) => value + (value - beforeJoints[index][axis]) * predictionSteps))
+        : null;
+    const nextJoints = segment.joints[frame];
+    if (Array.isArray(priorJoints) && Array.isArray(nextJoints)) {
+      segment.joints[frame] = nextJoints.map((joint, index) => blendVector(priorJoints[index], joint, alpha));
+    }
+    const retainedRoot = retained?.segment.rootPositions[retained.localFrame];
+    const beforeRoot = beforeRetained?.segment.rootPositions[beforeRetained.localFrame];
+    const priorRoot = prior
+      ? prior.segment.rootPositions[prior.localFrame]
+      : Array.isArray(retainedRoot) && Array.isArray(beforeRoot)
+        ? retainedRoot.map((value, axis) => value + (value - beforeRoot[axis]) * predictionSteps)
+        : null;
+    const nextRoot = segment.rootPositions[frame];
+    if (Array.isArray(priorRoot) && Array.isArray(nextRoot)) {
+      // Never extrapolate or crossfade vertical root height. Continuing an
+      // upward gait-bob velocity across a seam produces an invisible stair.
+      const horizontalPrior = priorRoot.map((value, axis) => axis === 1 ? nextRoot[axis] : value);
+      segment.rootPositions[frame] = blendVector(horizontalPrior, nextRoot, alpha);
+    }
+    const priorRotations = prior
+      ? prior.segment.rotations[prior.localFrame]
+      : retained?.segment.rotations[retained.localFrame];
+    const nextRotations = segment.rotations[frame];
+    if (Array.isArray(priorRotations) && Array.isArray(nextRotations)) {
+      segment.rotations[frame] = blendRotationFrame(priorRotations, nextRotations, alpha);
+    }
+    const priorVertexSegment = prior?.segment || retained?.segment;
+    if (priorVertexSegment?.vertexCount === segment.vertexCount && priorVertexSegment.vertices?.length && segment.vertices?.length) {
+      const priorOffset = (prior ? prior.localFrame : retained.localFrame) * segment.vertexCount * 3;
+      const beforeOffset = beforeRetained?.segment.vertexCount === segment.vertexCount
+        ? beforeRetained.localFrame * segment.vertexCount * 3
+        : priorOffset;
+      const nextOffset = frame * segment.vertexCount * 3;
+      const values = segment.vertexCount * 3;
+      for (let index = 0; index < values; index += 1) {
+        const retainedValue = priorVertexSegment.vertices[priorOffset + index];
+        const nextValue = segment.vertices[nextOffset + index];
+        const priorValue = index % 3 === 1
+          ? nextValue
+          : prior
+            ? retainedValue
+            : retainedValue + (retainedValue - beforeRetained.segment.vertices[beforeOffset + index]) * predictionSteps;
+        segment.vertices[nextOffset + index] = THREE.MathUtils.lerp(
+          priorValue,
+          nextValue,
+          alpha,
+        );
+      }
+    }
+  }
+}
+
 function placeGeneratedSegment(motion, worldStart, sourceFrame = 0) {
   const generatedStart = motion.rootPositions[Math.min(sourceFrame, motion.frames - 1)] || [0, 0, 0];
   const offsetX = worldStart.x - (Number(generatedStart[0]) || 0);
@@ -1561,8 +1697,44 @@ function liveVelocity() {
     return { x: Number(state.liveExternalVelocity.x) || 0, z: Number(state.liveExternalVelocity.z) || 0 };
   }
   const length = Math.hypot(x, z) || 1;
-  const speed = Number($("live-speed").value);
+  const speed = state.liveExternalMode ? state.liveExternalSettings.speed : Number($("live-speed").value);
   return { x: x / length * speed, z: z / length * speed };
+}
+
+function applyLiveExternalSettings(settings = {}) {
+  const current = state.liveExternalSettings;
+  state.liveExternalSettings = {
+    speed: Number.isFinite(Number(settings.speed)) ? Math.max(0.1, Math.min(2.5, Number(settings.speed))) : current.speed,
+    steeringBlend: Number.isFinite(Number(settings.steeringBlend)) ? Math.max(0.1, Math.min(2, Number(settings.steeringBlend))) : current.steeringBlend,
+    denoisingSteps: Number.isFinite(Number(settings.denoisingSteps)) ? Math.max(1, Math.min(10, Math.round(Number(settings.denoisingSteps)))) : current.denoisingSteps,
+    constraintGuidance: Number.isFinite(Number(settings.constraintGuidance)) ? Math.max(0.5, Math.min(4, Number(settings.constraintGuidance))) : current.constraintGuidance,
+    textGuidance: Number.isFinite(Number(settings.textGuidance)) ? Math.max(0.5, Math.min(5, Number(settings.textGuidance))) : current.textGuidance,
+    historyFrames: Number.isFinite(Number(settings.historyFrames))
+      ? Math.max(4, Math.min(80, Math.round(Number(settings.historyFrames) / 4) * 4))
+      : Number.isFinite(Number(settings.historySeconds))
+        ? Math.max(4, Math.min(80, Math.round(Number(settings.historySeconds) * configs.ardy.fps / 4) * 4))
+        : current.historyFrames,
+    seamBlendFrames: Number.isFinite(Number(settings.seamBlendFrames)) ? Math.max(0, Math.min(12, Math.round(Number(settings.seamBlendFrames)))) : current.seamBlendFrames,
+    adaptiveReplanBuffer: typeof settings.adaptiveReplanBuffer === "boolean" ? settings.adaptiveReplanBuffer : current.adaptiveReplanBuffer,
+    replanBufferFrames: Number.isFinite(Number(settings.replanBufferFrames)) ? Math.max(0, Math.min(12, Math.round(Number(settings.replanBufferFrames)))) : current.replanBufferFrames,
+    headingEnabled: typeof settings.headingEnabled === "boolean" ? settings.headingEnabled : current.headingEnabled,
+  };
+}
+
+function liveGenerationSettings() {
+  if (state.liveExternalMode) return state.liveExternalSettings;
+  return {
+    speed: Number($("live-speed").value),
+    steeringBlend: Number($("live-smoothing").value),
+    denoisingSteps: Number($("steps").value),
+    constraintGuidance: Number($("guidance").value),
+    textGuidance: Number($("text-guidance").value),
+    historyFrames: Math.max(4, Math.round(Number($("prompt-memory").value) * configs.ardy.fps / 4) * 4),
+    seamBlendFrames: 6,
+    adaptiveReplanBuffer: true,
+    replanBufferFrames: state.liveReplanBufferFrames,
+    headingEnabled: $("heading-enabled").checked,
+  };
 }
 
 function publishLiveFlowStatus(extra = {}) {
@@ -1570,6 +1742,7 @@ function publishLiveFlowStatus(extra = {}) {
   const velocity = liveVelocity();
   window.parent.postMessage({
     type: "live-flow:player-status",
+    playerVersion: 51,
     active: state.liveActive,
     fetching: state.liveFetching,
     cacheKey: state.liveExternalCacheKey,
@@ -1578,6 +1751,7 @@ function publishLiveFlowStatus(extra = {}) {
     playbackFrame: state.livePlaybackFrame,
     maxFrame: state.liveMaxFrame,
     position: { ...state.liveRoot },
+    motionSettings: { ...state.liveExternalSettings },
     camera: liveCameraState(),
     ...extra,
   }, "*");
@@ -1607,6 +1781,7 @@ async function requestLiveSegment(start = false) {
   state.liveFetching = true;
   state.liveCommandDirty = false;
   const velocity = liveVelocity();
+  const generation = liveGenerationSettings();
   const playbackFrame = start ? 0 : state.livePlaybackFrame;
   const requestStartedAt = performance.now();
   try {
@@ -1614,6 +1789,9 @@ async function requestLiveSegment(start = false) {
     const liveTextInput = state.liveExternalMode
       ? { mode: "cache", prompt: "", cacheKey: state.liveExternalCacheKey }
       : liveTextEnabled ? currentTextInput() : { mode: "text", prompt: "", cacheKey: "" };
+    const routePoints = state.liveExternalMode && !state.liveKeys.size
+      ? state.liveExternalRoute.points
+      : [];
     const response = await fetch(start ? "/api/live/start" : "/api/live/step", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1621,18 +1799,23 @@ async function requestLiveSegment(start = false) {
         engine: "ardy",
         velocityX: velocity.x,
         velocityZ: velocity.z,
-        steps: Number($("steps").value),
-        constraintGuidance: Number($("guidance").value),
-        textGuidance: Number($("text-guidance").value),
-        historyFrames: Math.max(4, Math.round(Number($("prompt-memory").value) * configs.ardy.fps / 4) * 4),
+        steps: generation.denoisingSteps,
+        constraintGuidance: generation.constraintGuidance,
+        textGuidance: generation.textGuidance,
+        historyFrames: generation.historyFrames,
         playbackFrame,
-        replanBufferFrames: state.liveReplanBufferFrames,
-        liveSmoothingSeconds: Number($("live-smoothing").value),
-        headingEnabled: $("heading-enabled").checked,
+        replanBufferFrames: generation.adaptiveReplanBuffer ? state.liveReplanBufferFrames : generation.replanBufferFrames,
+        liveSmoothingSeconds: generation.steeringBlend,
+        headingEnabled: generation.headingEnabled,
+        retainTextEncoder: !state.liveExternalMode,
         textEnabled: liveTextEnabled,
         textMode: liveTextInput.mode,
         prompt: liveTextInput.prompt,
         cacheKey: liveTextInput.cacheKey,
+        routePoints,
+        routeElapsed: state.liveExternalRoute.elapsed,
+        routeCurve: state.liveExternalRoute.curved,
+        routeCurveStrength: state.liveExternalRoute.curveStrength,
       }),
     });
     const result = await response.json();
@@ -1641,15 +1824,14 @@ async function requestLiveSegment(start = false) {
     const binary = await fetch(result.motion.meshFramesUrl, { cache: "no-store" });
     if (!binary.ok) throw new Error("Live mesh segment was not available.");
     const vertices = new Float32Array(await binary.arrayBuffer());
-    if (!start) {
+    if (!start && generation.adaptiveReplanBuffer) {
       const latencyFrames = Math.min(6, Math.max(1, Math.ceil((performance.now() - requestStartedAt) / 1000 * result.motion.fps)));
       state.liveLatencyFrames.push(latencyFrames);
       if (state.liveLatencyFrames.length > 5) state.liveLatencyFrames.shift();
       state.liveReplanBufferFrames = Math.max(...state.liveLatencyFrames);
     }
     const replaceFrom = Number(result.motion.replaceFromFrame || 0);
-    state.liveSegments = state.liveSegments.filter((segment) => segment.startFrame < replaceFrom);
-    state.liveSegments.push({
+    const nextSegment = {
       startFrame: replaceFrom,
       vertices,
       joints: result.motion.centeredJoints || [],
@@ -1659,7 +1841,10 @@ async function requestLiveSegment(start = false) {
       fps: result.motion.fps,
       vertexCount: result.motion.meshVertexCount,
       stepIndex: result.motion.stepIndex,
-    });
+    };
+    blendLiveSegmentBoundary(nextSegment, replaceFrom, generation.seamBlendFrames);
+    state.liveSegments = state.liveSegments.filter((segment) => segment.startFrame < replaceFrom);
+    state.liveSegments.push(nextSegment);
     state.liveMaxFrame = replaceFrom + result.motion.frames - 1;
     if (!state.liveStartedAt) {
       state.liveStartedAt = performance.now();
@@ -1674,6 +1859,14 @@ async function requestLiveSegment(start = false) {
       generationSeconds: result.motion.generationSeconds,
       realtimeFactor: result.motion.realtimeFactor,
       historyFrames: result.motion.historyFrames,
+      replanBufferFrames: result.motion.replanBufferFrames,
+      seam: {
+        rootStepM: Number(result.motion.seamRootStepM) || 0,
+        jointStepMaxM: Number(result.motion.seamJointStepMaxM) || 0,
+        velocityChangeMps: Number(result.motion.seamVelocityChangeMps) || 0,
+        jointVelocityChangeMaxMps: Number(result.motion.seamJointVelocityChangeMaxMps) || 0,
+        blendedFrames: generation.seamBlendFrames,
+      },
     });
   } catch (error) {
     $("status").textContent = error.message;
@@ -1687,10 +1880,10 @@ async function requestLiveSegment(start = false) {
 
 function liveCommandChanged(requestReplan = true) {
   const velocity = liveVelocity();
-  state.liveGoal = {
-    x: state.liveRoot.x + velocity.x * 2,
-    z: state.liveRoot.z + velocity.z * 2,
-  };
+  const externalGoal = state.liveExternalMode && !state.liveKeys.size ? state.liveExternalGoal : null;
+  state.liveGoal = externalGoal
+    ? { ...externalGoal }
+    : { x: state.liveRoot.x + velocity.x * 2, z: state.liveRoot.z + velocity.z * 2 };
   updateGoalMarker();
   document.querySelectorAll(".key").forEach((element) => element.classList.toggle("active", state.liveKeys.has(element.dataset.key)));
   publishLiveFlowStatus();
@@ -1741,6 +1934,7 @@ function stopLive() {
   state.liveActive = false;
   state.liveKeys.clear();
   state.liveExternalVelocity = null;
+  state.liveExternalGoal = null;
   state.liveSegments = [];
   state.liveStartedAt = 0;
   state.livePlaybackFrame = 0;
@@ -1825,14 +2019,11 @@ async function exportViewportVideo(sequenceKind) {
   const previousFrame = state.currentFrame;
   try {
     const candidates = [
-      "video/mp4;codecs=avc1.42E01E",
-      "video/mp4",
       "video/webm;codecs=vp9",
       "video/webm;codecs=vp8",
       "video/webm",
     ];
     const mimeType = candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-    const extension = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
     const stream = renderer.domElement.captureStream(30);
     const recorder = new MediaRecorder(stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 10_000_000 });
     const chunks = [];
@@ -1852,16 +2043,30 @@ async function exportViewportVideo(sequenceKind) {
     recorder.stop();
     await stopped;
     stream.getTracks().forEach((track) => track.stop());
-    const blob = new Blob(chunks, { type: mimeType || "video/webm" });
-    const url = URL.createObjectURL(blob);
+    const capture = new Blob(chunks, { type: mimeType || "video/webm" });
+    $("status").textContent = "Encoding a compatible H.264 MP4…";
+    const response = await fetch("http://127.0.0.1:8794/api/export/mp4", {
+      method: "POST",
+      headers: {
+        "content-type": capture.type || "video/webm",
+        "x-export-duration": String(durationMs / 1000),
+      },
+      body: capture,
+    });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      throw new Error(failure.error || "The local MP4 encoder could not finish this export.");
+    }
+    const mp4 = await response.blob();
+    const url = URL.createObjectURL(mp4);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${state.engine}-${sequenceKind}-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`;
+    anchor.download = `${state.engine}-${sequenceKind}-${new Date().toISOString().replace(/[:.]/g, "-")}.mp4`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    $("status").textContent = `Exported the current ${sequenceKind} sequence as ${extension.toUpperCase()} video.`;
+    $("status").textContent = `Exported the current ${sequenceKind} sequence as a compatible MP4 video.`;
   } catch (error) {
     $("status").textContent = error.message;
   } finally {
@@ -2038,7 +2243,10 @@ async function exportUnifiedSequence(options) {
     report('Encoding unified recording as MP4…');
     const response = await fetch('http://127.0.0.1:8794/api/export/mp4', {
       method: 'POST',
-      headers: { 'content-type': capture.type || 'video/webm' },
+      headers: {
+        'content-type': capture.type || 'video/webm',
+        'x-export-duration': String(totalDuration),
+      },
       body: capture,
     });
     if (!response.ok) {
@@ -2067,17 +2275,160 @@ async function exportUnifiedSequence(options) {
   }
 }
 
+async function startLiveMp4Recording() {
+  if (liveMp4Recording) return;
+  const finish = (ok, error = '') => window.parent.postMessage({ type: 'live-flow:record-ended', ok, error }, '*');
+  let canvasStream = null;
+  let captureStream = null;
+  let audioContext = null;
+  try {
+    if (typeof MediaRecorder === 'undefined' || typeof renderer.domElement.captureStream !== 'function') {
+      throw new Error('This browser cannot record the Live Full Flow viewport.');
+    }
+    canvasStream = renderer.domElement.captureStream(30);
+    audioContext = new AudioContext();
+    const destination = audioContext.createMediaStreamDestination();
+    captureStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...destination.stream.getAudioTracks(),
+    ]);
+    const candidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    const mimeType = candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+    const recorder = new MediaRecorder(captureStream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: 12_000_000,
+    });
+    const chunks = [];
+    const stopped = new Promise((resolve, reject) => {
+      recorder.addEventListener('stop', resolve, { once: true });
+      recorder.addEventListener('error', (event) => reject(event.error || new Error('Live Full Flow recording failed.')), { once: true });
+    });
+    recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+    liveMp4Recording = {
+      recorder,
+      chunks,
+      stopped,
+      mimeType,
+      canvasStream,
+      captureStream,
+      audioContext,
+      destination,
+      sources: new Set(),
+      startedAt: performance.now(),
+    };
+    recorder.start(250);
+    audioContext.resume().catch(() => {});
+    window.parent.postMessage({ type: 'live-flow:record-status', recording: true }, '*');
+  } catch (error) {
+    captureStream?.getTracks().forEach((track) => track.stop());
+    canvasStream?.getTracks().forEach((track) => track.stop());
+    if (audioContext) await audioContext.close().catch(() => {});
+    liveMp4Recording = null;
+    finish(false, error.message || String(error));
+  }
+}
+
+function addLiveRecordingAudio(payload, delaySeconds = 0) {
+  const recording = liveMp4Recording;
+  const channels = Array.isArray(payload?.channels) ? payload.channels : [];
+  const sampleRate = Math.round(Number(payload?.sampleRate) || 0);
+  if (!recording || !channels.length || sampleRate < 8000) return;
+  try {
+    const samples = channels.map((channel) => channel instanceof ArrayBuffer
+      ? new Float32Array(channel)
+      : new Float32Array(channel?.buffer || channel));
+    const frameCount = Math.max(0, ...samples.map((channel) => channel.length));
+    if (!frameCount) return;
+    const buffer = recording.audioContext.createBuffer(samples.length, frameCount, sampleRate);
+    samples.forEach((channel, index) => buffer.copyToChannel(channel.subarray(0, frameCount), index));
+    const source = recording.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(recording.destination);
+    recording.sources.add(source);
+    source.addEventListener('ended', () => recording.sources.delete(source), { once: true });
+    source.start(recording.audioContext.currentTime + Math.max(0, Number(delaySeconds) || 0));
+  } catch (error) {
+    console.warn('Could not add generated speech to the Live Full Flow recording.', error);
+  }
+}
+
+async function stopLiveMp4Recording(expectedDuration) {
+  const recording = liveMp4Recording;
+  if (!recording) return;
+  liveMp4Recording = null;
+  try {
+    if (recording.recorder.state !== 'inactive') recording.recorder.stop();
+    await recording.stopped;
+    const duration = Math.max(0.1, Number(expectedDuration) || (performance.now() - recording.startedAt) / 1000);
+    const capture = new Blob(recording.chunks, { type: recording.mimeType || 'video/webm' });
+    if (!capture.size) throw new Error('The browser returned an empty Live Full Flow recording.');
+    window.parent.postMessage({ type: 'live-flow:record-status', recording: false, encoding: true }, '*');
+    const response = await fetch('http://127.0.0.1:8794/api/export/mp4', {
+      method: 'POST',
+      headers: {
+        'content-type': capture.type || 'video/webm',
+        'x-export-duration': String(duration),
+      },
+      body: capture,
+    });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      throw new Error(failure.error || 'The local MP4 encoder could not finish the Live Full Flow export.');
+    }
+    const mp4 = await response.blob();
+    const url = URL.createObjectURL(mp4);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `neural-avatar-pipeline-full-flow-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    window.parent.postMessage({ type: 'live-flow:record-ended', ok: true }, '*');
+  } catch (error) {
+    window.parent.postMessage({ type: 'live-flow:record-ended', ok: false, error: error.message || String(error) }, '*');
+  } finally {
+    for (const source of recording.sources) { try { source.stop(); } catch {} }
+    recording.captureStream?.getTracks().forEach((track) => track.stop());
+    recording.canvasStream?.getTracks().forEach((track) => track.stop());
+    await recording.audioContext?.close().catch(() => {});
+  }
+}
+
+async function abortLiveMp4Recording(reason = 'Live Full Flow stopped before the export completed.') {
+  const recording = liveMp4Recording;
+  liveMp4Recording = null;
+  if (recording) {
+    try {
+      if (recording.recorder.state !== 'inactive') recording.recorder.stop();
+      await recording.stopped.catch(() => {});
+    } finally {
+      for (const source of recording.sources) { try { source.stop(); } catch {} }
+      recording.captureStream?.getTracks().forEach((track) => track.stop());
+      recording.canvasStream?.getTracks().forEach((track) => track.stop());
+      await recording.audioContext?.close().catch(() => {});
+    }
+  }
+  window.parent.postMessage({ type: 'live-flow:record-ended', ok: false, error: String(reason) }, '*');
+}
+
 window.addEventListener('message', (event) => {
   if (!['http://127.0.0.1:8788', 'http://localhost:8788'].includes(event.origin) || !event.data?.type) return;
   if (event.data.type === 'live-flow:start') {
     state.liveExternalMode = true;
     state.liveExternalCacheKey = String(event.data.cacheKey || '');
-    if (Number.isFinite(Number(event.data.speed))) $("live-speed").value = String(event.data.speed);
-    if (Number.isFinite(Number(event.data.smoothing))) $("live-smoothing").value = String(event.data.smoothing);
+    applyLiveExternalSettings(event.data.settings || {});
     state.liveKeys = new Set(Array.isArray(event.data.keys) ? event.data.keys.filter((key) => ["w", "a", "s", "d"].includes(key)) : []);
     document.documentElement.classList.add('unified-preview');
     if (!state.liveActive) startLive(); else liveCommandChanged();
     publishLiveFlowStatus();
+    return;
+  }
+  if (event.data.type === 'live-flow:settings') {
+    state.liveExternalMode = true;
+    applyLiveExternalSettings(event.data.settings || {});
+    if (state.liveActive) liveCommandChanged();
+    else publishLiveFlowStatus();
     return;
   }
   if (event.data.type === 'live-flow:set-embedding') {
@@ -2099,7 +2450,39 @@ window.addEventListener('message', (event) => {
     state.liveExternalVelocity = velocity && Number.isFinite(Number(velocity.x)) && Number.isFinite(Number(velocity.z))
       ? { x: Number(velocity.x), z: Number(velocity.z) }
       : null;
+    const goal = event.data.goal;
+    state.liveExternalGoal = goal && Number.isFinite(Number(goal.x)) && Number.isFinite(Number(goal.z))
+      ? { x: Number(goal.x), z: Number(goal.z) }
+      : null;
     if (state.liveActive && !state.liveKeys.size) liveCommandChanged();
+    else publishLiveFlowStatus();
+    return;
+  }
+  if (event.data.type === 'live-flow:path') {
+    state.liveExternalMode = true;
+    const points = Array.isArray(event.data.points)
+      ? event.data.points
+        .map((point) => ({ time: Number(point.time), x: Number(point.x), z: Number(point.z) }))
+        .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.x) && Number.isFinite(point.z))
+        .sort((left, right) => left.time - right.time)
+      : [];
+    const revision = Math.max(0, Math.round(Number(event.data.revision) || 0));
+    const curved = Boolean(event.data.curved);
+    const curveStrength = Math.max(0.1, Math.min(1, Number(event.data.curveStrength) || 0.65));
+    const signature = JSON.stringify({ revision, points, curved, curveStrength });
+    const changed = signature !== state.liveExternalRoute.signature;
+    state.liveExternalRoute = {
+      points,
+      elapsed: Math.max(0, Number(event.data.elapsed) || 0),
+      revision,
+      curved,
+      curveStrength,
+      signature,
+    };
+    state.liveExternalVelocity = null;
+    const goal = points.find((point) => point.time > state.liveExternalRoute.elapsed + 0.001) || points.at(-1);
+    state.liveExternalGoal = goal ? { x: goal.x, z: goal.z } : null;
+    if (changed && state.liveActive && !state.liveKeys.size) liveCommandChanged();
     else publishLiveFlowStatus();
     return;
   }
@@ -2114,6 +2497,7 @@ window.addEventListener('message', (event) => {
     return;
   }
   if (event.data.type === 'live-flow:speak') {
+    addLiveRecordingAudio(event.data.recordingAudio, event.data.delay);
     const track = event.data.track;
     if (track?.frames?.length) {
       state.liveFacePlayback = {
@@ -2125,10 +2509,24 @@ window.addEventListener('message', (event) => {
     }
     return;
   }
+  if (event.data.type === 'live-flow:record-start') {
+    startLiveMp4Recording();
+    return;
+  }
+  if (event.data.type === 'live-flow:record-stop') {
+    stopLiveMp4Recording(event.data.expectedDuration);
+    return;
+  }
+  if (event.data.type === 'live-flow:record-abort') {
+    abortLiveMp4Recording(event.data.error);
+    return;
+  }
   if (event.data.type === 'live-flow:stop') {
     stopLive();
     state.liveExternalCacheKey = '';
     state.liveExternalVelocity = null;
+    state.liveExternalGoal = null;
+    state.liveExternalRoute = { points: [], elapsed: 0, revision: 0, curved: false, curveStrength: 0.65, signature: '' };
     state.liveExternalMode = true;
     publishLiveFlowStatus();
     return;
@@ -2244,6 +2642,7 @@ routeCanvas.addEventListener("pointerdown", (event) => {
   drawRoute(); routeCanvas.focus();
 });
 renderer.domElement.addEventListener("pointerdown", (event) => {
+  liveCameraTransition = null;
   drag = { x: event.clientX, y: event.clientY, external: state.liveExternalMode, yaw: orbit.yaw, yawOffset: state.liveCamera.yawOffset, pitch: orbit.pitch };
   renderer.domElement.setPointerCapture(event.pointerId);
 });
@@ -2260,7 +2659,7 @@ renderer.domElement.addEventListener("pointermove", (event) => {
 });
 renderer.domElement.addEventListener("pointerup", () => { drag = null; publishLiveFlowStatus(); });
 renderer.domElement.addEventListener("pointercancel", () => { drag = null; publishLiveFlowStatus(); });
-renderer.domElement.addEventListener("wheel", (event) => { event.preventDefault(); orbit.radius = Math.max(0.45, Math.min(12, orbit.radius * Math.exp(event.deltaY * 0.001))); updateCamera(); publishLiveFlowStatus(); }, { passive: false });
+renderer.domElement.addEventListener("wheel", (event) => { event.preventDefault(); liveCameraTransition = null; orbit.radius = Math.max(0.45, Math.min(12, orbit.radius * Math.exp(event.deltaY * 0.001))); updateCamera(); publishLiveFlowStatus(); }, { passive: false });
 $("undo").addEventListener("click", () => { if (state.points.length > 1) state.points.pop(); drawRoute(); });
 $("clear").addEventListener("click", () => { state.points = [{ x: 0, z: 0 }]; state.centerX = 0; state.centerZ = 0.6; drawRoute(); });
 $("fit").addEventListener("click", fitRoute);

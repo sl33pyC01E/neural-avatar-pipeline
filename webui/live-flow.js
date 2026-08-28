@@ -8,6 +8,10 @@
     entries: [],
     stack: [],
     idleKey: '',
+    secondaryIdleKey: '',
+    idleSwapSeconds: 12,
+    idlePhase: 0,
+    idleSwapAt: 0,
     activeKey: '',
     highlighted: 0,
     sessionActive: false,
@@ -20,6 +24,7 @@
     currentSpeechId: null,
     currentSource: null,
     audioContext: null,
+    speechEpoch: 0,
     sequence: 0,
     cueSequence: 0,
     speechSchedule: [],
@@ -31,8 +36,6 @@
     scheduleTimer: 0,
     elapsed: 0,
     livePosition: { x: 0, z: 0 },
-    lastPathVelocity: null,
-    lastPathSentAt: 0,
     speechLoop: false,
     embeddingLoop: false,
     pathLoop: false,
@@ -42,19 +45,28 @@
     speechElapsed: 0,
     embeddingElapsed: 0,
     pathElapsed: 0,
+    pathRevision: 0,
+    actualReplanBufferFrames: 3,
+    lastSeam: null,
+    playerVersion: 0,
     plannerCenter: { x: 0, z: 0 },
     plannerScale: 90,
-    camera: { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 },
+    camera: { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15, transition: 'cut', transitionSeconds: 2 },
     cameraStatusAt: 0,
     controlAfter: 0,
     controlPolling: false,
     apiKeyTimer: 0,
+    exportPending: false,
+    exporting: false,
+    exportStopRequested: false,
+    exportSettledAt: 0,
   };
 
   const $ = (selector) => document.querySelector(selector);
   const entryFor = (key) => state.entries.find((entry) => entry.key === key);
   const labelFor = (entry) => entry ? (entry.nickname?.trim() || entry.text) : 'missing embedding';
-  const effectiveKey = () => state.activeKey || state.idleKey;
+  const currentIdleKey = () => state.idlePhase === 1 && state.secondaryIdleKey ? state.secondaryIdleKey : state.idleKey;
+  const effectiveKey = () => state.activeKey || currentIdleKey();
   const playerPost = (message) => player.contentWindow?.postMessage(message, MOTION_API);
   const cueId = () => `cue-${Date.now().toString(36)}-${++state.cueSequence}`;
   const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -71,9 +83,11 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 6,
+        version: 10,
         stack: state.stack,
         idleKey: state.idleKey,
+        secondaryIdleKey: state.secondaryIdleKey,
+        idleSwapSeconds: state.idleSwapSeconds,
         activeKey: state.activeKey,
         highlighted: state.highlighted,
         speed: Number($('#live-speed').value),
@@ -83,6 +97,9 @@
         speechLoop: state.speechLoop,
         embeddingLoop: state.embeddingLoop,
         pathLoop: state.pathLoop,
+        pathCurved: $('#live-path-curved').checked,
+        pathCurveStrength: Number($('#live-path-curve-strength').value),
+        motionSettings: liveMotionSettings(),
         camera: state.camera,
       }));
     } catch {}
@@ -91,7 +108,7 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version)) {
+      if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(saved.version)) {
         state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
@@ -99,6 +116,11 @@
       }
       state.stack = Array.isArray(saved.stack) ? saved.stack.map(String) : [];
       state.idleKey = String(saved.idleKey || '');
+      if (saved.version >= 10) {
+        state.secondaryIdleKey = String(saved.secondaryIdleKey || '');
+        state.idleSwapSeconds = Math.max(1, Math.min(300, finite(saved.idleSwapSeconds, 12)));
+        $('#live-idle-swap-seconds').value = String(state.idleSwapSeconds);
+      }
       state.activeKey = String(saved.activeKey || '');
       state.highlighted = Math.max(0, Number(saved.highlighted) || 0);
       if (Number.isFinite(Number(saved.speed))) $('#live-speed').value = String(saved.speed);
@@ -108,11 +130,28 @@
         state.pathSchedule = Array.isArray(saved.pathSchedule) ? saved.pathSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), x: finite(cue.x), z: finite(cue.z) })) : [];
       }
       if (saved.version >= 3) state.pathLoop = Boolean(saved.pathLoop);
+      if (saved.version >= 9) {
+        $('#live-path-curved').checked = Boolean(saved.pathCurved);
+        if (Number.isFinite(Number(saved.pathCurveStrength))) $('#live-path-curve-strength').value = String(saved.pathCurveStrength);
+      }
       if (saved.version >= 4) {
         state.speechLoop = Boolean(saved.speechLoop);
         state.embeddingLoop = Boolean(saved.embeddingLoop);
       }
       if (saved.version >= 5 && saved.camera && typeof saved.camera === 'object') state.camera = { ...state.camera, ...saved.camera };
+      if (saved.version >= 7 && saved.motionSettings && typeof saved.motionSettings === 'object') {
+        const motion = saved.motionSettings;
+        if (Number.isFinite(Number(motion.steeringBlend))) $('#live-steering-blend').value = String(motion.steeringBlend);
+        if (Number.isFinite(Number(motion.denoisingSteps))) $('#live-denoising-steps').value = String(motion.denoisingSteps);
+        if (Number.isFinite(Number(motion.constraintGuidance))) $('#live-constraint-guidance').value = String(motion.constraintGuidance);
+        if (Number.isFinite(Number(motion.textGuidance))) $('#live-text-guidance').value = String(motion.textGuidance);
+        if (Number.isFinite(Number(motion.historyFrames))) $('#live-history-frames').value = String(motion.historyFrames);
+        else if (Number.isFinite(Number(motion.historySeconds))) $('#live-history-frames').value = String(Math.max(4, Math.round(Number(motion.historySeconds) * 20 / 4) * 4));
+        if (Number.isFinite(Number(motion.seamBlendFrames))) $('#live-seam-blend-frames').value = String(motion.seamBlendFrames);
+        if (Number.isFinite(Number(motion.replanBufferFrames))) $('#live-replan-buffer-frames').value = String(motion.replanBufferFrames);
+        if (typeof motion.adaptiveReplanBuffer === 'boolean') $('#live-adaptive-replan-buffer').checked = motion.adaptiveReplanBuffer;
+        if (typeof motion.headingEnabled === 'boolean') $('#live-heading-enabled').checked = motion.headingEnabled;
+      }
     } catch {}
     if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
     if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
@@ -128,6 +167,8 @@
       const namedIdle = state.entries.find((entry) => /^(idle|neutral|rest)$/i.test(entry.nickname?.trim() || entry.text.trim()));
       state.idleKey = namedIdle?.key || '';
     }
+    if (!valid.has(state.secondaryIdleKey) || state.secondaryIdleKey === state.idleKey) state.secondaryIdleKey = '';
+    if (state.activeKey === state.idleKey || state.activeKey === state.secondaryIdleKey) state.activeKey = '';
     if (!state.stack.includes(state.activeKey)) state.activeKey = '';
     state.highlighted = Math.max(0, Math.min(state.highlighted, Math.max(0, state.stack.length - 1)));
     renderEmbeddingControls();
@@ -197,6 +238,7 @@
       const result = await postMotion('/api/live/text-cache/delete', { key });
       const deletedIdle = state.idleKey === key;
       if (deletedIdle) state.idleKey = '';
+      if (state.secondaryIdleKey === key) state.secondaryIdleKey = '';
       if (state.activeKey === key) state.activeKey = '';
       state.stack = state.stack.filter((item) => item !== key);
       installEntries(result.entries);
@@ -296,12 +338,26 @@
     const endpoints = rawPathEndpoints();
     const last = endpoints[endpoints.length - 1];
     const speed = Math.max(0.1, finite($('#live-speed').value, 0.8));
-    const returnEnd = last ? last.time + Math.hypot(last.x, last.z) / speed : 0;
+    const curve = pathCurveSettings();
+    const basePoints = endpoints[0]?.time <= 0.03 && Math.hypot(endpoints[0].x, endpoints[0].z) < 0.001
+      ? endpoints
+      : [{ time: 0, x: 0, z: 0 }, ...endpoints];
+    const returnPoints = last ? [...basePoints, { x: 0, z: 0 }] : [];
+    const returnDistance = last
+      ? curve.curved
+        ? curvedSegmentLength(returnPoints, returnPoints.length - 1, curve.strength)
+        : Math.hypot(last.x, last.z)
+      : 0;
+    const returnEnd = last ? last.time + returnDistance / speed : 0;
     return Math.max(1, returnEnd);
   }
 
   function effectivePathEndpoints() {
     const endpoints = rawPathEndpoints();
+    // The default origin row describes the starting position; it is not a
+    // route. Treat any all-origin schedule as idle so root-motion drift cannot
+    // trigger a perpetual correction loop back to (0, 0).
+    if (!endpoints.length || endpoints.every((point) => Math.hypot(point.x, point.z) < 0.001)) return [];
     if (!state.pathLoop || !endpoints.length) return endpoints;
     const last = endpoints[endpoints.length - 1];
     if (Math.hypot(last.x, last.z) < 0.001) return endpoints;
@@ -330,10 +386,60 @@
     return points.map((point, index) => index === 0 ? { ...point, origin: true } : point);
   }
 
+  function pathCurveSettings() {
+    return {
+      curved: $('#live-path-curved').checked,
+      strength: Math.max(0.1, Math.min(1, finite($('#live-path-curve-strength').value, 0.65))),
+    };
+  }
+
+  function renderPathCurveControls() {
+    const curve = pathCurveSettings();
+    $('#live-path-curve-strength').disabled = !curve.curved;
+    $('#live-path-curve-strength-out').textContent = curve.strength.toFixed(2);
+  }
+
+  function curvedSegmentPoint(points, index, alpha, strength = pathCurveSettings().strength) {
+    const start = points[index - 1];
+    const end = points[index];
+    if (!start || !end) return end || start || { x: 0, z: 0 };
+    const previous = points[Math.max(0, index - 2)] || start;
+    const next = points[Math.min(points.length - 1, index + 1)] || end;
+    const segmentLength = Math.hypot(end.x - start.x, end.z - start.z);
+    if (segmentLength < 1e-6) return { x: start.x, z: start.z };
+    const firstLength = Math.hypot(end.x - previous.x, end.z - previous.z) || 1;
+    const secondLength = Math.hypot(next.x - start.x, next.z - start.z) || 1;
+    const handle = segmentLength * Math.max(0, Math.min(1, strength)) / 3;
+    const c1 = { x: start.x + (end.x - previous.x) / firstLength * handle, z: start.z + (end.z - previous.z) / firstLength * handle };
+    const c2 = { x: end.x - (next.x - start.x) / secondLength * handle, z: end.z - (next.z - start.z) / secondLength * handle };
+    const t = Math.max(0, Math.min(1, alpha));
+    const inverse = 1 - t;
+    return {
+      x: inverse ** 3 * start.x + 3 * inverse ** 2 * t * c1.x + 3 * inverse * t ** 2 * c2.x + t ** 3 * end.x,
+      z: inverse ** 3 * start.z + 3 * inverse ** 2 * t * c1.z + 3 * inverse * t ** 2 * c2.z + t ** 3 * end.z,
+    };
+  }
+
+  function curvedSegmentLength(points, index, strength = pathCurveSettings().strength) {
+    let total = 0;
+    let previous = curvedSegmentPoint(points, index, 0, strength);
+    for (let step = 1; step <= 24; step += 1) {
+      const current = curvedSegmentPoint(points, index, step / 24, strength);
+      total += Math.hypot(current.x - previous.x, current.z - previous.z);
+      previous = current;
+    }
+    return total;
+  }
+
   function pathDistance() {
     const points = plannerRoutePoints();
     let total = 0;
-    for (let index = 1; index < points.length; index += 1) total += Math.hypot(points[index].x - points[index - 1].x, points[index].z - points[index - 1].z);
+    const curve = pathCurveSettings();
+    for (let index = 1; index < points.length; index += 1) {
+      total += curve.curved
+        ? curvedSegmentLength(points, index, curve.strength)
+        : Math.hypot(points[index].x - points[index - 1].x, points[index].z - points[index - 1].z);
+    }
     return total;
   }
 
@@ -353,12 +459,23 @@
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pathCanvas.width, y); ctx.stroke();
     }
     const route = plannerRoutePoints();
+    const curve = pathCurveSettings();
     for (let index = 1; index < route.length; index += 1) {
-      const from = plannerPoint(route[index - 1]); const to = plannerPoint(route[index]);
+      const from = plannerPoint(route[index - 1]);
       ctx.save();
       if (route[index].loopOrigin) ctx.setLineDash([7, 5]);
       ctx.lineCap = 'round'; ctx.strokeStyle = '#67e3b599'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(from.x, from.y);
+      if (curve.curved) {
+        for (let step = 1; step <= 24; step += 1) {
+          const sampled = plannerPoint(curvedSegmentPoint(route, index, step / 24, curve.strength));
+          ctx.lineTo(sampled.x, sampled.y);
+        }
+      } else {
+        const to = plannerPoint(route[index]);
+        ctx.lineTo(to.x, to.y);
+      }
+      ctx.stroke(); ctx.restore();
     }
     route.forEach((point, index) => {
       const screen = plannerPoint(point);
@@ -409,6 +526,8 @@
   }
 
   function renderPathSchedule() {
+    state.pathRevision += 1;
+    if (state.sessionActive) steerScheduledPath();
     const container = $('#live-path-schedule');
     container.replaceChildren();
     for (const cue of state.pathSchedule) {
@@ -425,6 +544,7 @@
 
   function renderEmbeddingControls() {
     populateSelect($('#live-idle-embedding'), 'Choose idle…', state.idleKey);
+    populateSelect($('#live-secondary-idle-embedding'), 'No secondary idle', state.secondaryIdleKey);
     populateSelect($('#live-stack-source'), 'Choose embedding…');
     const stack = $('#live-embedding-stack');
     stack.replaceChildren();
@@ -476,15 +596,33 @@
       const empty = document.createElement('div'); empty.className = 'stack-empty'; empty.textContent = 'No permanent embeddings yet.'; manager.appendChild(empty);
     }
     const effective = entryFor(effectiveKey());
-    $('#effective-embedding').textContent = effective ? `${state.activeKey ? 'active' : 'idle'} · ${labelFor(effective)}` : 'idle not set';
+    const idlePair = state.secondaryIdleKey ? ` ${state.idlePhase + 1}/2` : '';
+    $('#effective-embedding').textContent = effective ? `${state.activeKey ? 'active' : `idle${idlePair}`} · ${labelFor(effective)}` : 'idle not set';
     $('#live-embedding-hud').textContent = effective ? labelFor(effective) : 'idle missing';
     $('#live-embedding-hud').classList.toggle('active', Boolean(state.activeKey));
     $('#live-session-toggle').disabled = !state.idleKey;
   }
 
   function setActiveEmbedding(key) {
-    state.activeKey = state.stack.includes(key) ? key : '';
+    const selected = state.stack.includes(key) ? key : '';
+    state.activeKey = selected === state.idleKey || selected === state.secondaryIdleKey ? '' : selected;
+    resetIdleAlternation();
     renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+  }
+
+  function resetIdleAlternation() {
+    state.idlePhase = 0;
+    state.idleSwapAt = performance.now() + state.idleSwapSeconds * 1000;
+  }
+
+  function updateIdleAlternation(now) {
+    if (state.activeKey || !state.secondaryIdleKey || state.secondaryIdleKey === state.idleKey) return;
+    if (!state.idleSwapAt) resetIdleAlternation();
+    if (now < state.idleSwapAt) return;
+    state.idlePhase = state.idlePhase === 0 ? 1 : 0;
+    state.idleSwapAt = now + state.idleSwapSeconds * 1000;
+    renderEmbeddingControls();
+    sendEffectiveEmbedding();
   }
 
   function sendEffectiveEmbedding() {
@@ -493,13 +631,47 @@
     if (key) playerPost({ type: 'live-flow:set-embedding', cacheKey: key });
   }
 
+  function liveMotionSettings() {
+    return {
+      speed: Math.max(0.1, Math.min(2.5, finite($('#live-speed').value, 0.8))),
+      steeringBlend: Math.max(0.1, Math.min(2, finite($('#live-steering-blend').value, 1))),
+      denoisingSteps: Math.max(1, Math.min(10, Math.round(finite($('#live-denoising-steps').value, 4)))),
+      constraintGuidance: Math.max(0.5, Math.min(4, finite($('#live-constraint-guidance').value, 2))),
+      textGuidance: Math.max(0.5, Math.min(5, finite($('#live-text-guidance').value, 3))),
+      historyFrames: Math.max(4, Math.min(80, Math.round(finite($('#live-history-frames').value, 8) / 4) * 4)),
+      seamBlendFrames: Math.max(0, Math.min(12, Math.round(finite($('#live-seam-blend-frames').value, 6)))),
+      adaptiveReplanBuffer: $('#live-adaptive-replan-buffer').checked,
+      replanBufferFrames: Math.max(0, Math.min(12, Math.round(finite($('#live-replan-buffer-frames').value, 3)))),
+      headingEnabled: $('#live-heading-enabled').checked,
+    };
+  }
+
+  function renderMotionSettings() {
+    const settings = liveMotionSettings();
+    $('#live-speed-out').textContent = `${settings.speed.toFixed(2)} m/s`;
+    $('#live-steering-blend-out').textContent = `${settings.steeringBlend.toFixed(1)} s`;
+    $('#live-denoising-steps-out').textContent = String(settings.denoisingSteps);
+    $('#live-constraint-guidance-out').textContent = settings.constraintGuidance.toFixed(1);
+    $('#live-text-guidance-out').textContent = settings.textGuidance.toFixed(1);
+    $('#live-history-frames-out').textContent = `${settings.historyFrames} frames`;
+    $('#live-seam-blend-frames-out').textContent = `${settings.seamBlendFrames} frames`;
+    $('#live-replan-buffer-frames').disabled = settings.adaptiveReplanBuffer;
+    $('#live-replan-buffer-frames-out').textContent = settings.adaptiveReplanBuffer
+      ? `auto · ${state.actualReplanBufferFrames} frames`
+      : `${settings.replanBufferFrames} frames`;
+  }
+
+  function sendMotionSettings() {
+    playerPost({ type: 'live-flow:settings', settings: liveMotionSettings() });
+  }
+
   function handleArrow(key) {
     if (!state.stack.length) return;
     if (key === 'ArrowUp') state.highlighted = (state.highlighted - 1 + state.stack.length) % state.stack.length;
     if (key === 'ArrowDown') state.highlighted = (state.highlighted + 1) % state.stack.length;
-    if (key === 'ArrowRight') state.activeKey = state.stack[state.highlighted];
-    if (key === 'ArrowLeft' && state.activeKey === state.stack[state.highlighted]) state.activeKey = '';
-    renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+    if (key === 'ArrowRight') { setActiveEmbedding(state.stack[state.highlighted]); return; }
+    if (key === 'ArrowLeft' && state.activeKey === state.stack[state.highlighted]) { setActiveEmbedding(''); return; }
+    renderEmbeddingControls(); saveWorkspace();
   }
 
   function renderCameraControls(syncInputs = true) {
@@ -514,23 +686,28 @@
       $('#live-camera-pitch').value = String(camera.pitch);
       $('#live-camera-orbit-speed').value = String(camera.orbitSpeed);
       $('#live-camera-smoothing').value = String(camera.smoothing);
+      $('#live-camera-transition').value = camera.transition;
+      $('#live-camera-transition-seconds').value = String(camera.transitionSeconds);
     }
     $('#live-camera-distance-out').textContent = `${finite(camera.distance, 4.15).toFixed(2)} m`;
     $('#live-camera-yaw-out').textContent = `${Math.round(finite(camera.yaw, 41))}°`;
     $('#live-camera-pitch-out').textContent = `${Math.round(finite(camera.pitch, 68))}°`;
     $('#live-camera-orbit-speed-out').textContent = `${Math.round(finite(camera.orbitSpeed, 12))}°/s`;
     $('#live-camera-smoothing-out').textContent = `${finite(camera.smoothing, 5).toFixed(1)}×`;
+    $('#live-camera-transition-seconds-out').textContent = `${finite(camera.transitionSeconds, 2).toFixed(2)} s`;
     const anchorLabel = camera.directionAnchor === 'world' ? 'world-facing' : `${camera.directionAnchor}-facing`;
-    $('#live-camera-status').textContent = `${camera.target} · ${anchorLabel} · ${camera.follow ? 'following' : 'fixed'}${camera.orbit ? ' · orbiting' : ''}`;
+    const transitionLabel = camera.transition === 'move' ? `move ${camera.transitionSeconds.toFixed(2)}s` : 'cut';
+    $('#live-camera-status').textContent = `${camera.target} · ${anchorLabel} · ${camera.follow ? 'following' : 'fixed'}${camera.orbit ? ' · orbiting' : ''} · ${transitionLabel}`;
   }
 
-  function sendCameraSettings() {
-    playerPost({ type: 'live-flow:camera', camera: { ...state.camera } });
+  function sendCameraSettings(transitionOverride = null) {
+    playerPost({ type: 'live-flow:camera', camera: { ...state.camera, transition: transitionOverride || state.camera.transition } });
   }
 
-  function setCamera(patch, send = true) {
+  function setCamera(patch, send = true, transitionOverride = null) {
     const target = ['face', 'torso', 'hips', 'full'].includes(patch.target) ? patch.target : state.camera.target;
     const directionAnchor = ['world', 'face', 'torso', 'feet'].includes(patch.directionAnchor) ? patch.directionAnchor : state.camera.directionAnchor;
+    const transition = ['cut', 'move'].includes(patch.transition) ? patch.transition : state.camera.transition;
     state.camera = {
       ...state.camera,
       ...patch,
@@ -544,15 +721,17 @@
       orbitSpeed: Math.max(-90, Math.min(90, finite(patch.orbitSpeed, state.camera.orbitSpeed))),
       smoothing: Math.max(0.5, Math.min(20, finite(patch.smoothing, state.camera.smoothing))),
       targetOffsetY: Math.max(-1, Math.min(1, finite(patch.targetOffsetY, state.camera.targetOffsetY))),
+      transition,
+      transitionSeconds: Math.max(0.1, Math.min(30, finite(patch.transitionSeconds ?? patch.duration, state.camera.transitionSeconds))),
     };
     renderCameraControls(); saveWorkspace();
-    if (send) sendCameraSettings();
+    if (send) sendCameraSettings(transitionOverride);
   }
 
-  function resetCamera() {
-    state.camera = { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 };
-    renderCameraControls(); saveWorkspace();
-    playerPost({ type: 'live-flow:camera-reset' });
+  function resetCamera(options = {}) {
+    const transition = ['cut', 'move'].includes(options.transition) ? options.transition : state.camera.transition;
+    const transitionSeconds = Math.max(0.1, Math.min(30, finite(options.transitionSeconds ?? options.duration, state.camera.transitionSeconds)));
+    setCamera({ target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15, transition, transitionSeconds });
   }
 
   function updateSessionUi(message = '') {
@@ -560,7 +739,7 @@
     badge.textContent = state.sessionActive ? 'live' : 'stopped';
     badge.classList.toggle('online', state.sessionActive);
     $('#live-session-toggle').textContent = state.sessionActive ? 'Stop live session' : 'Start live session';
-    $('#live-session-toggle').disabled = !state.sessionActive && !state.idleKey;
+    $('#live-session-toggle').disabled = state.exporting || (!state.sessionActive && !state.idleKey);
     $('#create-embedding').disabled = state.sessionActive;
     const hud = $('#live-motion-hud');
     hud.textContent = state.sessionActive ? 'ARDY Core-40 live' : 'ARDY stopped';
@@ -575,9 +754,9 @@
     state.speechCycleStartedAt = 0;
     state.embeddingCycleStartedAt = 0;
     state.pathCycleStartedAt = 0;
-    state.lastPathVelocity = null;
-    state.lastPathSentAt = 0;
     playerPost({ type: 'live-flow:velocity', velocity: null });
+    state.pathRevision += 1;
+    playerPost({ type: 'live-flow:path', points: [], elapsed: 0, revision: state.pathRevision });
     if (resetClock) {
       state.elapsed = 0;
       state.speechElapsed = 0;
@@ -588,39 +767,57 @@
     }
   }
 
-  function sendPathVelocity(velocity, force = false) {
-    const previous = state.lastPathVelocity;
-    const changed = !previous !== !velocity || (previous && velocity && Math.hypot(previous.x - velocity.x, previous.z - velocity.z) > 0.04);
-    const overdue = Boolean(velocity) && performance.now() - state.lastPathSentAt > 900;
-    if (!force && !changed && !overdue) return;
-    state.lastPathVelocity = velocity ? { ...velocity } : null;
-    state.lastPathSentAt = performance.now();
-    playerPost({ type: 'live-flow:velocity', velocity });
+  function scheduledPathPlan(endpoints) {
+    const origin = { id: '__path-origin__', time: 0, x: 0, z: 0 };
+    const points = endpoints[0]?.time <= 0.03 && Math.hypot(endpoints[0].x, endpoints[0].z) < 0.001
+      ? endpoints
+      : [origin, ...endpoints];
+    let nextIndex = points.findIndex((point) => point.time > state.pathElapsed + 0.001);
+    if (nextIndex < 0) {
+      const final = points.at(-1);
+      return { target: final, planned: { x: final.x, z: final.z }, velocity: { x: 0, z: 0 }, final: true };
+    }
+    const target = points[nextIndex];
+    const previous = points[Math.max(0, nextIndex - 1)] || origin;
+    const duration = Math.max(0.1, target.time - previous.time);
+    const progress = Math.max(0, Math.min(1, (state.pathElapsed - previous.time) / duration));
+    return {
+      target,
+      planned: {
+        x: previous.x + (target.x - previous.x) * progress,
+        z: previous.z + (target.z - previous.z) * progress,
+      },
+      velocity: {
+        x: (target.x - previous.x) / duration,
+        z: (target.z - previous.z) / duration,
+      },
+      final: false,
+    };
   }
 
   function steerScheduledPath() {
     const endpoints = effectivePathEndpoints();
     if (!endpoints.length) {
-      sendPathVelocity(null);
+      playerPost({ type: 'live-flow:path', points: [], elapsed: state.pathElapsed, revision: state.pathRevision });
       $('#live-path-hud').textContent = 'path idle';
       return;
     }
-    const target = endpoints.find((cue) => cue.time > state.pathElapsed + 0.03) || endpoints[endpoints.length - 1];
-    const dx = target.x - state.livePosition.x;
-    const dz = target.z - state.livePosition.z;
-    const distance = Math.hypot(dx, dz);
-    if (distance < 0.06) {
-      sendPathVelocity(null);
-      $('#live-path-hud').textContent = `path · ${target.x.toFixed(1)}, ${target.z.toFixed(1)}`;
-      return;
-    }
-    const limit = Math.max(0.1, finite($('#live-speed').value, 0.8));
-    const remaining = Math.max(0.08, target.time - state.pathElapsed);
-    const speed = Math.min(limit, distance / remaining);
-    const velocity = { x: dx / distance * speed, z: dz / distance * speed };
-    sendPathVelocity(velocity);
+    const routePoints = endpoints[0]?.time <= 0.03 && Math.hypot(endpoints[0].x, endpoints[0].z) < 0.001
+      ? endpoints
+      : [{ id: '__path-origin__', time: 0, x: 0, z: 0 }, ...endpoints];
+    const plan = scheduledPathPlan(routePoints);
+    const curve = pathCurveSettings();
+    playerPost({
+      type: 'live-flow:path',
+      points: routePoints.map(({ time, x, z }) => ({ time, x, z })),
+      elapsed: state.pathElapsed,
+      revision: state.pathRevision,
+      curved: curve.curved,
+      curveStrength: curve.strength,
+    });
     const manual = state.keys.size ? ' · WASD override' : '';
-    $('#live-path-hud').textContent = `to ${target.x.toFixed(1)}, ${target.z.toFixed(1)} @ ${target.time.toFixed(1)}s${manual}`;
+    const phase = plan.final ? 'complete' : 'to';
+    $('#live-path-hud').textContent = `${phase} ${plan.target.x.toFixed(1)}, ${plan.target.z.toFixed(1)} @ ${plan.target.time.toFixed(1)}s${manual}`;
   }
 
   function tickTimeline() {
@@ -644,15 +841,18 @@
       if (!state.firedEmbeddings.has(cue.id) && cue.time <= state.embeddingElapsed && cue.cacheKey) {
         state.firedEmbeddings.add(cue.id);
         embeddingChanged = true;
-        state.activeKey = cue.cacheKey === '__idle__' || !entryFor(cue.cacheKey) ? '' : cue.cacheKey;
+        const selected = cue.cacheKey === '__idle__' || !entryFor(cue.cacheKey) ? '' : cue.cacheKey;
+        state.activeKey = selected === state.idleKey || selected === state.secondaryIdleKey ? '' : selected;
+        resetIdleAlternation();
         renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
       }
     }
+    updateIdleAlternation(now);
     steerScheduledPath();
     if (speechChanged) renderSpeechSchedule();
     if (embeddingChanged) renderEmbeddingSchedule();
     drawPathPlanner();
-    if (state.speechLoop && state.speechElapsed >= speechLoopDuration()) {
+    if (!state.exporting && state.speechLoop && state.speechElapsed >= speechLoopDuration()) {
       const scheduledSpeechBusy = state.speech.some((item) => item.source === 'schedule' && ['queued', 'PocketTTS', 'LAM', 'ready', 'speaking'].includes(item.status));
       if (!scheduledSpeechBusy) {
         state.speechCycleStartedAt = now;
@@ -661,22 +861,63 @@
         renderSpeechSchedule();
       }
     }
-    if (state.embeddingLoop && state.embeddingElapsed >= embeddingLoopDuration()) {
+    if (!state.exporting && state.embeddingLoop && state.embeddingElapsed >= embeddingLoopDuration()) {
       state.embeddingCycleStartedAt = now;
       state.embeddingElapsed = 0;
       state.firedEmbeddings.clear();
       renderEmbeddingSchedule();
     }
-    if (state.pathLoop && state.pathElapsed >= pathLoopDuration()) {
-      const hasRoute = rawPathEndpoints().length > 0;
+    if (!state.exporting && state.pathLoop && state.pathElapsed >= pathLoopDuration()) {
+      const hasRoute = effectivePathEndpoints().length > 0;
       const routeComplete = !hasRoute || Math.hypot(state.livePosition.x, state.livePosition.z) < 0.2;
-      if (!state.keys.size && routeComplete) {
+      if (hasRoute && !state.keys.size && routeComplete) {
         state.pathCycleStartedAt = now;
         state.pathElapsed = 0;
-        sendPathVelocity(null, true);
+        state.pathRevision += 1;
         steerScheduledPath();
       }
     }
+    if (state.exporting && !state.exportPending && state.elapsed >= singlePassDuration()) {
+      const speechBusy = state.preparing || state.speaking || state.speech.some((item) => ['queued', 'PocketTTS', 'LAM', 'ready', 'speaking'].includes(item.status));
+      if (speechBusy) state.exportSettledAt = 0;
+      else {
+        state.exportSettledAt ||= now;
+        // Preserve a short post-roll so the end of the final face motion and a
+        // voice-led camera move are not cut off the instant speech ends.
+        if (now - state.exportSettledAt >= 2000 && !state.exportStopRequested) {
+          state.exportSettledAt = 0;
+          state.exportStopRequested = true;
+          playerPost({ type: 'live-flow:record-stop', expectedDuration: state.elapsed });
+          $('#live-export-mp4').textContent = 'Encoding MP4…';
+        }
+      }
+    }
+  }
+
+  function singlePassDuration() {
+    const speechEnd = Math.max(0, ...state.speechSchedule.filter((cue) => cue.text.trim()).map((cue) => cue.time));
+    const embeddingEnd = Math.max(0, ...state.embeddingSchedule.filter((cue) => cue.cacheKey).map((cue) => cue.time));
+    const endpoints = rawPathEndpoints();
+    const pathEnd = endpoints.length ? (state.pathLoop ? pathLoopDuration() : endpoints.at(-1).time) : 0;
+    return Math.max(1, speechEnd, embeddingEnd, pathEnd);
+  }
+
+  async function beginSinglePassExport() {
+    if (state.exporting) return;
+    if (!state.idleKey) { setManagerStatus('Choose an idle fallback before exporting.', true); return; }
+    state.exporting = true;
+    state.exportPending = true;
+    state.exportStopRequested = false;
+    state.exportSettledAt = 0;
+    $('#live-export-mp4').disabled = true;
+    $('#live-export-mp4').textContent = 'Preparing capture…';
+    // A one-pass export starts from only the explicit schedule. Invalidate any
+    // in-flight manual synthesis so an older line cannot enter the recording.
+    state.speechEpoch += 1;
+    if (state.sessionActive) await setSession(false);
+    state.speech = [];
+    renderSpeechQueue();
+    await setSession(true);
   }
 
   function startTimeline(preservePosition = false) {
@@ -692,6 +933,12 @@
     state.speechCycleStartedAt = state.sessionStartedAt;
     state.embeddingCycleStartedAt = state.sessionStartedAt;
     state.pathCycleStartedAt = state.sessionStartedAt;
+    resetIdleAlternation();
+    if (state.exportPending) {
+      state.exportPending = false;
+      playerPost({ type: 'live-flow:record-start' });
+      $('#live-export-mp4').textContent = 'Recording one pass…';
+    }
     state.scheduleTimer = window.setInterval(tickTimeline, 100);
     renderSpeechSchedule();
     renderEmbeddingSchedule();
@@ -705,6 +952,7 @@
       await state.audioContext.resume().catch(() => {});
       state.sessionActive = true;
       state.motionReady = false;
+      resetIdleAlternation();
       stopTimeline(false);
       state.firedSpeech.clear();
       state.firedEmbeddings.clear();
@@ -716,8 +964,7 @@
       playerPost({
         type: 'live-flow:start',
         cacheKey: effectiveKey(),
-        speed: Number($('#live-speed').value),
-        smoothing: 1,
+        settings: liveMotionSettings(),
         keys: [...state.keys],
       });
       sendCameraSettings();
@@ -781,12 +1028,14 @@
     if (state.preparing) return;
     const item = state.speech.find((candidate) => candidate.status === 'queued');
     if (!item) return;
+    const epoch = state.speechEpoch;
     state.preparing = true;
     try {
       item.status = 'PocketTTS'; renderSpeechQueue(); $('#live-speech-hud').textContent = 'synthesizing';
       const totalStarted = performance.now();
       const ttsStarted = performance.now();
       const ttsResponse = await fetch(`${TTS_API}/api/tts`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: item.text }) });
+      if (epoch !== state.speechEpoch) return;
       if (!ttsResponse.ok) { const error = await ttsResponse.json().catch(() => ({})); throw new Error(error.error || 'PocketTTS failed.'); }
       item.ttsMs = Number(ttsResponse.headers.get('x-tts-latency-ms')) || performance.now() - ttsStarted;
       const wav = await ttsResponse.arrayBuffer();
@@ -798,6 +1047,7 @@
       const lamStarted = performance.now();
       const lamResponse = await fetch(`${LAM_API}/api/infer/lam`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-sample-rate': String(decoded.sampleRate) }, body: payload });
       const inference = await lamResponse.json();
+      if (epoch !== state.speechEpoch) return;
       if (!lamResponse.ok || !inference.ok) throw new Error(inference.error || 'LAM facial animation failed.');
       item.lamMs = performance.now() - lamStarted;
       item.audio = decoded;
@@ -811,7 +1061,7 @@
         names: inference.names,
         frames: inference.frames,
         naturalMotion: true,
-        scales: { eyes: 1.55, head: 1, mouth: 0.57 },
+        scales: { eyes: 1.55, head: 1, mouth: 0.7 },
       };
       item.status = 'ready';
       item.totalMs = performance.now() - totalStarted;
@@ -819,6 +1069,7 @@
       renderSpeechQueue();
       pumpSpeech();
     } catch (error) {
+      if (epoch !== state.speechEpoch) return;
       item.status = `error · ${error.message || String(error)}`;
       $('#live-speech-hud').textContent = 'speech error';
       renderSpeechQueue();
@@ -844,7 +1095,14 @@
     item.status = 'speaking';
     renderSpeechQueue();
     $('#live-speech-hud').textContent = 'Anna speaking';
-    playerPost({ type: 'live-flow:speak', track: item.track, delay });
+    const recordingAudio = state.exporting ? {
+      sampleRate: item.audio.sampleRate,
+      channels: Array.from({ length: item.audio.numberOfChannels }, (_, channel) => {
+        const values = item.audio.getChannelData(channel);
+        return values.buffer.slice(values.byteOffset, values.byteOffset + values.byteLength);
+      }),
+    } : null;
+    playerPost({ type: 'live-flow:speak', track: item.track, delay, recordingAudio });
     source.onended = () => {
       if (state.currentSpeechId !== item.id) return;
       item.status = 'done';
@@ -881,6 +1139,7 @@
 
   function controlSnapshot() {
     return {
+      uiVersion: 19,
       timestamp: new Date().toISOString(),
       view: state.view,
       session: { active: state.sessionActive, motionReady: state.motionReady, elapsed: Number(state.elapsed.toFixed(2)) },
@@ -892,6 +1151,9 @@
       embeddings: {
         available: state.entries.map(({ key, nickname, text }) => ({ key, nickname: nickname || '', text })),
         idleKey: state.idleKey,
+        secondaryIdleKey: state.secondaryIdleKey,
+        idleSwapSeconds: state.idleSwapSeconds,
+        idlePhase: state.idlePhase,
         activeKey: state.activeKey,
         effectiveKey: effectiveKey(),
         stack: [...state.stack],
@@ -901,11 +1163,15 @@
       path: {
         position: { ...state.livePosition },
         endpoints: state.pathSchedule.map(({ time, x, z }) => ({ time, x, z })),
+        curved: pathCurveSettings().curved,
+        curveStrength: pathCurveSettings().strength,
         loop: state.pathLoop,
         cycleElapsed: Number(state.pathElapsed.toFixed(2)),
         manualKeys: [...state.keys],
       },
       camera: { ...state.camera },
+      motion: { ...liveMotionSettings(), lastSeam: state.lastSeam, playerVersion: state.playerVersion },
+      face: { mouthGain: 0.7 },
     };
   }
 
@@ -938,15 +1204,29 @@
       }
       case 'embedding.activate': {
         const key = resolveEmbedding(args.selector ?? args.cacheKey);
-        state.activeKey = key; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
-        return { activeKey: key, label: labelFor(entryFor(key)) };
+        state.activeKey = key === state.idleKey || key === state.secondaryIdleKey ? '' : key;
+        resetIdleAlternation(); renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+        return { activeKey: state.activeKey, effectiveKey: effectiveKey(), label: labelFor(entryFor(effectiveKey())) };
       }
       case 'embedding.release':
-        state.activeKey = ''; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); return { activeKey: '', idleKey: state.idleKey };
+        state.activeKey = ''; resetIdleAlternation(); renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); return { activeKey: '', idleKey: effectiveKey() };
       case 'embedding.idle.set': {
         state.idleKey = resolveEmbedding(args.selector ?? args.cacheKey);
+        if (state.secondaryIdleKey === state.idleKey) state.secondaryIdleKey = '';
+        if (state.activeKey === state.idleKey) state.activeKey = '';
+        resetIdleAlternation();
         renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi();
         return { idleKey: state.idleKey, label: labelFor(entryFor(state.idleKey)) };
+      }
+      case 'embedding.idle-pair.set': {
+        state.idleKey = resolveEmbedding(args.primary ?? args.selector);
+        state.secondaryIdleKey = args.secondary ? resolveEmbedding(args.secondary) : '';
+        if (state.secondaryIdleKey === state.idleKey) state.secondaryIdleKey = '';
+        if (state.activeKey === state.idleKey || state.activeKey === state.secondaryIdleKey) state.activeKey = '';
+        state.idleSwapSeconds = Math.max(1, Math.min(300, finite(args.intervalSeconds, state.idleSwapSeconds)));
+        $('#live-idle-swap-seconds').value = String(state.idleSwapSeconds);
+        resetIdleAlternation(); renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi();
+        return { primaryIdleKey: state.idleKey, secondaryIdleKey: state.secondaryIdleKey, intervalSeconds: state.idleSwapSeconds };
       }
       case 'embedding.stack.set': {
         if (!Array.isArray(args.selectors) || args.selectors.length > 100) throw new Error('embedding.stack.set requires args.selectors with at most 100 entries.');
@@ -977,6 +1257,8 @@
         if (!Array.isArray(endpoints) || endpoints.length > 500) throw new Error('path.schedule.set requires args.endpoints with at most 500 entries.');
         state.pathSchedule = endpoints.map((point) => ({ id: cueId(), time: Math.max(0, finite(point.time)), x: finite(point.x), z: finite(point.z) }));
         if (typeof args.loop === 'boolean') state.pathLoop = args.loop;
+        if (typeof args.curved === 'boolean') $('#live-path-curved').checked = args.curved;
+        if (args.curveStrength != null) $('#live-path-curve-strength').value = String(Math.max(0.1, Math.min(1, finite(args.curveStrength, 0.65))));
         state.pathCycleStartedAt = performance.now(); state.pathElapsed = 0;
         $('#live-path-loop').checked = state.pathLoop; renderPathSchedule(); saveWorkspace();
         return { endpoints: state.pathSchedule.length, loop: state.pathLoop };
@@ -987,7 +1269,7 @@
         const now = performance.now();
         if (typeof args.speech === 'boolean') { state.speechLoop = args.speech; if (args.speech) { state.speechCycleStartedAt = now; state.speechElapsed = 0; state.firedSpeech.clear(); } }
         if (typeof args.embeddings === 'boolean') { state.embeddingLoop = args.embeddings; if (args.embeddings) { state.embeddingCycleStartedAt = now; state.embeddingElapsed = 0; state.firedEmbeddings.clear(); } }
-        if (typeof args.path === 'boolean') { state.pathLoop = args.path; if (args.path) { state.pathCycleStartedAt = now; state.pathElapsed = 0; } }
+        if (typeof args.path === 'boolean') { state.pathLoop = args.path; state.pathRevision += 1; if (args.path) { state.pathCycleStartedAt = now; state.pathElapsed = 0; } }
         $('#live-speech-loop').checked = state.speechLoop; $('#live-embedding-loop').checked = state.embeddingLoop; $('#live-path-loop').checked = state.pathLoop;
         renderSpeechSchedule(); renderEmbeddingSchedule(); drawPathPlanner(); saveWorkspace();
         return { speech: state.speechLoop, embeddings: state.embeddingLoop, path: state.pathLoop };
@@ -1004,21 +1286,44 @@
       case 'locomotion.stop':
         if (state.apiKeyTimer) window.clearTimeout(state.apiKeyTimer);
         state.apiKeyTimer = 0; state.keys.clear(); updateKeyUi(); return { keys: [] };
+      case 'motion.settings.set': {
+        if (args.speed != null) $('#live-speed').value = String(Math.max(0.1, Math.min(2.5, finite(args.speed, 0.8))));
+        if (args.steeringBlend != null) $('#live-steering-blend').value = String(Math.max(0.1, Math.min(2, finite(args.steeringBlend, 1))));
+        if (args.denoisingSteps != null) $('#live-denoising-steps').value = String(Math.max(1, Math.min(10, Math.round(finite(args.denoisingSteps, 4)))));
+        if (args.constraintGuidance != null) $('#live-constraint-guidance').value = String(Math.max(0.5, Math.min(4, finite(args.constraintGuidance, 2))));
+        if (args.textGuidance != null) $('#live-text-guidance').value = String(Math.max(0.5, Math.min(5, finite(args.textGuidance, 3))));
+        if (args.historyFrames != null) $('#live-history-frames').value = String(Math.max(4, Math.min(80, Math.round(finite(args.historyFrames, 8) / 4) * 4)));
+        else if (args.historySeconds != null) $('#live-history-frames').value = String(Math.max(4, Math.min(80, Math.round(finite(args.historySeconds, 0.4) * 20 / 4) * 4)));
+        if (args.seamBlendFrames != null) $('#live-seam-blend-frames').value = String(Math.max(0, Math.min(12, Math.round(finite(args.seamBlendFrames, 6)))));
+        if (args.replanBufferFrames != null) $('#live-replan-buffer-frames').value = String(Math.max(0, Math.min(12, Math.round(finite(args.replanBufferFrames, 3)))));
+        if (typeof args.adaptiveReplanBuffer === 'boolean') $('#live-adaptive-replan-buffer').checked = args.adaptiveReplanBuffer;
+        if (typeof args.headingEnabled === 'boolean') $('#live-heading-enabled').checked = args.headingEnabled;
+        renderMotionSettings(); saveWorkspace(); sendMotionSettings();
+        return { motion: liveMotionSettings() };
+      }
+      case 'export.single-pass':
+        await beginSinglePassExport(); return { started: state.exporting };
       case 'camera.set':
         setCamera(args); return { camera: { ...state.camera } };
+      case 'camera.cut':
+        setCamera({ ...args, transition: 'cut' }); return { camera: { ...state.camera } };
+      case 'camera.move':
+        setCamera({ ...args, transition: 'move' }); return { camera: { ...state.camera } };
       case 'camera.preset': {
         const preset = String(args.preset || '');
-        if (preset === 'face') setCamera({ target: 'face', directionAnchor: 'face', follow: true, distance: 1.25, yaw: 0, pitch: 82 });
-        else if (preset === 'torso') setCamera({ target: 'torso', directionAnchor: 'torso', follow: true, distance: 2.25, yaw: 20, pitch: 76 });
-        else if (preset === 'full') setCamera({ target: 'full', directionAnchor: 'feet', follow: true, distance: 4.15, yaw: 35, pitch: 68 });
+        const transition = ['cut', 'move'].includes(args.transition) ? args.transition : state.camera.transition;
+        const transitionSeconds = args.transitionSeconds ?? args.duration;
+        if (preset === 'face') setCamera({ target: 'face', directionAnchor: 'face', follow: true, distance: 1.25, yaw: 0, pitch: 82, transition, transitionSeconds });
+        else if (preset === 'torso') setCamera({ target: 'torso', directionAnchor: 'torso', follow: true, distance: 2.25, yaw: 20, pitch: 76, transition, transitionSeconds });
+        else if (preset === 'full') setCamera({ target: 'full', directionAnchor: 'feet', follow: true, distance: 4.15, yaw: 35, pitch: 68, transition, transitionSeconds });
         else throw new Error('camera.preset requires face, torso, or full.');
         return { camera: { ...state.camera } };
       }
       case 'camera.nudge':
-        setCamera({ yaw: state.camera.yaw + finite(args.yaw), pitch: state.camera.pitch + finite(args.pitch), distance: state.camera.distance + finite(args.distance) });
+        setCamera({ yaw: state.camera.yaw + finite(args.yaw), pitch: state.camera.pitch + finite(args.pitch), distance: state.camera.distance + finite(args.distance), transition: args.transition, transitionSeconds: args.transitionSeconds ?? args.duration });
         return { camera: { ...state.camera } };
       case 'camera.reset':
-        resetCamera(); return { camera: { ...state.camera } };
+        resetCamera(args); return { camera: { ...state.camera } };
       default:
         throw new Error(`Unsupported control action “${command.action}”.`);
     }
@@ -1062,8 +1367,24 @@
     if (!key || state.stack.includes(key)) return;
     state.stack.push(key); state.highlighted = state.stack.length - 1; renderEmbeddingControls(); saveWorkspace();
   });
-  $('#live-idle-embedding').addEventListener('change', (event) => { state.idleKey = event.target.value; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi(); });
+  $('#live-idle-embedding').addEventListener('change', (event) => {
+    state.idleKey = event.target.value;
+    if (state.secondaryIdleKey === state.idleKey) state.secondaryIdleKey = '';
+    if (state.activeKey === state.idleKey) state.activeKey = '';
+    resetIdleAlternation(); renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi();
+  });
+  $('#live-secondary-idle-embedding').addEventListener('change', (event) => {
+    state.secondaryIdleKey = event.target.value === state.idleKey ? '' : event.target.value;
+    if (state.activeKey === state.secondaryIdleKey) state.activeKey = '';
+    resetIdleAlternation(); renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+  });
+  $('#live-idle-swap-seconds').addEventListener('change', (event) => {
+    state.idleSwapSeconds = Math.max(1, Math.min(300, finite(event.target.value, 12)));
+    event.target.value = String(state.idleSwapSeconds);
+    resetIdleAlternation(); saveWorkspace();
+  });
   $('#live-session-toggle').addEventListener('click', () => setSession(!state.sessionActive));
+  $('#live-export-mp4').addEventListener('click', beginSinglePassExport);
   $('#live-speak').addEventListener('click', () => enqueueSpeech());
   $('#live-clear-speech').addEventListener('click', clearSpeechQueue);
   $('#live-speech-text').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enqueueSpeech(); } });
@@ -1110,18 +1431,30 @@
   });
   $('#live-path-loop').addEventListener('change', (event) => {
     state.pathLoop = event.target.checked;
+    state.pathRevision += 1;
     if (state.pathLoop && state.sessionActive) { state.pathCycleStartedAt = performance.now(); state.pathElapsed = 0; }
+    if (state.sessionActive) steerScheduledPath();
     saveWorkspace(); drawPathPlanner();
+  });
+  $('#live-path-curved').addEventListener('change', () => {
+    state.pathRevision += 1; renderPathCurveControls(); saveWorkspace(); drawPathPlanner();
+    if (state.sessionActive) steerScheduledPath();
+  });
+  $('#live-path-curve-strength').addEventListener('input', () => { renderPathCurveControls(); drawPathPlanner(); });
+  $('#live-path-curve-strength').addEventListener('change', () => {
+    state.pathRevision += 1; saveWorkspace(); if (state.sessionActive) steerScheduledPath();
   });
   $('#live-camera-target').addEventListener('change', (event) => setCamera({ target: event.target.value }));
   $('#live-camera-direction-anchor').addEventListener('change', (event) => setCamera({ directionAnchor: event.target.value }));
-  $('#live-camera-follow').addEventListener('change', (event) => setCamera({ follow: event.target.checked }));
-  $('#live-camera-orbit').addEventListener('change', (event) => setCamera({ orbit: event.target.checked }));
+  $('#live-camera-follow').addEventListener('change', (event) => setCamera({ follow: event.target.checked }, true, 'cut'));
+  $('#live-camera-orbit').addEventListener('change', (event) => setCamera({ orbit: event.target.checked }, true, 'cut'));
+  $('#live-camera-transition').addEventListener('change', (event) => setCamera({ transition: event.target.value }, false));
+  $('#live-camera-transition-seconds').addEventListener('input', (event) => setCamera({ transitionSeconds: Number(event.target.value) }, false));
   for (const [id, key] of [
     ['live-camera-distance', 'distance'], ['live-camera-yaw', 'yaw'], ['live-camera-pitch', 'pitch'],
     ['live-camera-orbit-speed', 'orbitSpeed'], ['live-camera-smoothing', 'smoothing'],
   ]) {
-    $(`#${id}`).addEventListener('input', (event) => setCamera({ [key]: Number(event.target.value) }));
+    $(`#${id}`).addEventListener('input', (event) => setCamera({ [key]: Number(event.target.value) }, true, 'cut'));
   }
   for (const button of document.querySelectorAll('[data-camera-preset]')) {
     button.addEventListener('click', () => {
@@ -1133,11 +1466,16 @@
   }
   $('#live-camera-reset').addEventListener('click', resetCamera);
   $('#live-speed').addEventListener('input', (event) => {
-    $('#live-speed-out').textContent = `${Number(event.target.value).toFixed(2)} m/s`;
-    saveWorkspace();
+    renderMotionSettings(); saveWorkspace();
     drawPathPlanner();
-    if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), speed: Number(event.target.value), smoothing: 1, keys: [...state.keys] });
   });
+  $('#live-speed').addEventListener('change', () => { state.pathRevision += 1; if (state.sessionActive) { sendMotionSettings(); steerScheduledPath(); } });
+  for (const id of ['live-steering-blend', 'live-denoising-steps', 'live-constraint-guidance', 'live-text-guidance', 'live-history-frames', 'live-seam-blend-frames', 'live-replan-buffer-frames']) {
+    $(`#${id}`).addEventListener('input', () => { renderMotionSettings(); saveWorkspace(); });
+    $(`#${id}`).addEventListener('change', () => { if (state.sessionActive) sendMotionSettings(); });
+  }
+  $('#live-adaptive-replan-buffer').addEventListener('change', () => { renderMotionSettings(); saveWorkspace(); if (state.sessionActive) sendMotionSettings(); });
+  $('#live-heading-enabled').addEventListener('change', () => { renderMotionSettings(); saveWorkspace(); if (state.sessionActive) sendMotionSettings(); });
   for (const button of document.querySelectorAll('[data-live-key]')) {
     const key = button.dataset.liveKey;
     button.addEventListener('pointerdown', (event) => { event.preventDefault(); button.setPointerCapture(event.pointerId); setKey(key, true); });
@@ -1191,12 +1529,22 @@
         if (performance.now() - state.cameraStatusAt > 250) { state.cameraStatusAt = performance.now(); renderCameraControls(); }
       }
       if (event.data.error) {
+        if (state.exporting) {
+          state.exportStopRequested = true;
+          playerPost({ type: 'live-flow:record-abort', error: event.data.error });
+        }
         state.sessionActive = false;
         state.motionReady = false;
         stopTimeline();
         updateSessionUi(event.data.error);
         return;
       }
+      if (Number.isFinite(Number(event.data.replanBufferFrames))) {
+        state.actualReplanBufferFrames = Math.max(0, Math.round(Number(event.data.replanBufferFrames)));
+        if ($('#live-adaptive-replan-buffer').checked) renderMotionSettings();
+      }
+      if (event.data.seam && typeof event.data.seam === 'object') state.lastSeam = { ...event.data.seam };
+      if (Number.isFinite(Number(event.data.playerVersion))) state.playerVersion = Number(event.data.playerVersion);
       if (state.sessionActive && Number.isFinite(Number(event.data.generationSeconds))) {
         const firstReady = !state.motionReady;
         state.motionReady = true;
@@ -1208,7 +1556,18 @@
     }
     if (event.data.type === 'unified:player-ready') {
       sendCameraSettings();
-      if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), speed: Number($('#live-speed').value), smoothing: 1, keys: [...state.keys] });
+      if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), settings: liveMotionSettings(), keys: [...state.keys] });
+    }
+    if (event.data.type === 'live-flow:record-ended') {
+      const exportMessage = event.data.ok ? 'Compatible MP4 exported.' : (event.data.error || 'MP4 export failed.');
+      state.exporting = false;
+      state.exportPending = false;
+      state.exportStopRequested = false;
+      state.exportSettledAt = 0;
+      $('#live-export-mp4').disabled = false;
+      $('#live-export-mp4').textContent = 'Export one pass MP4';
+      if (state.sessionActive) setSession(false).then(() => updateSessionUi(exportMessage));
+      else updateSessionUi(exportMessage);
     }
   });
 
@@ -1216,8 +1575,10 @@
   $('#live-speech-loop').checked = state.speechLoop;
   $('#live-embedding-loop').checked = state.embeddingLoop;
   $('#live-path-loop').checked = state.pathLoop;
+  renderPathCurveControls();
   setCamera(state.camera, false);
   $('#live-speed').dispatchEvent(new Event('input'));
+  renderMotionSettings();
   renderEmbeddingControls();
   renderSpeechQueue();
   renderSpeechSchedule();
