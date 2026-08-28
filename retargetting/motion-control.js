@@ -33,6 +33,15 @@ const state = {
   liveFacePlayback: null,
   liveRoot: { x: 0, z: 0 },
   liveGoal: { x: 0, z: 0 },
+  liveCamera: {
+    target: "torso",
+    follow: true,
+    orbit: false,
+    orbitSpeed: 12,
+    smoothing: 5,
+    targetOffsetY: 0,
+  },
+  liveCameraStatusAt: 0,
   exportMode: null,
   exportUrl: null,
   viewerMode: "vrm",
@@ -541,6 +550,76 @@ function resetView() {
   updateCamera();
 }
 
+function liveCameraState() {
+  return {
+    ...state.liveCamera,
+    yaw: THREE.MathUtils.radToDeg(orbit.yaw),
+    pitch: THREE.MathUtils.radToDeg(orbit.pitch),
+    distance: orbit.radius,
+    targetPosition: { x: orbit.target.x, y: orbit.target.y, z: orbit.target.z },
+  };
+}
+
+function liveCameraTarget() {
+  const mode = state.liveCamera.target;
+  if (mode === "full") return new THREE.Vector3(state.liveRoot.x, 0.9 + state.liveCamera.targetOffsetY, state.liveRoot.z);
+  const boneName = mode === "face" ? "head" : mode === "hips" ? "hips" : "upperChest";
+  const fallbackName = mode === "torso" ? "chest" : boneName;
+  const bone = state.vrmRig?.normalizedBones.get(boneName) || state.vrmRig?.normalizedBones.get(fallbackName);
+  if (bone?.node) {
+    const position = bone.node.getWorldPosition(new THREE.Vector3());
+    if (mode === "face") position.y += 0.08;
+    position.y += state.liveCamera.targetOffsetY;
+    return position;
+  }
+  const fallbackY = mode === "face" ? 1.55 : mode === "hips" ? 0.85 : 1.2;
+  return new THREE.Vector3(state.liveRoot.x, fallbackY + state.liveCamera.targetOffsetY, state.liveRoot.z);
+}
+
+function applyLiveCameraConfig(config = {}) {
+  const allowedTargets = new Set(["face", "torso", "hips", "full"]);
+  if (allowedTargets.has(config.target)) state.liveCamera.target = config.target;
+  if (typeof config.follow === "boolean") state.liveCamera.follow = config.follow;
+  if (typeof config.orbit === "boolean") state.liveCamera.orbit = config.orbit;
+  if (Number.isFinite(Number(config.orbitSpeed))) state.liveCamera.orbitSpeed = Math.max(-90, Math.min(90, Number(config.orbitSpeed)));
+  if (Number.isFinite(Number(config.smoothing))) state.liveCamera.smoothing = Math.max(0.5, Math.min(20, Number(config.smoothing)));
+  if (Number.isFinite(Number(config.targetOffsetY))) state.liveCamera.targetOffsetY = Math.max(-1, Math.min(1, Number(config.targetOffsetY)));
+  if (Number.isFinite(Number(config.yaw))) orbit.yaw = THREE.MathUtils.degToRad(Number(config.yaw));
+  if (Number.isFinite(Number(config.pitch))) orbit.pitch = THREE.MathUtils.degToRad(Math.max(10, Math.min(170, Number(config.pitch))));
+  if (Number.isFinite(Number(config.distance))) orbit.radius = Math.max(0.45, Math.min(12, Number(config.distance)));
+  orbit.target.copy(liveCameraTarget());
+  updateCamera();
+  publishLiveFlowStatus();
+}
+
+function resetLiveCamera() {
+  state.liveCamera = { target: "torso", follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0 };
+  resetView();
+  orbit.target.copy(liveCameraTarget());
+  updateCamera();
+  publishLiveFlowStatus();
+}
+
+function updateLiveCamera(deltaSeconds) {
+  if (!state.liveExternalMode) return;
+  let changed = false;
+  if (state.liveCamera.follow) {
+    const desired = liveCameraTarget();
+    const alpha = Math.min(1, deltaSeconds * state.liveCamera.smoothing);
+    orbit.target.lerp(desired, alpha);
+    changed = true;
+  }
+  if (state.liveCamera.orbit && !drag) {
+    orbit.yaw += THREE.MathUtils.degToRad(state.liveCamera.orbitSpeed) * deltaSeconds;
+    changed = true;
+  }
+  if (changed) updateCamera();
+  if (state.liveCamera.orbit && !state.liveActive && performance.now() - state.liveCameraStatusAt > 250) {
+    state.liveCameraStatusAt = performance.now();
+    publishLiveFlowStatus();
+  }
+}
+
 async function loadBindMesh(engine) {
   const [metaResponse, binaryResponse] = await Promise.all([
     fetch(`/motion-assets/${engine}.mesh.json`, { cache: "no-store" }),
@@ -767,7 +846,7 @@ function animate(now) {
         const root = interpolateRoot(currentRoot, nextRoot, alpha);
         if (root) {
           state.liveRoot = { x: root[0], z: root[2] };
-          if ($("live-camera-follow").checked) {
+          if ($("live-camera-follow").checked && !state.liveExternalMode) {
             const followAlpha = Math.min(1, deltaSeconds * 5);
             const followX = state.liveRoot.x + (state.liveGoal.x - state.liveRoot.x) * 0.35;
             const followZ = state.liveRoot.z + (state.liveGoal.z - state.liveRoot.z) * 0.35;
@@ -806,6 +885,7 @@ function animate(now) {
   }
   updateLiveFace(now);
   if (state.vrm) state.vrm.update(deltaSeconds);
+  updateLiveCamera(deltaSeconds);
   renderer.render(scene, camera);
 }
 
@@ -1430,6 +1510,7 @@ function publishLiveFlowStatus(extra = {}) {
     playbackFrame: state.livePlaybackFrame,
     maxFrame: state.liveMaxFrame,
     position: { ...state.liveRoot },
+    camera: liveCameraState(),
     ...extra,
   }, "*");
 }
@@ -1954,6 +2035,16 @@ window.addEventListener('message', (event) => {
     else publishLiveFlowStatus();
     return;
   }
+  if (event.data.type === 'live-flow:camera') {
+    state.liveExternalMode = true;
+    applyLiveCameraConfig(event.data.camera || {});
+    return;
+  }
+  if (event.data.type === 'live-flow:camera-reset') {
+    state.liveExternalMode = true;
+    resetLiveCamera();
+    return;
+  }
   if (event.data.type === 'live-flow:speak') {
     const track = event.data.track;
     if (track?.frames?.length) {
@@ -1970,7 +2061,8 @@ window.addEventListener('message', (event) => {
     stopLive();
     state.liveExternalCacheKey = '';
     state.liveExternalVelocity = null;
-    state.liveExternalMode = false;
+    state.liveExternalMode = true;
+    publishLiveFlowStatus();
     return;
   }
   if (event.data.type === 'live-flow:status-query') {
@@ -2090,8 +2182,9 @@ renderer.domElement.addEventListener("pointermove", (event) => {
   orbit.pitch = Math.max(0.18, Math.min(Math.PI - 0.18, drag.pitch - (event.clientY - drag.y) * 0.008));
   updateCamera();
 });
-renderer.domElement.addEventListener("pointerup", () => { drag = null; });
-renderer.domElement.addEventListener("wheel", (event) => { event.preventDefault(); orbit.radius = Math.max(1.6, Math.min(10, orbit.radius * Math.exp(event.deltaY * 0.001))); updateCamera(); }, { passive: false });
+renderer.domElement.addEventListener("pointerup", () => { drag = null; publishLiveFlowStatus(); });
+renderer.domElement.addEventListener("pointercancel", () => { drag = null; publishLiveFlowStatus(); });
+renderer.domElement.addEventListener("wheel", (event) => { event.preventDefault(); orbit.radius = Math.max(0.45, Math.min(12, orbit.radius * Math.exp(event.deltaY * 0.001))); updateCamera(); publishLiveFlowStatus(); }, { passive: false });
 $("undo").addEventListener("click", () => { if (state.points.length > 1) state.points.pop(); drawRoute(); });
 $("clear").addEventListener("click", () => { state.points = [{ x: 0, z: 0 }]; state.centerX = 0; state.centerZ = 0.6; drawRoute(); });
 $("fit").addEventListener("click", fitRoute);

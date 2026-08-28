@@ -134,6 +134,14 @@
     .schedule-loop-row strong { font-size:10px; }
     .schedule-loop-row small { margin-top:2px; color:var(--muted); font-size:9px; line-height:1.35; }
     .schedule-loop-row input { width:18px; height:18px; accent-color:var(--mint); }
+    .camera-presets { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:9px; }
+    .camera-presets button { padding:7px 5px; font-size:9px; }
+    .camera-toggles { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+    .camera-toggle { display:flex; align-items:center; justify-content:space-between; gap:7px; padding:8px; border:1px solid var(--line); border-radius:9px; background:#0a1017; color:var(--muted); font-size:9px; }
+    .camera-toggle input { width:17px; height:17px; accent-color:var(--mint); }
+    .camera-range { display:grid; grid-template-columns:72px minmax(0,1fr) 48px; align-items:center; gap:7px; margin-top:7px; color:var(--muted); font-size:9px; }
+    .camera-range input { padding:0; }
+    .camera-range output { color:var(--mint); text-align:right; font:700 9px ui-monospace,monospace; }
     @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } .live-view { grid-template-columns:340px minmax(0,1fr); } }
   </style>
 </head>
@@ -184,6 +192,7 @@
         <div class="live-title-row"><h2>Live Full Flow</h2><span class="live-state" id="live-session-state">stopped</span></div>
         <p class="scheduler-intro">Speak through Anna + LAM while Core-40 continuously follows WASD and the active cached motion embedding.</p>
         <div class="live-actions"><button class="primary" id="live-session-toggle">Start live session</button><span class="live-subtext" id="live-latency">Ready to connect</span></div>
+        <div class="keyboard-map">Local LLM API · <code>GET /api/control/schema</code> · state, commands, and results are JSON</div>
 
         <section class="live-section">
           <div class="live-section-head"><strong>Speech</strong><span>Enter sends · Shift+Enter adds a line</span></div>
@@ -222,6 +231,20 @@
           <div class="cue-columns path"><span>Arrive</span><span>X metres</span><span>Z metres</span><span></span></div>
           <div class="cue-list" id="live-path-schedule"></div>
           <button class="cue-add" id="add-live-path-cue">+ Add path endpoint</button>
+        </section>
+
+        <section class="live-section">
+          <div class="live-section-head"><strong>Live camera</strong><span id="live-camera-status">torso · following</span></div>
+          <div class="live-help">Choose what stays framed. Drag the stage to adjust the angle and use the mouse wheel to zoom at any time.</div>
+          <div class="camera-presets"><button data-camera-preset="face">Face shot</button><button data-camera-preset="torso">Torso shot</button><button data-camera-preset="full">Full body</button></div>
+          <label class="idle-row"><span>Target</span><select id="live-camera-target" aria-label="Camera target"><option value="face">Face</option><option value="torso" selected>Torso</option><option value="hips">Hips</option><option value="full">Full character</option></select></label>
+          <div class="camera-toggles"><label class="camera-toggle"><span>Follow target</span><input id="live-camera-follow" type="checkbox" checked></label><label class="camera-toggle"><span>Auto orbit</span><input id="live-camera-orbit" type="checkbox"></label></div>
+          <label class="camera-range"><span>Distance</span><input id="live-camera-distance" type="range" min="0.45" max="12" step="0.05" value="4.15"><output id="live-camera-distance-out">4.15 m</output></label>
+          <label class="camera-range"><span>Yaw</span><input id="live-camera-yaw" type="range" min="-180" max="180" step="1" value="41"><output id="live-camera-yaw-out">41°</output></label>
+          <label class="camera-range"><span>Pitch</span><input id="live-camera-pitch" type="range" min="10" max="170" step="1" value="68"><output id="live-camera-pitch-out">68°</output></label>
+          <label class="camera-range"><span>Orbit speed</span><input id="live-camera-orbit-speed" type="range" min="-45" max="45" step="1" value="12"><output id="live-camera-orbit-speed-out">12°/s</output></label>
+          <label class="camera-range"><span>Tracking</span><input id="live-camera-smoothing" type="range" min="0.5" max="15" step="0.5" value="5"><output id="live-camera-smoothing-out">5.0×</output></label>
+          <div class="live-actions"><button id="live-camera-reset">Reset camera</button><span class="live-subtext">Camera settings persist locally.</span></div>
         </section>
 
         <details class="live-section" id="embedding-manager">
@@ -273,6 +296,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=4"></script>
+  <script src="/live-flow.js?v=5"></script>
 </body>
 </html>

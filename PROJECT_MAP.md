@@ -29,6 +29,7 @@ unified/
 ├─ launch.bat                         user entry point
 ├─ launcher.mjs                       service supervisor/path resolver
 ├─ verify.bat / verify.mjs            read-only bundle inventory
+├─ CONTROL_API.md                      local LLM command protocol and examples
 ├─ webui/                              four-workspace application shell
 ├─ face_animation/
 │  ├─ webui/app/                       PocketTTS + LAM face interface
@@ -114,6 +115,12 @@ the character. Speech, embedding, and walk-path loops have independent cycle
 clocks. Path looping synthesizes a final return-to-origin endpoint and rearms
 only the route; speech waits for its own scheduled queue before repeating, and
 embedding cues repeat on their own interval. None restarts the resident models.
+
+The unified server also owns a loopback JSON command bus. An LLM reads the
+self-describing schema and current WebUI snapshot, submits an idempotent command,
+then polls its result. The browser applies validated commands through the same
+live-flow functions used by human controls and reports updated state back to the
+server; no arbitrary code is evaluated.
 
 ## Repository boundaries
 

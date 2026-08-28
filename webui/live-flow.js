@@ -44,6 +44,11 @@
     pathElapsed: 0,
     plannerCenter: { x: 0, z: 0 },
     plannerScale: 90,
+    camera: { target: 'torso', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 },
+    cameraStatusAt: 0,
+    controlAfter: 0,
+    controlPolling: false,
+    apiKeyTimer: 0,
   };
 
   const $ = (selector) => document.querySelector(selector);
@@ -65,7 +70,7 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 4,
+        version: 5,
         stack: state.stack,
         idleKey: state.idleKey,
         activeKey: state.activeKey,
@@ -77,6 +82,7 @@
         speechLoop: state.speechLoop,
         embeddingLoop: state.embeddingLoop,
         pathLoop: state.pathLoop,
+        camera: state.camera,
       }));
     } catch {}
   }
@@ -84,7 +90,7 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2, 3, 4].includes(saved.version)) {
+      if (!saved || ![1, 2, 3, 4, 5].includes(saved.version)) {
         state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
@@ -105,6 +111,7 @@
         state.speechLoop = Boolean(saved.speechLoop);
         state.embeddingLoop = Boolean(saved.embeddingLoop);
       }
+      if (saved.version >= 5 && saved.camera && typeof saved.camera === 'object') state.camera = { ...state.camera, ...saved.camera };
     } catch {}
     if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
     if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
@@ -494,6 +501,55 @@
     renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
   }
 
+  function renderCameraControls(syncInputs = true) {
+    const camera = state.camera;
+    if (syncInputs) {
+      $('#live-camera-target').value = camera.target;
+      $('#live-camera-follow').checked = camera.follow;
+      $('#live-camera-orbit').checked = camera.orbit;
+      $('#live-camera-distance').value = String(camera.distance);
+      $('#live-camera-yaw').value = String(camera.yaw);
+      $('#live-camera-pitch').value = String(camera.pitch);
+      $('#live-camera-orbit-speed').value = String(camera.orbitSpeed);
+      $('#live-camera-smoothing').value = String(camera.smoothing);
+    }
+    $('#live-camera-distance-out').textContent = `${finite(camera.distance, 4.15).toFixed(2)} m`;
+    $('#live-camera-yaw-out').textContent = `${Math.round(finite(camera.yaw, 41))}°`;
+    $('#live-camera-pitch-out').textContent = `${Math.round(finite(camera.pitch, 68))}°`;
+    $('#live-camera-orbit-speed-out').textContent = `${Math.round(finite(camera.orbitSpeed, 12))}°/s`;
+    $('#live-camera-smoothing-out').textContent = `${finite(camera.smoothing, 5).toFixed(1)}×`;
+    $('#live-camera-status').textContent = `${camera.target} · ${camera.follow ? 'following' : 'fixed'}${camera.orbit ? ' · orbiting' : ''}`;
+  }
+
+  function sendCameraSettings() {
+    playerPost({ type: 'live-flow:camera', camera: { ...state.camera } });
+  }
+
+  function setCamera(patch, send = true) {
+    const target = ['face', 'torso', 'hips', 'full'].includes(patch.target) ? patch.target : state.camera.target;
+    state.camera = {
+      ...state.camera,
+      ...patch,
+      target,
+      follow: patch.follow == null ? state.camera.follow : Boolean(patch.follow),
+      orbit: patch.orbit == null ? state.camera.orbit : Boolean(patch.orbit),
+      distance: Math.max(0.45, Math.min(12, finite(patch.distance, state.camera.distance))),
+      yaw: Math.max(-180, Math.min(180, finite(patch.yaw, state.camera.yaw))),
+      pitch: Math.max(10, Math.min(170, finite(patch.pitch, state.camera.pitch))),
+      orbitSpeed: Math.max(-90, Math.min(90, finite(patch.orbitSpeed, state.camera.orbitSpeed))),
+      smoothing: Math.max(0.5, Math.min(20, finite(patch.smoothing, state.camera.smoothing))),
+      targetOffsetY: Math.max(-1, Math.min(1, finite(patch.targetOffsetY, state.camera.targetOffsetY))),
+    };
+    renderCameraControls(); saveWorkspace();
+    if (send) sendCameraSettings();
+  }
+
+  function resetCamera() {
+    state.camera = { target: 'torso', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 };
+    renderCameraControls(); saveWorkspace();
+    playerPost({ type: 'live-flow:camera-reset' });
+  }
+
   function updateSessionUi(message = '') {
     const badge = $('#live-session-state');
     badge.textContent = state.sessionActive ? 'live' : 'stopped';
@@ -659,6 +715,7 @@
         smoothing: 1,
         keys: [...state.keys],
       });
+      sendCameraSettings();
       updateSessionUi('Core-40 is preparing its first horizon…');
       return;
     }
@@ -806,6 +863,194 @@
     renderSpeechQueue();
   }
 
+  function resolveEmbedding(selector, allowIdle = false) {
+    const value = String(selector || '').trim();
+    if (allowIdle && /^(idle|__idle__)$/i.test(value)) return '__idle__';
+    const lower = value.toLowerCase();
+    const entry = state.entries.find((item) => item.key === value)
+      || state.entries.find((item) => item.nickname?.trim().toLowerCase() === lower)
+      || state.entries.find((item) => item.text.trim().toLowerCase() === lower);
+    if (!entry) throw new Error(`Cached embedding “${value}” was not found. Inspect /api/control/state for valid keys and nicknames.`);
+    return entry.key;
+  }
+
+  function controlSnapshot() {
+    return {
+      timestamp: new Date().toISOString(),
+      view: state.view,
+      session: { active: state.sessionActive, motionReady: state.motionReady, elapsed: Number(state.elapsed.toFixed(2)) },
+      speech: {
+        queue: state.speech.map(({ id, text, source, status }) => ({ id, text, source, status })),
+        schedule: state.speechSchedule.map(({ time, text }) => ({ time, text })),
+        loop: state.speechLoop,
+      },
+      embeddings: {
+        available: state.entries.map(({ key, nickname, text }) => ({ key, nickname: nickname || '', text })),
+        idleKey: state.idleKey,
+        activeKey: state.activeKey,
+        effectiveKey: effectiveKey(),
+        stack: [...state.stack],
+        schedule: state.embeddingSchedule.map(({ time, cacheKey }) => ({ time, cacheKey })),
+        loop: state.embeddingLoop,
+      },
+      path: {
+        position: { ...state.livePosition },
+        endpoints: state.pathSchedule.map(({ time, x, z }) => ({ time, x, z })),
+        loop: state.pathLoop,
+        cycleElapsed: Number(state.pathElapsed.toFixed(2)),
+        manualKeys: [...state.keys],
+      },
+      camera: { ...state.camera },
+    };
+  }
+
+  async function applyControlCommand(command) {
+    const args = command.args || {};
+    switch (command.action) {
+      case 'session.start':
+        if (state.view !== 'live') document.querySelector('button[data-view="live"]')?.click();
+        if (!state.sessionActive) await setSession(true);
+        if (!state.sessionActive) throw new Error('Live session could not start. Confirm that an idle embedding is selected and local services are available.');
+        return { sessionActive: state.sessionActive };
+      case 'session.stop':
+        if (state.sessionActive) await setSession(false);
+        return { sessionActive: false };
+      case 'speech.say': {
+        const speechText = String(args.text || '').trim();
+        if (!speechText) throw new Error('speech.say requires non-empty args.text.');
+        enqueueSpeech(speechText, 'api');
+        return { queued: speechText };
+      }
+      case 'speech.queue.clear':
+        clearSpeechQueue(); return { cleared: true };
+      case 'speech.schedule.set': {
+        if (!Array.isArray(args.cues) || args.cues.length > 200) throw new Error('speech.schedule.set requires args.cues with at most 200 entries.');
+        state.speechSchedule = args.cues.map((cue) => ({ id: cueId(), time: Math.max(0, finite(cue.time)), text: String(cue.text || '').trim().slice(0, 800) }));
+        if (typeof args.loop === 'boolean') state.speechLoop = args.loop;
+        state.firedSpeech.clear(); state.speechCycleStartedAt = performance.now(); state.speechElapsed = 0;
+        $('#live-speech-loop').checked = state.speechLoop; renderSpeechSchedule(); saveWorkspace();
+        return { cues: state.speechSchedule.length, loop: state.speechLoop };
+      }
+      case 'embedding.activate': {
+        const key = resolveEmbedding(args.selector ?? args.cacheKey);
+        state.activeKey = key; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+        return { activeKey: key, label: labelFor(entryFor(key)) };
+      }
+      case 'embedding.release':
+        state.activeKey = ''; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); return { activeKey: '', idleKey: state.idleKey };
+      case 'embedding.idle.set': {
+        state.idleKey = resolveEmbedding(args.selector ?? args.cacheKey);
+        renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi();
+        return { idleKey: state.idleKey, label: labelFor(entryFor(state.idleKey)) };
+      }
+      case 'embedding.stack.set': {
+        if (!Array.isArray(args.selectors) || args.selectors.length > 100) throw new Error('embedding.stack.set requires args.selectors with at most 100 entries.');
+        state.stack = [...new Set(args.selectors.map((selector) => resolveEmbedding(selector)))];
+        state.highlighted = Math.min(state.highlighted, Math.max(0, state.stack.length - 1));
+        if (state.activeKey && !state.stack.includes(state.activeKey)) state.activeKey = '';
+        renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+        return { stack: [...state.stack] };
+      }
+      case 'embedding.schedule.set': {
+        if (!Array.isArray(args.cues) || args.cues.length > 200) throw new Error('embedding.schedule.set requires args.cues with at most 200 entries.');
+        state.embeddingSchedule = args.cues.map((cue) => ({ id: cueId(), time: Math.max(0, finite(cue.time)), cacheKey: resolveEmbedding(cue.selector ?? cue.cacheKey, true) }));
+        if (typeof args.loop === 'boolean') state.embeddingLoop = args.loop;
+        state.firedEmbeddings.clear(); state.embeddingCycleStartedAt = performance.now(); state.embeddingElapsed = 0;
+        $('#live-embedding-loop').checked = state.embeddingLoop; renderEmbeddingSchedule(); saveWorkspace();
+        return { cues: state.embeddingSchedule.length, loop: state.embeddingLoop };
+      }
+      case 'embedding.create': {
+        if (state.sessionActive) throw new Error('Stop the live session before creating an embedding.');
+        const embeddingText = String(args.text || '').trim();
+        if (!embeddingText) throw new Error('embedding.create requires non-empty args.text.');
+        const result = await postMotion('/api/live/cache-text', { text: embeddingText, nickname: String(args.nickname || '').trim() });
+        installEntries(result.entries);
+        return { created: result.created, entry: result.entry };
+      }
+      case 'path.schedule.set': {
+        const endpoints = args.endpoints ?? args.cues;
+        if (!Array.isArray(endpoints) || endpoints.length > 500) throw new Error('path.schedule.set requires args.endpoints with at most 500 entries.');
+        state.pathSchedule = endpoints.map((point) => ({ id: cueId(), time: Math.max(0, finite(point.time)), x: finite(point.x), z: finite(point.z) }));
+        if (typeof args.loop === 'boolean') state.pathLoop = args.loop;
+        state.pathCycleStartedAt = performance.now(); state.pathElapsed = 0;
+        $('#live-path-loop').checked = state.pathLoop; renderPathSchedule(); saveWorkspace();
+        return { endpoints: state.pathSchedule.length, loop: state.pathLoop };
+      }
+      case 'path.clear':
+        state.pathSchedule = []; renderPathSchedule(); saveWorkspace(); return { endpoints: 0 };
+      case 'loops.set': {
+        const now = performance.now();
+        if (typeof args.speech === 'boolean') { state.speechLoop = args.speech; if (args.speech) { state.speechCycleStartedAt = now; state.speechElapsed = 0; state.firedSpeech.clear(); } }
+        if (typeof args.embeddings === 'boolean') { state.embeddingLoop = args.embeddings; if (args.embeddings) { state.embeddingCycleStartedAt = now; state.embeddingElapsed = 0; state.firedEmbeddings.clear(); } }
+        if (typeof args.path === 'boolean') { state.pathLoop = args.path; if (args.path) { state.pathCycleStartedAt = now; state.pathElapsed = 0; } }
+        $('#live-speech-loop').checked = state.speechLoop; $('#live-embedding-loop').checked = state.embeddingLoop; $('#live-path-loop').checked = state.pathLoop;
+        renderSpeechSchedule(); renderEmbeddingSchedule(); drawPathPlanner(); saveWorkspace();
+        return { speech: state.speechLoop, embeddings: state.embeddingLoop, path: state.pathLoop };
+      }
+      case 'locomotion.keys': {
+        if (!state.sessionActive) throw new Error('Start the live session before sending locomotion keys.');
+        const keys = Array.isArray(args.keys) ? args.keys.map((key) => String(key).toLowerCase()).filter((key) => ['w', 'a', 's', 'd'].includes(key)) : [];
+        state.keys = new Set(keys); updateKeyUi();
+        if (state.apiKeyTimer) window.clearTimeout(state.apiKeyTimer);
+        const duration = Math.max(0, Math.min(60000, finite(args.durationMs)));
+        if (duration) state.apiKeyTimer = window.setTimeout(() => { state.keys.clear(); updateKeyUi(); }, duration);
+        return { keys, durationMs: duration };
+      }
+      case 'locomotion.stop':
+        if (state.apiKeyTimer) window.clearTimeout(state.apiKeyTimer);
+        state.apiKeyTimer = 0; state.keys.clear(); updateKeyUi(); return { keys: [] };
+      case 'camera.set':
+        setCamera(args); return { camera: { ...state.camera } };
+      case 'camera.preset': {
+        const preset = String(args.preset || '');
+        if (preset === 'face') setCamera({ target: 'face', follow: true, distance: 1.25, pitch: 82 });
+        else if (preset === 'torso') setCamera({ target: 'torso', follow: true, distance: 2.25, pitch: 76 });
+        else if (preset === 'full') setCamera({ target: 'full', follow: true, distance: 4.15, pitch: 68 });
+        else throw new Error('camera.preset requires face, torso, or full.');
+        return { camera: { ...state.camera } };
+      }
+      case 'camera.nudge':
+        setCamera({ yaw: state.camera.yaw + finite(args.yaw), pitch: state.camera.pitch + finite(args.pitch), distance: state.camera.distance + finite(args.distance) });
+        return { camera: { ...state.camera } };
+      case 'camera.reset':
+        resetCamera(); return { camera: { ...state.camera } };
+      default:
+        throw new Error(`Unsupported control action “${command.action}”.`);
+    }
+  }
+
+  async function reportControlResult(id, ok, result = null, error = null) {
+    await fetch('/api/control/result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, ok, result, error }) }).catch(() => {});
+  }
+
+  async function claimControlCommand(id) {
+    try {
+      const response = await fetch('/api/control/result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, status: 'running' }) });
+      return response.ok;
+    } catch { return false; }
+  }
+
+  async function pollControlCommands() {
+    if (state.controlPolling) return;
+    state.controlPolling = true;
+    try {
+      const response = await fetch(`/api/control/commands?after=${state.controlAfter}`, { cache: 'no-store' });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) return;
+      for (const command of payload.commands || []) {
+        if (!await claimControlCommand(command.id)) break;
+        state.controlAfter = Math.max(state.controlAfter, Number(command.id) || 0);
+        try { const result = await applyControlCommand(command); publishControlState(); await reportControlResult(command.id, true, result); }
+        catch (error) { await reportControlResult(command.id, false, null, error.message || String(error)); }
+      }
+    } catch {}
+    finally { state.controlPolling = false; }
+  }
+
+  function publishControlState() {
+    fetch('/api/control/state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(controlSnapshot()) }).catch(() => {});
+  }
+
   $('#create-embedding').addEventListener('click', createEmbedding);
   $('#live-stack-add').addEventListener('click', () => {
     const key = $('#live-stack-source').value;
@@ -863,6 +1108,24 @@
     if (state.pathLoop && state.sessionActive) { state.pathCycleStartedAt = performance.now(); state.pathElapsed = 0; }
     saveWorkspace(); drawPathPlanner();
   });
+  $('#live-camera-target').addEventListener('change', (event) => setCamera({ target: event.target.value }));
+  $('#live-camera-follow').addEventListener('change', (event) => setCamera({ follow: event.target.checked }));
+  $('#live-camera-orbit').addEventListener('change', (event) => setCamera({ orbit: event.target.checked }));
+  for (const [id, key] of [
+    ['live-camera-distance', 'distance'], ['live-camera-yaw', 'yaw'], ['live-camera-pitch', 'pitch'],
+    ['live-camera-orbit-speed', 'orbitSpeed'], ['live-camera-smoothing', 'smoothing'],
+  ]) {
+    $(`#${id}`).addEventListener('input', (event) => setCamera({ [key]: Number(event.target.value) }));
+  }
+  for (const button of document.querySelectorAll('[data-camera-preset]')) {
+    button.addEventListener('click', () => {
+      const preset = button.dataset.cameraPreset;
+      if (preset === 'face') setCamera({ target: 'face', follow: true, distance: 1.25, pitch: 82 });
+      if (preset === 'torso') setCamera({ target: 'torso', follow: true, distance: 2.25, pitch: 76 });
+      if (preset === 'full') setCamera({ target: 'full', follow: true, distance: 4.15, pitch: 68 });
+    });
+  }
+  $('#live-camera-reset').addEventListener('click', resetCamera);
   $('#live-speed').addEventListener('input', (event) => {
     $('#live-speed-out').textContent = `${Number(event.target.value).toFixed(2)} m/s`;
     saveWorkspace();
@@ -898,7 +1161,7 @@
   window.addEventListener('blur', () => { if (state.keys.size) { state.keys.clear(); updateKeyUi(); } });
   window.addEventListener('unified:view-change', (event) => {
     state.view = event.detail?.view || '';
-    if (state.view === 'live') window.setTimeout(resizePathPlanner, 0);
+    if (state.view === 'live') window.setTimeout(() => { resizePathPlanner(); sendCameraSettings(); }, 0);
     if (state.view !== 'live' && state.sessionActive) setSession(false);
   });
   window.addEventListener('message', (event) => {
@@ -907,6 +1170,18 @@
     if (event.data.type === 'live-flow:player-status') {
       if (event.data.position && Number.isFinite(Number(event.data.position.x)) && Number.isFinite(Number(event.data.position.z))) {
         state.livePosition = { x: Number(event.data.position.x), z: Number(event.data.position.z) };
+      }
+      if (event.data.camera && typeof event.data.camera === 'object') {
+        const source = event.data.camera;
+        state.camera = {
+          ...state.camera,
+          target: ['face', 'torso', 'hips', 'full'].includes(source.target) ? source.target : state.camera.target,
+          follow: Boolean(source.follow), orbit: Boolean(source.orbit),
+          orbitSpeed: finite(source.orbitSpeed, state.camera.orbitSpeed), smoothing: finite(source.smoothing, state.camera.smoothing),
+          targetOffsetY: finite(source.targetOffsetY, state.camera.targetOffsetY), yaw: finite(source.yaw, state.camera.yaw),
+          pitch: finite(source.pitch, state.camera.pitch), distance: finite(source.distance, state.camera.distance),
+        };
+        if (performance.now() - state.cameraStatusAt > 250) { state.cameraStatusAt = performance.now(); renderCameraControls(); }
       }
       if (event.data.error) {
         state.sessionActive = false;
@@ -924,8 +1199,9 @@
       }
       document.querySelectorAll('[data-live-key]').forEach((button) => button.classList.toggle('down', (event.data.keys || []).includes(button.dataset.liveKey)));
     }
-    if (event.data.type === 'unified:player-ready' && state.sessionActive) {
-      playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), speed: Number($('#live-speed').value), smoothing: 1, keys: [...state.keys] });
+    if (event.data.type === 'unified:player-ready') {
+      sendCameraSettings();
+      if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), speed: Number($('#live-speed').value), smoothing: 1, keys: [...state.keys] });
     }
   });
 
@@ -933,6 +1209,7 @@
   $('#live-speech-loop').checked = state.speechLoop;
   $('#live-embedding-loop').checked = state.embeddingLoop;
   $('#live-path-loop').checked = state.pathLoop;
+  setCamera(state.camera, false);
   $('#live-speed').dispatchEvent(new Event('input'));
   renderEmbeddingControls();
   renderSpeechQueue();
@@ -940,6 +1217,11 @@
   renderEmbeddingSchedule();
   renderPathSchedule();
   updateSessionUi();
-  refreshEmbeddings();
   new ResizeObserver(resizePathPlanner).observe(pathCanvas);
+  refreshEmbeddings().finally(() => {
+    pollControlCommands();
+    publishControlState();
+    window.setInterval(pollControlCommands, 250);
+    window.setInterval(publishControlState, 1000);
+  });
 })();
