@@ -116,6 +116,14 @@ clocks. Path looping synthesizes a final return-to-origin endpoint and rearms
 only the route; speech waits for its own scheduled queue before repeating, and
 embedding cues repeat on their own interval. None restarts the resident models.
 
+Live camera framing has two independent references: a face/torso/hips/full
+position target and a world/face/torso/feet direction anchor. Direction is
+computed as rotation away from each VRM bone's captured rest orientation, so
+avatar-specific rest axes do not leak into the camera. Face and torso use their
+matching humanoid rotations; feet average both projected foot directions and
+fall back to hips when needed. Camera yaw, manual drag, and auto orbit are stored
+as a relative offset around the selected anchor.
+
 The unified server also owns a loopback JSON command bus. An LLM reads the
 self-describing schema and current WebUI snapshot, submits an idempotent command,
 then polls its result. The browser applies validated commands through the same

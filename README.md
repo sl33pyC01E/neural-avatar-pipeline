@@ -33,7 +33,8 @@ The interface has four persistent workspaces:
 - **Live Full Flow** keeps ARDY Core-40 running under WASD control while queued
   PocketTTS speech is passed through LAM and played with synchronized facial
   animation on the same character. It includes independent cue loops,
-  anatomical camera targeting, follow/orbit shots, and a local LLM control API.
+  anatomical position and direction anchors, follow/orbit shots, and a local
+  LLM control API.
 
 ## Quick start
 
@@ -144,6 +145,13 @@ live queue at their cue times; they are not prerendered when the session starts.
 New embeddings are intentionally created while the live session is stopped so
 loading the text encoder cannot interrupt Core-40 replanning.
 
+The live camera separates framing from facing. **Target** selects the point kept
+in frame, while **Direction anchor** selects whether camera yaw stays fixed in
+the world or turns with the avatar's face, torso, or averaged foot direction.
+The yaw control becomes an offset around that selected direction. The Face,
+Torso, and Full Body presets select matching face, torso, and feet anchors;
+manual drag and auto orbit adjust the same relative offset.
+
 ### Local LLM control
 
 The open Live Full Flow workspace can be directed through a loopback-only JSON
@@ -151,7 +159,7 @@ API. Start with `GET http://127.0.0.1:8788/api/control/schema`, inspect
 `/api/control/state`, submit retry-safe commands to `/api/control`, and poll the
 returned command ID for completion. The API covers sessions, speech, cached
 embeddings, all three schedules and loop flags, bounded locomotion, and camera
-framing. An OpenAPI 3.1 description is available at
+framing with body-relative direction anchors. An OpenAPI 3.1 description is available at
 `/api/control/openapi.json`. See [CONTROL_API.md](CONTROL_API.md) for the
 complete agent workflow and examples.
 

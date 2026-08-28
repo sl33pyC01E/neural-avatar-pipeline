@@ -235,12 +235,13 @@
 
         <section class="live-section">
           <div class="live-section-head"><strong>Live camera</strong><span id="live-camera-status">torso · following</span></div>
-          <div class="live-help">Choose what stays framed. Drag the stage to adjust the angle and use the mouse wheel to zoom at any time.</div>
+          <div class="live-help">Choose what stays framed and which body direction the shot turns with. Drag the stage to adjust the relative angle and use the mouse wheel to zoom.</div>
           <div class="camera-presets"><button data-camera-preset="face">Face shot</button><button data-camera-preset="torso">Torso shot</button><button data-camera-preset="full">Full body</button></div>
           <label class="idle-row"><span>Target</span><select id="live-camera-target" aria-label="Camera target"><option value="face">Face</option><option value="torso" selected>Torso</option><option value="hips">Hips</option><option value="full">Full character</option></select></label>
+          <label class="idle-row"><span>Direction anchor</span><select id="live-camera-direction-anchor" aria-label="Camera direction anchor"><option value="world" selected>World (fixed)</option><option value="face">Face direction</option><option value="torso">Torso direction</option><option value="feet">Feet / travel direction</option></select></label>
           <div class="camera-toggles"><label class="camera-toggle"><span>Follow target</span><input id="live-camera-follow" type="checkbox" checked></label><label class="camera-toggle"><span>Auto orbit</span><input id="live-camera-orbit" type="checkbox"></label></div>
           <label class="camera-range"><span>Distance</span><input id="live-camera-distance" type="range" min="0.45" max="12" step="0.05" value="4.15"><output id="live-camera-distance-out">4.15 m</output></label>
-          <label class="camera-range"><span>Yaw</span><input id="live-camera-yaw" type="range" min="-180" max="180" step="1" value="41"><output id="live-camera-yaw-out">41°</output></label>
+          <label class="camera-range"><span>Yaw offset</span><input id="live-camera-yaw" type="range" min="-180" max="180" step="1" value="41"><output id="live-camera-yaw-out">41°</output></label>
           <label class="camera-range"><span>Pitch</span><input id="live-camera-pitch" type="range" min="10" max="170" step="1" value="68"><output id="live-camera-pitch-out">68°</output></label>
           <label class="camera-range"><span>Orbit speed</span><input id="live-camera-orbit-speed" type="range" min="-45" max="45" step="1" value="12"><output id="live-camera-orbit-speed-out">12°/s</output></label>
           <label class="camera-range"><span>Tracking</span><input id="live-camera-smoothing" type="range" min="0.5" max="15" step="0.5" value="5"><output id="live-camera-smoothing-out">5.0×</output></label>
@@ -296,6 +297,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=5"></script>
+  <script src="/live-flow.js?v=6"></script>
 </body>
 </html>

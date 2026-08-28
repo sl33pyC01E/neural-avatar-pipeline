@@ -35,11 +35,13 @@ const state = {
   liveGoal: { x: 0, z: 0 },
   liveCamera: {
     target: "torso",
+    directionAnchor: "world",
     follow: true,
     orbit: false,
     orbitSpeed: 12,
     smoothing: 5,
     targetOffsetY: 0,
+    yawOffset: 41,
   },
   liveCameraStatusAt: 0,
   exportMode: null,
@@ -129,6 +131,8 @@ let bodyMesh = null;
 let bindPositions = null;
 let orbit = { yaw: 0.72, pitch: 1.18, radius: 4.15, target: new THREE.Vector3(0, 0.9, 0) };
 let drag = null;
+let liveCameraAnchorYaw = 0;
+let liveCameraAnchorReady = false;
 const vrmLoader = new GLTFLoader();
 vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
 
@@ -553,11 +557,55 @@ function resetView() {
 function liveCameraState() {
   return {
     ...state.liveCamera,
-    yaw: THREE.MathUtils.radToDeg(orbit.yaw),
+    yaw: state.liveCamera.yawOffset,
+    worldYaw: wrapDegrees(THREE.MathUtils.radToDeg(orbit.yaw)),
     pitch: THREE.MathUtils.radToDeg(orbit.pitch),
     distance: orbit.radius,
     targetPosition: { x: orbit.target.x, y: orbit.target.y, z: orbit.target.z },
   };
+}
+
+function wrapDegrees(value) {
+  return ((Number(value) + 180) % 360 + 360) % 360 - 180;
+}
+
+function shortestAngleDelta(from, to) {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+}
+
+function liveCameraBoneDirection(name) {
+  const bone = state.vrmRig?.normalizedBones.get(name) || state.vrmRig?.rawBones.get(name);
+  if (!bone?.node) return null;
+  const currentWorld = bone.node.getWorldQuaternion(new THREE.Quaternion());
+  const animationDelta = currentWorld.multiply(bone.restWorld.clone().invert());
+  const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(animationDelta);
+  direction.y = 0;
+  return direction.lengthSq() > 1e-8 ? direction.normalize() : null;
+}
+
+function liveCameraDirectionYaw() {
+  const anchor = state.liveCamera.directionAnchor;
+  if (anchor === "world") return 0;
+  if (anchor === "face") {
+    const direction = liveCameraBoneDirection("head");
+    return direction ? Math.atan2(direction.x, direction.z) : 0;
+  }
+  if (anchor === "torso") {
+    const direction = liveCameraBoneDirection("upperChest") || liveCameraBoneDirection("chest") || liveCameraBoneDirection("hips");
+    return direction ? Math.atan2(direction.x, direction.z) : 0;
+  }
+  const directions = [liveCameraBoneDirection("leftFoot"), liveCameraBoneDirection("rightFoot")].filter(Boolean);
+  const direction = directions.reduce((sum, item) => sum.add(item), new THREE.Vector3());
+  if (direction.lengthSq() <= 1e-8) {
+    const fallback = liveCameraBoneDirection("hips");
+    return fallback ? Math.atan2(fallback.x, fallback.z) : 0;
+  }
+  direction.normalize();
+  return Math.atan2(direction.x, direction.z);
+}
+
+function applyLiveCameraYaw() {
+  orbit.yaw = liveCameraAnchorYaw + THREE.MathUtils.degToRad(state.liveCamera.yawOffset);
 }
 
 function liveCameraTarget() {
@@ -578,23 +626,34 @@ function liveCameraTarget() {
 
 function applyLiveCameraConfig(config = {}) {
   const allowedTargets = new Set(["face", "torso", "hips", "full"]);
+  const allowedDirectionAnchors = new Set(["world", "face", "torso", "feet"]);
   if (allowedTargets.has(config.target)) state.liveCamera.target = config.target;
+  if (allowedDirectionAnchors.has(config.directionAnchor) && config.directionAnchor !== state.liveCamera.directionAnchor) {
+    state.liveCamera.directionAnchor = config.directionAnchor;
+    liveCameraAnchorReady = false;
+  }
   if (typeof config.follow === "boolean") state.liveCamera.follow = config.follow;
   if (typeof config.orbit === "boolean") state.liveCamera.orbit = config.orbit;
   if (Number.isFinite(Number(config.orbitSpeed))) state.liveCamera.orbitSpeed = Math.max(-90, Math.min(90, Number(config.orbitSpeed)));
   if (Number.isFinite(Number(config.smoothing))) state.liveCamera.smoothing = Math.max(0.5, Math.min(20, Number(config.smoothing)));
   if (Number.isFinite(Number(config.targetOffsetY))) state.liveCamera.targetOffsetY = Math.max(-1, Math.min(1, Number(config.targetOffsetY)));
-  if (Number.isFinite(Number(config.yaw))) orbit.yaw = THREE.MathUtils.degToRad(Number(config.yaw));
+  if (Number.isFinite(Number(config.yaw))) state.liveCamera.yawOffset = wrapDegrees(config.yaw);
   if (Number.isFinite(Number(config.pitch))) orbit.pitch = THREE.MathUtils.degToRad(Math.max(10, Math.min(170, Number(config.pitch))));
   if (Number.isFinite(Number(config.distance))) orbit.radius = Math.max(0.45, Math.min(12, Number(config.distance)));
+  liveCameraAnchorYaw = liveCameraDirectionYaw();
+  liveCameraAnchorReady = true;
+  applyLiveCameraYaw();
   orbit.target.copy(liveCameraTarget());
   updateCamera();
   publishLiveFlowStatus();
 }
 
 function resetLiveCamera() {
-  state.liveCamera = { target: "torso", follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0 };
+  state.liveCamera = { target: "torso", directionAnchor: "world", follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yawOffset: 41 };
+  liveCameraAnchorYaw = 0;
+  liveCameraAnchorReady = true;
   resetView();
+  applyLiveCameraYaw();
   orbit.target.copy(liveCameraTarget());
   updateCamera();
   publishLiveFlowStatus();
@@ -609,10 +668,19 @@ function updateLiveCamera(deltaSeconds) {
     orbit.target.lerp(desired, alpha);
     changed = true;
   }
-  if (state.liveCamera.orbit && !drag) {
-    orbit.yaw += THREE.MathUtils.degToRad(state.liveCamera.orbitSpeed) * deltaSeconds;
-    changed = true;
+  const desiredAnchorYaw = liveCameraDirectionYaw();
+  if (!liveCameraAnchorReady) {
+    liveCameraAnchorYaw = desiredAnchorYaw;
+    liveCameraAnchorReady = true;
+  } else {
+    const alpha = Math.min(1, deltaSeconds * state.liveCamera.smoothing);
+    liveCameraAnchorYaw += shortestAngleDelta(liveCameraAnchorYaw, desiredAnchorYaw) * alpha;
   }
+  if (state.liveCamera.orbit && !drag) {
+    state.liveCamera.yawOffset = wrapDegrees(state.liveCamera.yawOffset + state.liveCamera.orbitSpeed * deltaSeconds);
+  }
+  applyLiveCameraYaw();
+  changed = true;
   if (changed) updateCamera();
   if (state.liveCamera.orbit && !state.liveActive && performance.now() - state.liveCameraStatusAt > 250) {
     state.liveCameraStatusAt = performance.now();
@@ -2175,10 +2243,18 @@ routeCanvas.addEventListener("pointerdown", (event) => {
   state.points.push({ x: Math.round(point.x * 20) / 20, z: Math.round(point.z * 20) / 20 });
   drawRoute(); routeCanvas.focus();
 });
-renderer.domElement.addEventListener("pointerdown", (event) => { drag = { x: event.clientX, y: event.clientY, yaw: orbit.yaw, pitch: orbit.pitch }; renderer.domElement.setPointerCapture(event.pointerId); });
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  drag = { x: event.clientX, y: event.clientY, external: state.liveExternalMode, yaw: orbit.yaw, yawOffset: state.liveCamera.yawOffset, pitch: orbit.pitch };
+  renderer.domElement.setPointerCapture(event.pointerId);
+});
 renderer.domElement.addEventListener("pointermove", (event) => {
   if (!drag) return;
-  orbit.yaw = drag.yaw - (event.clientX - drag.x) * 0.008;
+  if (drag.external) {
+    state.liveCamera.yawOffset = wrapDegrees(drag.yawOffset - THREE.MathUtils.radToDeg((event.clientX - drag.x) * 0.008));
+    applyLiveCameraYaw();
+  } else {
+    orbit.yaw = drag.yaw - (event.clientX - drag.x) * 0.008;
+  }
   orbit.pitch = Math.max(0.18, Math.min(Math.PI - 0.18, drag.pitch - (event.clientY - drag.y) * 0.008));
   updateCamera();
 });

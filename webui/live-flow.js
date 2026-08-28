@@ -44,7 +44,7 @@
     pathElapsed: 0,
     plannerCenter: { x: 0, z: 0 },
     plannerScale: 90,
-    camera: { target: 'torso', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 },
+    camera: { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 },
     cameraStatusAt: 0,
     controlAfter: 0,
     controlPolling: false,
@@ -58,6 +58,7 @@
   const playerPost = (message) => player.contentWindow?.postMessage(message, MOTION_API);
   const cueId = () => `cue-${Date.now().toString(36)}-${++state.cueSequence}`;
   const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const wrapDegrees = (value) => ((finite(value) + 180) % 360 + 360) % 360 - 180;
   const pathCanvas = $('#live-path-canvas');
   const pathContext = pathCanvas.getContext('2d');
 
@@ -70,7 +71,7 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 5,
+        version: 6,
         stack: state.stack,
         idleKey: state.idleKey,
         activeKey: state.activeKey,
@@ -90,7 +91,7 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2, 3, 4, 5].includes(saved.version)) {
+      if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version)) {
         state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
@@ -505,6 +506,7 @@
     const camera = state.camera;
     if (syncInputs) {
       $('#live-camera-target').value = camera.target;
+      $('#live-camera-direction-anchor').value = camera.directionAnchor;
       $('#live-camera-follow').checked = camera.follow;
       $('#live-camera-orbit').checked = camera.orbit;
       $('#live-camera-distance').value = String(camera.distance);
@@ -518,7 +520,8 @@
     $('#live-camera-pitch-out').textContent = `${Math.round(finite(camera.pitch, 68))}°`;
     $('#live-camera-orbit-speed-out').textContent = `${Math.round(finite(camera.orbitSpeed, 12))}°/s`;
     $('#live-camera-smoothing-out').textContent = `${finite(camera.smoothing, 5).toFixed(1)}×`;
-    $('#live-camera-status').textContent = `${camera.target} · ${camera.follow ? 'following' : 'fixed'}${camera.orbit ? ' · orbiting' : ''}`;
+    const anchorLabel = camera.directionAnchor === 'world' ? 'world-facing' : `${camera.directionAnchor}-facing`;
+    $('#live-camera-status').textContent = `${camera.target} · ${anchorLabel} · ${camera.follow ? 'following' : 'fixed'}${camera.orbit ? ' · orbiting' : ''}`;
   }
 
   function sendCameraSettings() {
@@ -527,14 +530,16 @@
 
   function setCamera(patch, send = true) {
     const target = ['face', 'torso', 'hips', 'full'].includes(patch.target) ? patch.target : state.camera.target;
+    const directionAnchor = ['world', 'face', 'torso', 'feet'].includes(patch.directionAnchor) ? patch.directionAnchor : state.camera.directionAnchor;
     state.camera = {
       ...state.camera,
       ...patch,
       target,
+      directionAnchor,
       follow: patch.follow == null ? state.camera.follow : Boolean(patch.follow),
       orbit: patch.orbit == null ? state.camera.orbit : Boolean(patch.orbit),
       distance: Math.max(0.45, Math.min(12, finite(patch.distance, state.camera.distance))),
-      yaw: Math.max(-180, Math.min(180, finite(patch.yaw, state.camera.yaw))),
+      yaw: wrapDegrees(finite(patch.yaw, state.camera.yaw)),
       pitch: Math.max(10, Math.min(170, finite(patch.pitch, state.camera.pitch))),
       orbitSpeed: Math.max(-90, Math.min(90, finite(patch.orbitSpeed, state.camera.orbitSpeed))),
       smoothing: Math.max(0.5, Math.min(20, finite(patch.smoothing, state.camera.smoothing))),
@@ -545,7 +550,7 @@
   }
 
   function resetCamera() {
-    state.camera = { target: 'torso', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 };
+    state.camera = { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15 };
     renderCameraControls(); saveWorkspace();
     playerPost({ type: 'live-flow:camera-reset' });
   }
@@ -1003,9 +1008,9 @@
         setCamera(args); return { camera: { ...state.camera } };
       case 'camera.preset': {
         const preset = String(args.preset || '');
-        if (preset === 'face') setCamera({ target: 'face', follow: true, distance: 1.25, pitch: 82 });
-        else if (preset === 'torso') setCamera({ target: 'torso', follow: true, distance: 2.25, pitch: 76 });
-        else if (preset === 'full') setCamera({ target: 'full', follow: true, distance: 4.15, pitch: 68 });
+        if (preset === 'face') setCamera({ target: 'face', directionAnchor: 'face', follow: true, distance: 1.25, yaw: 0, pitch: 82 });
+        else if (preset === 'torso') setCamera({ target: 'torso', directionAnchor: 'torso', follow: true, distance: 2.25, yaw: 20, pitch: 76 });
+        else if (preset === 'full') setCamera({ target: 'full', directionAnchor: 'feet', follow: true, distance: 4.15, yaw: 35, pitch: 68 });
         else throw new Error('camera.preset requires face, torso, or full.');
         return { camera: { ...state.camera } };
       }
@@ -1109,6 +1114,7 @@
     saveWorkspace(); drawPathPlanner();
   });
   $('#live-camera-target').addEventListener('change', (event) => setCamera({ target: event.target.value }));
+  $('#live-camera-direction-anchor').addEventListener('change', (event) => setCamera({ directionAnchor: event.target.value }));
   $('#live-camera-follow').addEventListener('change', (event) => setCamera({ follow: event.target.checked }));
   $('#live-camera-orbit').addEventListener('change', (event) => setCamera({ orbit: event.target.checked }));
   for (const [id, key] of [
@@ -1120,9 +1126,9 @@
   for (const button of document.querySelectorAll('[data-camera-preset]')) {
     button.addEventListener('click', () => {
       const preset = button.dataset.cameraPreset;
-      if (preset === 'face') setCamera({ target: 'face', follow: true, distance: 1.25, pitch: 82 });
-      if (preset === 'torso') setCamera({ target: 'torso', follow: true, distance: 2.25, pitch: 76 });
-      if (preset === 'full') setCamera({ target: 'full', follow: true, distance: 4.15, pitch: 68 });
+      if (preset === 'face') setCamera({ target: 'face', directionAnchor: 'face', follow: true, distance: 1.25, yaw: 0, pitch: 82 });
+      if (preset === 'torso') setCamera({ target: 'torso', directionAnchor: 'torso', follow: true, distance: 2.25, yaw: 20, pitch: 76 });
+      if (preset === 'full') setCamera({ target: 'full', directionAnchor: 'feet', follow: true, distance: 4.15, yaw: 35, pitch: 68 });
     });
   }
   $('#live-camera-reset').addEventListener('click', resetCamera);
@@ -1176,6 +1182,7 @@
         state.camera = {
           ...state.camera,
           target: ['face', 'torso', 'hips', 'full'].includes(source.target) ? source.target : state.camera.target,
+          directionAnchor: ['world', 'face', 'torso', 'feet'].includes(source.directionAnchor) ? source.directionAnchor : state.camera.directionAnchor,
           follow: Boolean(source.follow), orbit: Boolean(source.orbit),
           orbitSpeed: finite(source.orbitSpeed, state.camera.orbitSpeed), smoothing: finite(source.smoothing, state.camera.smoothing),
           targetOffsetY: finite(source.targetOffsetY, state.camera.targetOffsetY), yaw: finite(source.yaw, state.camera.yaw),

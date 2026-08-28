@@ -37,6 +37,7 @@ executing speech, movement, or another side effect twice.
   "action": "camera.set",
   "args": {
     "target": "face",
+    "directionAnchor": "face",
     "follow": true,
     "orbit": true,
     "orbitSpeed": 8,
@@ -114,6 +115,11 @@ Hold forward and left for 800 milliseconds:
 - The API can create cached embeddings but intentionally cannot delete them.
 - Speech, embedding, and path schedules have independent loop flags.
 - Scheduled speech remains live: PocketTTS and LAM run when each cue is due.
-- Camera angles are expressed in degrees and distances in metres.
+- Camera position targets and direction anchors are independent. `target`
+  chooses what remains in frame; `directionAnchor` chooses which rotation the
+  shot follows (`world`, `face`, `torso`, or `feet`).
+- Camera angles are expressed in degrees and distances in metres. `yaw` is an
+  offset from the selected direction anchor; with `world`, it is the absolute
+  world-relative angle used by earlier versions.
 
 The schema endpoint is authoritative for available actions and argument ranges.
