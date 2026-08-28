@@ -1,0 +1,13 @@
+{
+  "engine": "ardy",
+  "source": "C:\\Users\\forre\\Documents\\face\\ardy\\ardy\\assets\\skeletons\\cskel27\\skin_standard.npz",
+  "vertexCount": 9084,
+  "faceCount": 18152,
+  "jointNames": ["Hips", "Spine", "Spine1", "Spine2", "Spine3", "Neck", "Head", "RightShoulder", "RightArm", "RightForeArm", "RightHand", "RightHandEnd", "RightHandThumb1", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "LeftHandEnd", "LeftHandThumb1", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase", "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase"],
+  "jointParents": [-1, 0, 1, 2, 3, 4, 5, 4, 7, 8, 9, 10, 10, 4, 13, 14, 15, 16, 16, 0, 19, 20, 21, 0, 23, 24, 25],
+  "restJoints": [[0, 0, 0], [0, 0.071, -0.0473], [0, 0.1642, -0.0638], [0, 0.2585, -0.072], [0, 0.3532, -0.072], [0, 0.6016, -0.0365], [0, 0.7298, -0.0139], [-0.032, 0.5259, -0.0187], [-0.1909, 0.5259, -0.0187], [-0.4863, 0.5259, -0.0187], [-0.719, 0.5259, -0.0187], [-0.7886, 0.5259, -0.0187], [-0.7517, 0.5264, 0.0131], [0.032, 0.5259, -0.0187], [0.1909, 0.5259, -0.0187], [0.4863, 0.5259, -0.0187], [0.719, 0.5259, -0.0187], [0.7886, 0.5259, -0.0187], [0.7517, 0.5264, 0.0131], [-0.0949, -0.0277, 0], [-0.0949, -0.4398, 0], [-0.0949, -0.8959, 0], [-0.0949, -0.9544, 0.1607], [0.0949, -0.0277, 0], [0.0949, -0.4398, 0], [0.0949, -0.8959, 0], [0.0949, -0.9544, 0.1607]],
+  "positionByteLength": 109008,
+  "indexByteOffset": 109008,
+  "indexByteLength": 217824,
+  "binary": "/motion-assets/ardy.meshbin"
+}

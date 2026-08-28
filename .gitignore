@@ -1,0 +1,36 @@
+# Portable binary payloads (kept locally; too large for a normal GitHub repository)
+/runtime/
+/models/
+/voice/
+/motion-models/models/
+/motion-models/outputs/
+/vnyan/Zome.vrm
+
+# Copied Python environments and downloaded/generated model artifacts
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+/face_animation/NyxClaw-Wav2Arkit/pretrained_models/
+/face_animation/LAM-Audio2Expression/pretrained_models/
+/face_animation/LAM-Audio2Expression/exp/
+/face_animation/Audio2Face-3D-SDK/_build/
+/face_animation/Audio2Face-3D-SDK/_deps/
+/face_animation/Audio2Face-3D-SDK/_data/
+
+# Installed JavaScript dependencies and generated web builds
+**/node_modules/
+/face_animation/webui/dist/
+/face_animation/webui/.vinext/
+/face_animation/webui/.next/
+
+# Runtime output
+/logs/
+**/outputs/
+*.log
+*.tmp
+
+# Local editor and OS state
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

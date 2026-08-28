@@ -1,0 +1,10 @@
+{
+  "engine": "kimodo",
+  "source": "C:\\Users\\forre\\Documents\\face\\kimodo\\kimodo\\assets\\skeletons\\somaskel77\\skin_standard.npz",
+  "vertexCount": 18056,
+  "faceCount": 36108,
+  "positionByteLength": 216672,
+  "indexByteOffset": 216672,
+  "indexByteLength": 433296,
+  "binary": "/motion-assets/kimodo.meshbin"
+}

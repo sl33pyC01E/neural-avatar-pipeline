@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Motion Drive — ARDY VRM</title>
+  <meta name="description" content="Portable local constraint-driven ARDY motion and VRM retargeting.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --panel: #10151d;
+      --panel-2: #151c26;
+      --line: #273140;
+      --muted: #8995a6;
+      --text: #edf3fb;
+      --ardy: #57e6b1;
+      --kimodo: #9c8cff;
+      --accent: var(--ardy);
+      --warn: #ffcb6b;
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% -10%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 36rem),
+        var(--bg);
+      color: var(--text);
+      font: 500 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button, .engine, canvas { -webkit-tap-highlight-color: transparent; }
+    .shell { width: min(1500px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 38px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark {
+      width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+      border-radius: 13px; display: grid; place-items: center; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+      font-weight: 900; letter-spacing: -.05em;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: -.03em; }
+    .subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 9px; }
+    .pill { border: 1px solid var(--line); background: #0e131a; color: var(--muted); padding: 8px 11px; border-radius: 999px; font-size: 12px; }
+    .pill strong { color: var(--text); }
+    a { color: inherit; text-decoration: none; }
+    .ghost, .primary, .tool {
+      border: 1px solid var(--line); color: var(--text); background: var(--panel-2); border-radius: 11px; padding: 9px 12px; cursor: pointer;
+    }
+    .ghost:hover, .tool:hover { border-color: #435166; background: #1a2330; }
+    .layout { display: grid; grid-template-columns: 270px minmax(480px, 1fr) 310px; gap: 14px; align-items: start; }
+    .panel { background: color-mix(in srgb, var(--panel) 95%, transparent); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 18px 55px #0005; }
+    .panel-head { padding: 16px 17px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .eyebrow { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .panel-title { font-size: 14px; font-weight: 760; margin-top: 3px; }
+    .panel-body { padding: 14px; }
+    .engines { display: grid; gap: 9px; }
+    .engine { border: 1px solid var(--line); background: #0c1118; color: var(--text); border-radius: 14px; padding: 13px; cursor: pointer; text-align: left; }
+    .engine.active { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, #0c1118); box-shadow: inset 3px 0 var(--accent); }
+    .engine-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .engine-name { font-weight: 800; font-size: 15px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #566171; box-shadow: 0 0 0 4px #56617120; }
+    .dot.ready { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 17%, transparent); }
+    .engine-meta { color: var(--muted); font-size: 11px; margin-top: 5px; }
+    .section-label { color: var(--muted); font-size: 11px; font-weight: 750; margin: 17px 2px 8px; }
+    .switch-row { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #202936; }
+    .switch-row:first-of-type { border-top: 0; }
+    .switch-copy strong { display: block; font-size: 12px; }
+    .switch-copy span { color: var(--muted); font-size: 10px; }
+    .toggle { position: relative; width: 37px; height: 21px; flex: 0 0 auto; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle i { position: absolute; inset: 0; border-radius: 20px; background: #303a48; cursor: pointer; transition: .2s; }
+    .toggle i::after { content: ""; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: .2s; }
+    .toggle input:checked + i { background: var(--accent); }
+    .toggle input:checked + i::after { transform: translateX(16px); }
+    .prompt { margin-top: 11px; }
+    textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid var(--line); background: #090d13; color: var(--text); border-radius: 12px; padding: 11px; outline: none; }
+    textarea:focus, input:focus { border-color: color-mix(in srgb, var(--accent) 70%, var(--line)); }
+    .prompt-note { color: var(--muted); font-size: 10px; margin-top: 6px; }
+    .preset-row { display: grid; grid-template-columns: 1fr auto; gap: 7px; margin-top: 9px; }
+    .cached-input-row { margin-top: 9px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 10px; background: #0b1017; }
+    .cached-input-row .switch-row { margin: 0; }
+    .text-input-panel[hidden], .cache-input-panel[hidden], .schedule-editor[hidden] { display: none; }
+    .cache-input-panel { margin-top: 9px; }
+    .schedule-editor { margin-top: 10px; }
+    .schedule-slots { display: grid; gap: 7px; }
+    .schedule-slot { display: grid; grid-template-columns: 72px minmax(0, 1fr) 30px; gap: 7px; align-items: center; }
+    .schedule-slot input, .schedule-slot select { width: 100%; min-width: 0; border: 1px solid var(--line); background: #090d13; color: var(--text); border-radius: 9px; padding: 8px 9px; outline: none; }
+    .schedule-slot .schedule-remove { width: 30px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 9px; background: #151b24; color: var(--muted); cursor: pointer; }
+    .schedule-add { width: 100%; margin-top: 7px; border-style: dashed; }
+    select { width: 100%; min-width: 0; border: 1px solid var(--line); background: #090d13; color: var(--text); border-radius: 10px; padding: 8px 9px; outline: none; }
+    .stage-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+    .tool { padding: 7px 10px; font-size: 11px; }
+    .tool.active { border-color: color-mix(in srgb, var(--accent) 72%, var(--line)); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+    .visual-stage { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); min-height: min(62vh, 650px); background: #090d12; }
+    .viewer-wrap { position: relative; min-height: 480px; border-right: 1px solid var(--line); overflow: hidden; background: radial-gradient(circle at 50% 40%, #17202a, #080b10 70%); }
+    #viewport { position: absolute; inset: 0; cursor: grab; }
+    #viewport:active { cursor: grabbing; }
+    #viewport canvas { display: block; width: 100%; height: 100%; }
+    .viewer-hud { position: absolute; inset: 13px 13px auto; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+    .viewer-hud .hud-chip { pointer-events: auto; }
+    .playback { position: absolute; right: 13px; bottom: 13px; display: flex; gap: 7px; }
+    .route-side { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+    .route-head { padding: 11px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); background: #0d1219; }
+    .route-head .tools { gap: 4px; }
+    .route-head .tool { padding: 5px 7px; }
+    .canvas-wrap { position: relative; min-height: 420px; background: #090d12; }
+    #route { width: 100%; height: 100%; min-height: 420px; display: block; cursor: crosshair; outline: none; }
+    .canvas-hud { position: absolute; left: 14px; top: 14px; display: flex; gap: 7px; pointer-events: none; }
+    .hud-chip { background: #080c12d9; border: 1px solid #2a3544; color: var(--muted); border-radius: 9px; padding: 6px 8px; font-size: 10px; backdrop-filter: blur(8px); }
+    .hud-chip strong { color: var(--text); }
+    .route-empty { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--muted); text-align: center; }
+    .route-empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+    .timeline { border-top: 1px solid var(--line); padding: 13px 16px; background: #0d1219; }
+    .timeline-track { height: 8px; border-radius: 8px; background: #222b37; position: relative; overflow: hidden; }
+    .timeline-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 42%, white)); transition: width .2s; }
+    .timeline-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 7px; }
+    .control-group { display: grid; gap: 11px; }
+    .field { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; align-items: center; }
+    .field label { color: var(--muted); font-size: 11px; }
+    .field output { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--text); }
+    input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+    .field input[type="number"] { grid-column: 1 / -1; width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; background: #090d13; color: var(--text); }
+    .wasd { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(2, 44px); justify-content: center; gap: 7px; margin: 8px 0 4px; }
+    .key { display: grid; place-items: center; border: 1px solid #344052; border-bottom-width: 3px; background: #171e28; border-radius: 10px; color: #dce6f2; font-weight: 850; cursor: pointer; user-select: none; }
+    .key[data-key="w"] { grid-column: 2; }
+    .key[data-key="a"] { grid-column: 1; grid-row: 2; }
+    .key[data-key="s"] { grid-column: 2; grid-row: 2; }
+    .key[data-key="d"] { grid-column: 3; grid-row: 2; }
+    .key.active { transform: translateY(2px); border-bottom-width: 1px; color: #07110d; background: var(--accent); border-color: var(--accent); }
+    .wasd-note { color: var(--muted); font-size: 10px; text-align: center; margin-bottom: 14px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { border: 1px solid var(--line); background: #0c1118; border-radius: 11px; padding: 10px; }
+    .stat span { color: var(--muted); display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+    .stat strong { display: block; margin-top: 4px; font-size: 14px; }
+    .generate { padding: 14px; border-top: 1px solid var(--line); }
+    .primary { width: 100%; border: 0; background: var(--accent); color: #06110d; font-weight: 900; padding: 12px 16px; box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); }
+    .primary:disabled { opacity: .45; cursor: wait; }
+    .status { margin-top: 10px; min-height: 34px; color: var(--muted); font-size: 10px; text-align: center; }
+    .mobile-tip { display: none; }
+    @media (max-width: 1250px) { .visual-stage { grid-template-columns: 1fr; } .viewer-wrap { border-right: 0; border-bottom: 1px solid var(--line); } .canvas-wrap, #route { min-height: 300px; } }
+    @media (max-width: 1080px) { .layout { grid-template-columns: 230px 1fr; } .right-panel { grid-column: 1 / -1; } .right-panel .panel-body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } }
+    @media (max-width: 760px) { .shell { width: min(100% - 18px, 620px); padding-top: 12px; } header { align-items: flex-start; } .header-actions .pill { display: none; } .layout { grid-template-columns: 1fr; } .right-panel { grid-column: auto; } .right-panel .panel-body { display: block; } .viewer-wrap { min-height: 430px; } .canvas-wrap, #route { min-height: 340px; } .mobile-tip { display: block; } }
+    html.unified-preview, html.unified-preview body { height: 100%; overflow: hidden; }
+    html.unified-preview .shell { width: 100%; height: 100%; padding: 0; }
+    html.unified-preview header, html.unified-preview .layout > .panel:first-child, html.unified-preview .right-panel { display: none; }
+    html.unified-preview .layout { display: block; height: 100%; }
+    html.unified-preview .layout > .panel:nth-child(2) { height: 100%; border: 0; border-radius: 0; }
+    html.unified-preview .stage-head { position: absolute; z-index: 5; left: 14px; top: 14px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 11px; background: #080c12dc; backdrop-filter: blur(8px); }
+    html.unified-preview .stage-head .tools, html.unified-preview .route-side, html.unified-preview .timeline { display: none; }
+    html.unified-preview .visual-stage { display: block; min-height: 100%; height: 100%; }
+    html.unified-preview .viewer-wrap { min-height: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">MD</div>
+        <div><h1>Motion Drive</h1><div class="subtitle">Constraint-first body motion · local GPU</div></div>
+      </div>
+      <div class="header-actions">
+        <div class="pill">GPU <strong>RTX 4090</strong></div>
+        <a class="ghost" href="/">Retarget lab</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="panel-head"><div><div class="eyebrow">Runtime</div><div class="panel-title">Portable ARDY</div></div></div>
+        <div class="panel-body">
+          <div class="engines">
+            <button class="engine active" data-engine="ardy">
+              <div class="engine-row"><span class="engine-name">ARDY</span><span class="dot ready"></span></div>
+              <div class="engine-meta">Core-27 · Batch H8 · Live H40</div>
+            </button>
+          </div>
+
+          <div class="section-label">Active constraints</div>
+          <div class="switch-row"><div class="switch-copy"><strong>Root path</strong><span>XZ waypoints</span></div><label class="toggle"><input id="root-enabled" type="checkbox" checked><i></i></label></div>
+          <div class="switch-row"><div class="switch-copy"><strong>Path heading</strong><span>Face travel direction</span></div><label class="toggle"><input id="heading-enabled" type="checkbox" checked><i></i></label></div>
+          <div class="switch-row"><div class="switch-copy"><strong>Hold endpoint</strong><span>Pin final position</span></div><label class="toggle"><input id="endpoint-enabled" type="checkbox" checked><i></i></label></div>
+          <div class="switch-row"><div class="switch-copy"><strong>Follow live character</strong><span>Keep movement in frame</span></div><label class="toggle"><input id="live-camera-follow" type="checkbox" checked><i></i></label></div>
+
+          <div class="section-label">Text conditioning</div>
+          <div class="switch-row"><div class="switch-copy"><strong>Text guidance</strong><span id="llm-detail">4-bit LLM2Vec · default</span></div><label class="toggle"><input id="text-enabled" type="checkbox" checked><i></i></label></div>
+          <div class="cached-input-row"><div class="switch-row"><div class="switch-copy"><strong>Use cached input</strong><span>Load the selected saved embedding directly</span></div><label class="toggle"><input id="cached-input-enabled" type="checkbox"><i></i></label></div></div>
+          <div class="switch-row"><div class="switch-copy"><strong>Timed batch text</strong><span>Change prompts during a generated sequence</span></div><label class="toggle"><input id="text-schedule-enabled" type="checkbox" disabled><i></i></label></div>
+          <div class="prompt">
+            <div class="text-input-panel" id="text-input-panel">
+              <textarea id="prompt" placeholder="Describe the motion…">walk naturally</textarea>
+              <div class="preset-row">
+                <span></span>
+                <button class="tool" id="cache-text" title="Compute and permanently save this text embedding">Cache embedding</button>
+              </div>
+            </div>
+            <div class="cache-input-panel" id="cache-input-panel" hidden>
+              <select id="text-preset" aria-label="Cached text embedding">
+                <option value="">No cached embeddings yet</option>
+              </select>
+            </div>
+            <div class="schedule-editor" id="schedule-editor" hidden>
+              <div class="schedule-slots" id="schedule-slots"></div>
+              <button class="tool schedule-add" id="add-schedule-slot" type="button">+ Add scheduled slot</button>
+            </div>
+            <div class="prompt-note" id="prompt-note">On — bundled 4-bit text conditioning is the default.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="stage-head">
+          <div><div class="eyebrow">Official project skin</div><div class="panel-title">Humanoid motion preview</div></div>
+          <div class="tools"><button class="tool" id="viewer-vrm">VRM Avatar</button><button class="tool" id="viewer-skin">Project Skin</button><button class="tool" id="live-toggle">Start Live ARDY</button><button class="tool" id="reset-humanoid">Reset Humanoid</button><button class="tool" id="export-current" disabled>Export Batch Video</button><button class="tool" id="replay">Replay</button><button class="tool" id="pause">Pause</button></div>
+        </div>
+        <div class="visual-stage">
+          <div class="viewer-wrap">
+            <div id="viewport" aria-label="Interactive skinned humanoid viewport"></div>
+            <div class="viewer-hud"><div class="hud-chip"><strong id="mesh-label">ARDY Core-27</strong> skin</div><div class="hud-chip"><strong id="frame-label">Bind pose</strong></div></div>
+            <div class="playback"><button class="tool" id="view-reset">Reset view</button></div>
+          </div>
+          <div class="route-side">
+            <div class="route-head">
+              <div><div class="eyebrow">Ground plane · XZ</div><div class="panel-title">Route</div></div>
+              <div class="tools"><button class="tool" id="undo">Undo</button><button class="tool" id="clear">Clear</button><button class="tool" id="fit">Fit</button></div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="route" tabindex="0" aria-label="Editable ground-plane route"></canvas>
+              <div class="canvas-hud"><div class="hud-chip"><strong id="distance">0.00 m</strong> route</div><div class="hud-chip"><strong id="point-count">1</strong> waypoint</div></div>
+              <div class="route-empty" id="route-empty"><div><strong>Press W A S D</strong>or click the grid to add waypoints</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="timeline">
+          <div class="timeline-track"><div class="timeline-fill" id="timeline-fill"></div></div>
+          <div class="timeline-meta"><span>0.0s</span><span id="timeline-label">Route fills 3.2 seconds</span><span id="duration-label">3.2s</span></div>
+        </div>
+      </section>
+
+      <section class="panel right-panel">
+        <div class="panel-head"><div><div class="eyebrow">Steering</div><div class="panel-title">WASD path controls</div></div><span class="pill"><strong id="engine-chip">ARDY</strong></span></div>
+        <div class="panel-body">
+          <div>
+            <div class="wasd" aria-label="WASD controls">
+              <button class="key" data-key="w">W</button><button class="key" data-key="a">A</button><button class="key" data-key="s">S</button><button class="key" data-key="d">D</button>
+            </div>
+            <div class="wasd-note" id="wasd-note">Keyboard or click · Shift moves 4×</div>
+            <button class="tool" id="live-stop" hidden style="width:100%;margin-bottom:12px">Stop movement</button>
+            <div class="control-group">
+              <div class="field"><label for="step">Grid step</label><output id="step-out">0.10 m</output><input id="step" type="range" min="0.05" max="0.5" step="0.05" value="0.1"></div>
+              <div class="field" id="live-speed-field" hidden><label for="live-speed">Live move speed</label><output id="live-speed-out">1.20 m/s</output><input id="live-speed" type="range" min="0.2" max="2.5" step="0.1" value="1.2"></div>
+              <div class="field" id="live-smoothing-field" hidden><label for="live-smoothing">Steering blend</label><output id="live-smoothing-out">1.00 s</output><input id="live-smoothing" type="range" min="0.1" max="2" step="0.1" value="1"></div>
+              <div class="field"><label for="duration">Duration</label><output id="duration-out">3.2 s</output><input id="duration" type="number" min="1.6" step="0.4" value="3.2" title="Longer clips take proportionally longer to generate"></div>
+              <div class="field"><label for="steps">Denoising steps</label><output id="steps-out">4</output><input id="steps" type="range" min="1" max="10" step="1" value="4"></div>
+              <div class="field"><label for="guidance">Constraint guidance</label><output id="guidance-out">2.0</output><input id="guidance" type="range" min="0.5" max="4" step="0.1" value="2"></div>
+              <div class="field"><label for="text-guidance">Prompt strength</label><output id="text-guidance-out">3.0</output><input id="text-guidance" type="range" min="0.5" max="5" step="0.1" value="3"></div>
+              <div class="field"><label for="prompt-memory">Prompt memory</label><output id="prompt-memory-out">0.4 s</output><input id="prompt-memory" type="range" min="0.2" max="4" step="0.2" value="0.4"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Planned run</div>
+            <div class="stats">
+              <div class="stat"><span>Frames</span><strong id="frames-stat">64</strong></div>
+              <div class="stat"><span>Path</span><strong id="path-stat">0.00 m</strong></div>
+              <div class="stat"><span>LLM</span><strong id="llm-stat">Cached / 4-bit</strong></div>
+              <div class="stat"><span>Expected</span><strong id="speed-stat">~0.7 s</strong></div>
+            </div>
+            <div class="section-label">Avatar target</div>
+            <div class="preset-row">
+              <select id="avatar-target" aria-label="VRM avatar target"><option>Finding local VRMs…</option></select>
+              <button class="tool" id="align-avatar" type="button" disabled>Align</button>
+            </div>
+            <div class="switch-row"><div class="switch-copy"><strong>Dress safety</strong><span>Lock skirt springs to prevent clipping</span></div><label class="toggle"><input id="dress-safe" type="checkbox" checked><i></i></label></div>
+            <div class="switch-row"><div class="switch-copy"><strong>Calm accessories</strong><span>Stable bow · damped hair</span></div><label class="toggle"><input id="accessory-safe" type="checkbox" checked><i></i></label></div>
+            <div class="field"><label for="hair-weight">Hair weight</label><output id="hair-weight-out">0.60</output><input id="hair-weight" type="range" min="0" max="1.5" step="0.05" value="0.6"></div>
+            <div class="prompt-note" id="avatar-status">Uses ARDY’s official bind body; VNyan can stay closed during calibration.</div>
+          </div>
+        </div>
+        <div class="generate"><button class="primary" id="generate">Generate motion</button><div class="status" id="status">Add at least one path segment, then generate.</div></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+  <script type="module" src="/motion-control.js?v=40"></script>
+  <script type="text/plain" aria-hidden="true">
+    const $ = (id) => document.getElementById(id);
+    const canvas = $("route");
+    const ctx = canvas.getContext("2d");
+    const state = { engine: "ardy", points: [{ x: 0, z: 0 }], scale: 120, centerX: 0, centerZ: .6 };
+    const configs = {
+      ardy: { name: "ARDY", fps: 20, duration: 3.2, steps: 4, maxSteps: 10, seconds: .7, color: "#57e6b1" },
+      kimodo: { name: "Kimodo", fps: 30, duration: 3, steps: 20, maxSteps: 100, seconds: 1.4, color: "#9c8cff" },
+    };
+
+    function distance() {
+      let total = 0;
+      for (let i = 1; i < state.points.length; i += 1) total += Math.hypot(state.points[i].x - state.points[i - 1].x, state.points[i].z - state.points[i - 1].z);
+      return total;
+    }
+    function worldToScreen(point) { return { x: canvas.width / 2 + (point.x - state.centerX) * state.scale, y: canvas.height / 2 - (point.z - state.centerZ) * state.scale }; }
+    function screenToWorld(x, y) { return { x: state.centerX + (x - canvas.width / 2) / state.scale, z: state.centerZ - (y - canvas.height / 2) / state.scale }; }
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr); state.scale = 120 * dpr; draw();
+    }
+    function drawGrid() {
+      ctx.fillStyle = "#090d12"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const spacing = state.scale * .25;
+      const origin = worldToScreen({ x: 0, z: 0 });
+      ctx.lineWidth = 1;
+      for (let x = origin.x % spacing; x < canvas.width; x += spacing) { ctx.strokeStyle = Math.abs(x - origin.x) < 1 ? "#3b4654" : "#1a222d"; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+      for (let y = origin.y % spacing; y < canvas.height; y += spacing) { ctx.strokeStyle = Math.abs(y - origin.y) < 1 ? "#3b4654" : "#1a222d"; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+    }
+    function draw() {
+      drawGrid();
+      const color = configs[state.engine].color;
+      const pts = state.points.map(worldToScreen);
+      if (pts.length > 1) {
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.strokeStyle = color + "22"; ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y)); ctx.stroke();
+        ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y)); ctx.stroke();
+      }
+      pts.forEach((p, i) => { ctx.fillStyle = i === pts.length - 1 ? color : "#111821"; ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, i === pts.length - 1 ? 8 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+      const last = pts.at(-1);
+      if (last && pts.length > 1) {
+        const prev = pts.at(-2); const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+        ctx.save(); ctx.translate(last.x, last.y); ctx.rotate(angle); ctx.fillStyle = "#07110d"; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      updateReadouts();
+    }
+    function updateReadouts() {
+      const d = distance(); const cfg = configs[state.engine]; const duration = Number($("duration").value); const frames = Math.round(duration * cfg.fps);
+      $("distance").textContent = `${d.toFixed(2)} m`; $("path-stat").textContent = `${d.toFixed(2)} m`; $("point-count").textContent = `${state.points.length} waypoint${state.points.length === 1 ? "" : "s"}`;
+      $("frames-stat").textContent = frames; $("duration-label").textContent = `${duration.toFixed(1)}s`; $("timeline-label").textContent = `Route fills ${duration.toFixed(1)} seconds`;
+      $("timeline-fill").style.width = state.points.length > 1 ? "100%" : "0"; $("route-empty").style.display = state.points.length > 1 ? "none" : "grid";
+      $("generate").disabled = state.points.length < 2; $("status").textContent = state.points.length < 2 ? "Add at least one path segment, then generate." : `${state.points.length} waypoints ready for ${cfg.name}.`;
+    }
+    function move(key, fast = false) {
+      const step = Number($("step").value) * (fast ? 4 : 1); const last = state.points.at(-1); const next = { ...last };
+      if (key === "w") next.z += step; if (key === "s") next.z -= step; if (key === "a") next.x -= step; if (key === "d") next.x += step;
+      state.points.push(next); draw();
+      const el = document.querySelector(`.key[data-key="${key}"]`); el?.classList.add("active"); setTimeout(() => el?.classList.remove("active"), 90);
+    }
+    function fitRoute() {
+      const xs = state.points.map((p) => p.x), zs = state.points.map((p) => p.z); state.centerX = (Math.min(...xs) + Math.max(...xs)) / 2; state.centerZ = (Math.min(...zs) + Math.max(...zs)) / 2;
+      const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1); const dpr = Math.min(devicePixelRatio || 1, 2); state.scale = Math.min(canvas.width, canvas.height) * .68 / span * dpr / dpr; draw();
+    }
+    function setEngine(engine) {
+      state.engine = engine; const cfg = configs[engine]; document.documentElement.style.setProperty("--accent", cfg.color);
+      document.querySelectorAll(".engine").forEach((el) => el.classList.toggle("active", el.dataset.engine === engine)); $("engine-chip").textContent = cfg.name;
+      $("duration").value = cfg.duration; $("steps").max = cfg.maxSteps; $("steps").value = cfg.steps; $("steps-out").textContent = cfg.steps; $("duration-out").textContent = `${cfg.duration.toFixed(1)} s`; $("speed-stat").textContent = `~${cfg.seconds.toFixed(1)} s`;
+      $("llm-detail").textContent = engine === "ardy" ? "4-bit LLM2Vec · lazy load" : "Shared LLM2Vec · lazy load"; draw();
+    }
+    document.querySelectorAll(".engine").forEach((el) => el.addEventListener("click", () => setEngine(el.dataset.engine)));
+    document.querySelectorAll(".key").forEach((el) => el.addEventListener("click", () => move(el.dataset.key)));
+    window.addEventListener("keydown", (event) => { if (/textarea|input|select/i.test(event.target.tagName)) return; const key = event.key.toLowerCase(); if (["w", "a", "s", "d"].includes(key)) { event.preventDefault(); move(key, event.shiftKey); } });
+    canvas.addEventListener("pointerdown", (event) => { const rect = canvas.getBoundingClientRect(); const dprX = canvas.width / rect.width, dprY = canvas.height / rect.height; const point = screenToWorld((event.clientX - rect.left) * dprX, (event.clientY - rect.top) * dprY); state.points.push({ x: Math.round(point.x * 20) / 20, z: Math.round(point.z * 20) / 20 }); draw(); canvas.focus(); });
+    $("undo").addEventListener("click", () => { if (state.points.length > 1) state.points.pop(); draw(); });
+    $("clear").addEventListener("click", () => { state.points = [{ x: 0, z: 0 }]; state.centerX = 0; state.centerZ = .6; draw(); });
+    $("fit").addEventListener("click", fitRoute);
+    $("text-enabled").addEventListener("change", (event) => { $("prompt").disabled = !event.target.checked; $("prompt-note").textContent = event.target.checked ? "Loads the 4-bit encoder on first use." : "Off — no language model or text VRAM."; $("llm-stat").textContent = event.target.checked ? "4-bit" : "Off"; });
+    [["step", "step-out", (v) => `${Number(v).toFixed(2)} m`], ["duration", "duration-out", (v) => `${Number(v).toFixed(1)} s`], ["steps", "steps-out", String], ["guidance", "guidance-out", (v) => Number(v).toFixed(1)]].forEach(([id, out, fmt]) => $(id).addEventListener("input", () => { $(out).textContent = fmt($(id).value); updateReadouts(); }));
+    $("generate").addEventListener("click", () => { $("status").textContent = "Runtime connection is being wired…"; });
+    addEventListener("resize", resize); resize();
+  </script>
+</body>
+</html>

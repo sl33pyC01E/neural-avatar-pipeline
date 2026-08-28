@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kimodo 3D Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101311;
+      --panel: #181c19;
+      --panel-2: #202822;
+      --line: #344039;
+      --text: #f5f1df;
+      --muted: #b9c4b9;
+      --accent: #39c3aa;
+      --accent-2: #d99d3f;
+      --danger: #ff6b6b;
+      --blue: #1aa5ff;
+      --red: #ff4d4d;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, textarea, select {
+      font: inherit;
+      color: inherit;
+    }
+    button {
+      border: 1px solid #4c5b53;
+      border-radius: 6px;
+      background: #27302b;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    button.primary { background: #0b7565; border-color: #52d9c3; }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #38443d;
+      border-radius: 6px;
+      background: #0e1110;
+      padding: 8px 9px;
+      outline: none;
+    }
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      padding: 0;
+    }
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 16px;
+      border-bottom: 1px solid #27302b;
+      background: linear-gradient(90deg, #111714, #171a17);
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      border: 1px solid #414c45;
+      border-radius: 6px;
+      padding: 4px 9px;
+      background: #1d231f;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #6f7771;
+    }
+    .dot.good { background: #4bd37b; }
+    .dot.busy { background: #e6b84a; }
+    .dot.bad { background: var(--danger); }
+    main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+      gap: 8px;
+      padding: 10px;
+    }
+    aside {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    details {
+      border: 1px solid #313b35;
+      border-radius: 8px;
+      background: var(--panel);
+      margin-bottom: 8px;
+    }
+    details[open] { background: #171c19; }
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #f2e9ca;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: "+";
+      color: var(--muted);
+      font-weight: 700;
+    }
+    details[open] summary::after { content: "-"; }
+    .block {
+      padding: 0 10px 10px;
+    }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .row.compact {
+      grid-template-columns: 1fr 1fr;
+    }
+    label {
+      color: #f6f0d9;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .value {
+      color: #efe7cf;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .status {
+      min-height: 34px;
+      border: 1px solid #303932;
+      border-radius: 6px;
+      background: #101310;
+      color: var(--muted);
+      padding: 8px;
+      margin-top: 8px;
+      overflow-wrap: anywhere;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 0;
+      border-top: 1px solid #2e3631;
+    }
+    .kv div {
+      padding: 6px 4px;
+      border-bottom: 1px solid #2e3631;
+      overflow-wrap: anywhere;
+    }
+    .kv div:nth-child(odd) {
+      color: #f3e8c6;
+      font-weight: 650;
+    }
+    .viewport {
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+      border: 1px solid #313b35;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #030504;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .hud {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      max-width: min(360px, 42vw);
+      border: 1px solid #303932;
+      border-radius: 6px;
+      background: rgba(12, 15, 13, 0.85);
+      color: #e7eadf;
+      padding: 8px;
+      font-size: 12px;
+      white-space: pre-line;
+      pointer-events: none;
+    }
+    .timeline {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(64, 78, 70, 0.82);
+      border-radius: 8px;
+      background: rgba(15, 18, 16, 0.86);
+      padding: 8px;
+    }
+    .timeline button {
+      min-width: 64px;
+      padding: 7px 10px;
+    }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hidden { display: none; }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .app { min-height: 100%; height: auto; }
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(520px, 70vh);
+      }
+      aside { overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Kimodo 3D Lab</h1>
+      <div class="pills">
+        <div class="pill"><span id="kimodoDot" class="dot"></span><span id="kimodoPill">Kimodo unchecked</span></div>
+        <div class="pill"><span id="vnyanDot" class="dot"></span><span id="vnyanPill">VNyan unchecked</span></div>
+        <div class="pill"><span class="dot good"></span><span id="portPill">Lab 127.0.0.1:8792</span></div>
+      </div>
+    </header>
+    <main>
+      <aside>
+        <details open>
+          <summary>Generate</summary>
+          <div class="block">
+            <textarea id="prompt">A person gives a small conversational hand gesture.</textarea>
+            <div class="grid2" style="margin-top:8px">
+              <button id="startBtn">Start Kimodo</button>
+              <button id="pingBtn">Ping</button>
+            </div>
+            <div class="row">
+              <label for="duration">Duration</label>
+              <input id="duration" type="range" min="0.5" max="12" step="0.1" value="3">
+              <span id="durationVal" class="value">3.0</span>
+            </div>
+            <div class="row">
+              <label for="steps">Steps</label>
+              <input id="steps" type="range" min="10" max="150" step="1" value="50">
+              <span id="stepsVal" class="value">50</span>
+            </div>
+            <div class="row">
+              <label for="cfg">CFG</label>
+              <input id="cfg" type="range" min="0" max="10" step="0.1" value="2">
+              <span id="cfgVal" class="value">2.0</span>
+            </div>
+            <div class="row compact">
+              <label for="seed">Seed</label>
+              <input id="seed" value="42">
+            </div>
+            <div class="grid2" style="margin-top:8px">
+              <button id="generateBtn" class="primary">Generate + Track</button>
+              <button id="clearBtn">Clear View</button>
+            </div>
+            <div id="actionStatus" class="status">Ready.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Load CSV</summary>
+          <div class="block">
+            <input id="csvPath" placeholder="C:\Users\forre\Documents\face\retargetting\runs\kimodo\motion\motion.csv">
+            <div class="grid2" style="margin-top:8px">
+              <button id="loadBtn" class="primary">Load + Track</button>
+              <button id="useLastBtn">Use Last</button>
+            </div>
+            <div id="loadStatus" class="status">No CSV loaded.</div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>View</summary>
+          <div class="block">
+            <div class="row">
+              <label for="scale">Scale</label>
+              <input id="scale" type="range" min="0.2" max="5" step="0.05" value="1.4">
+              <span id="scaleVal" class="value">1.40</span>
+            </div>
+            <div class="row">
+              <label for="speed">Speed</label>
+              <input id="speed" type="range" min="0.05" max="2" step="0.05" value="1">
+              <span id="speedVal" class="value">1.00</span>
+            </div>
+            <div class="grid2" style="margin-top:10px">
+              <button id="centerBtn" class="primary">Root Centered</button>
+              <button id="guidesBtn" class="primary">Guides On</button>
+            </div>
+            <div class="grid2" style="margin-top:8px">
+              <button id="loopBtn" class="primary">Loop On</button>
+              <button id="frameBtn">Frame View</button>
+            </div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>VNyan Drive</summary>
+          <div class="block">
+            <div class="grid2">
+              <button id="vnyanDriveBtn" class="primary">Drive On</button>
+              <button id="vnyanResetBtn">Reset VNyan</button>
+            </div>
+            <div id="vnyanStatus" class="status">VNyan output unchecked.</div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Tracking Proof</summary>
+          <div class="block">
+            <div id="proof" class="kv">
+              <div>Source</div><div>-</div>
+              <div>Frames</div><div>-</div>
+              <div>Joints</div><div>-</div>
+              <div>3D span</div><div>-</div>
+              <div>FPS</div><div>-</div>
+              <div>Duration</div><div>-</div>
+            </div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Kimodo Log</summary>
+          <div class="block">
+            <pre id="kimodoLog" class="status" style="white-space:pre-wrap; max-height:220px; overflow:auto"></pre>
+          </div>
+        </details>
+      </aside>
+
+      <section class="viewport" id="viewport">
+        <canvas id="scene"></canvas>
+        <div id="hud" class="hud">No motion loaded.</div>
+        <div class="timeline">
+          <button id="playBtn">Play</button>
+          <input id="frame" type="range" min="0" max="0" step="1" value="0">
+          <span id="frameReadout" class="small">0 / 0</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import * as THREE from "/vendor/three.module.js";
+
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      kimodoDot: $("kimodoDot"),
+      kimodoPill: $("kimodoPill"),
+      vnyanDot: $("vnyanDot"),
+      vnyanPill: $("vnyanPill"),
+      portPill: $("portPill"),
+      prompt: $("prompt"),
+      startBtn: $("startBtn"),
+      pingBtn: $("pingBtn"),
+      duration: $("duration"),
+      durationVal: $("durationVal"),
+      steps: $("steps"),
+      stepsVal: $("stepsVal"),
+      cfg: $("cfg"),
+      cfgVal: $("cfgVal"),
+      seed: $("seed"),
+      generateBtn: $("generateBtn"),
+      clearBtn: $("clearBtn"),
+      actionStatus: $("actionStatus"),
+      csvPath: $("csvPath"),
+      loadBtn: $("loadBtn"),
+      useLastBtn: $("useLastBtn"),
+      loadStatus: $("loadStatus"),
+      scale: $("scale"),
+      scaleVal: $("scaleVal"),
+      speed: $("speed"),
+      speedVal: $("speedVal"),
+      centerBtn: $("centerBtn"),
+      guidesBtn: $("guidesBtn"),
+      loopBtn: $("loopBtn"),
+      frameBtn: $("frameBtn"),
+      vnyanDriveBtn: $("vnyanDriveBtn"),
+      vnyanResetBtn: $("vnyanResetBtn"),
+      vnyanStatus: $("vnyanStatus"),
+      proof: $("proof"),
+      kimodoLog: $("kimodoLog"),
+      viewport: $("viewport"),
+      canvas: $("scene"),
+      hud: $("hud"),
+      playBtn: $("playBtn"),
+      frame: $("frame"),
+      frameReadout: $("frameReadout"),
+    };
+
+    let currentPayload = null;
+    let currentMotion = null;
+    let currentJoints = null;
+    let frameFloat = 0;
+    let playing = false;
+    let useCentered = true;
+    let showGuides = true;
+    let loopPlayback = true;
+    let driveVnyan = true;
+    let vnyanActive = false;
+    let vnyanRequestInFlight = false;
+    let busy = false;
+    let lastNow = performance.now();
+
+    const renderer = new THREE.WebGLRenderer({ canvas: els.canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x030504, 1);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+    const target = new THREE.Vector3(0, 0.9, 0);
+    let yaw = -0.68;
+    let pitch = 0.34;
+    let distance = 4.2;
+
+    const grid = new THREE.GridHelper(5, 20, 0x246b61, 0x233b35);
+    grid.position.y = 0;
+    scene.add(grid);
+    const axes = new THREE.AxesHelper(1.2);
+    scene.add(axes);
+    const light = new THREE.HemisphereLight(0xffffff, 0x1b201b, 1.5);
+    scene.add(light);
+
+    const skeletonGroup = new THREE.Group();
+    scene.add(skeletonGroup);
+    const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x39c3aa });
+    const keyJointMaterial = new THREE.MeshBasicMaterial({ color: 0xf1d06a });
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xd99d3f });
+    const guideRedMaterial = new THREE.LineBasicMaterial({ color: 0xff4d4d, transparent: true, opacity: 0.8 });
+    const guideBlueMaterial = new THREE.LineBasicMaterial({ color: 0x1aa5ff, transparent: true, opacity: 0.78 });
+    const bodyLines = new THREE.LineSegments(new THREE.BufferGeometry(), edgeMaterial);
+    const guideRedLines = new THREE.LineSegments(new THREE.BufferGeometry(), guideRedMaterial);
+    const guideBlueLines = new THREE.LineSegments(new THREE.BufferGeometry(), guideBlueMaterial);
+    skeletonGroup.add(bodyLines, guideRedLines, guideBlueLines);
+    let jointMeshes = [];
+
+    function setBusy(value, message) {
+      busy = value;
+      for (const button of [els.startBtn, els.pingBtn, els.generateBtn, els.loadBtn, els.useLastBtn]) {
+        button.disabled = value;
+      }
+      if (message) els.actionStatus.textContent = message;
+    }
+
+    async function postJson(url, body = {}) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || "Request failed.");
+      return data;
+    }
+
+    function formatNumber(value, digits = 3) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toFixed(digits) : "-";
+    }
+
+    function updateSliderLabels() {
+      els.durationVal.textContent = Number(els.duration.value).toFixed(1);
+      els.stepsVal.textContent = String(Math.round(Number(els.steps.value)));
+      els.cfgVal.textContent = Number(els.cfg.value).toFixed(1);
+      els.scaleVal.textContent = Number(els.scale.value).toFixed(2);
+      els.speedVal.textContent = Number(els.speed.value).toFixed(2);
+    }
+
+    function updateKimodoPill(state) {
+      const kimodo = state?.kimodo || {};
+      els.portPill.textContent = `Lab ${location.host}`;
+      els.kimodoDot.className = "dot";
+      if (kimodo.ready) {
+        els.kimodoDot.classList.add("good");
+        els.kimodoPill.textContent = `Kimodo ready ${kimodo.host}:${kimodo.port}`;
+      } else if (kimodo.starting) {
+        els.kimodoDot.classList.add("busy");
+        els.kimodoPill.textContent = "Kimodo loading";
+      } else if (kimodo.error) {
+        els.kimodoDot.classList.add("bad");
+        els.kimodoPill.textContent = "Kimodo offline";
+      } else {
+        els.kimodoPill.textContent = "Kimodo unchecked";
+      }
+      els.kimodoLog.textContent = kimodo.logTail || kimodo.error || "";
+    }
+
+    function updateVnyanState(state) {
+      const vnyan = state?.vnyan || {};
+      els.vnyanDot.className = "dot";
+      if (vnyan.outputError) {
+        els.vnyanDot.classList.add("bad");
+        els.vnyanPill.textContent = "VNyan output error";
+      } else if (vnyan.outputActive) {
+        els.vnyanDot.classList.add(vnyan.outputPlaying ? "good" : "busy");
+        els.vnyanPill.textContent = `${vnyan.outputPlaying ? "Driving" : "Ready"} ${vnyan.outputHost}:${vnyan.outputPort}`;
+      } else {
+        els.vnyanPill.textContent = `VNyan ${vnyan.outputHost || "127.0.0.1"}:${vnyan.outputPort || 3333}`;
+      }
+      const frameText = vnyan.outputFrameCount
+        ? `Frame ${vnyan.outputFrame || 0}/${vnyan.outputFrameCount}`
+        : "No motion mirrored.";
+      const boneText = vnyan.outputDrivenBones ? `${vnyan.outputDrivenBones} bones` : "0 bones";
+      els.vnyanStatus.textContent = vnyan.outputError
+        ? vnyan.outputError
+        : `${frameText} | ${boneText} | ${vnyan.outputPlaying ? "playing" : "paused"}`;
+    }
+
+    async function refreshState() {
+      try {
+        const response = await fetch("/api/state");
+        const data = await response.json();
+        if (data.ok) {
+          updateKimodoPill(data.state);
+          updateVnyanState(data.state);
+          if (data.state.lastMotion?.path && !els.csvPath.value) {
+            els.csvPath.value = data.state.lastMotion.path;
+          }
+        }
+      } catch {
+        els.kimodoDot.className = "dot bad";
+        els.kimodoPill.textContent = "Lab offline";
+      }
+    }
+
+    function sourceFrames() {
+      if (!currentPayload) return [];
+      return useCentered ? currentPayload.centeredJoints : currentPayload.joints;
+    }
+
+    function applyScale(point) {
+      const scale = Number(els.scale.value || 1);
+      return [point[0] * scale, point[1] * scale, point[2] * scale];
+    }
+
+    function makeJointMeshes(count) {
+      for (const mesh of jointMeshes) skeletonGroup.remove(mesh);
+      jointMeshes = [];
+      const keySet = new Set(currentPayload?.keyJointIndices || []);
+      for (let i = 0; i < count; i += 1) {
+        const radius = keySet.has(i) ? 0.026 : 0.018;
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 12, 8), keySet.has(i) ? keyJointMaterial : jointMaterial);
+        skeletonGroup.add(mesh);
+        jointMeshes.push(mesh);
+      }
+    }
+
+    function setLineSegments(line, segments) {
+      const positions = new Float32Array(segments.length * 6);
+      let k = 0;
+      for (const [a, b] of segments) {
+        positions[k++] = a[0]; positions[k++] = a[1]; positions[k++] = a[2];
+        positions[k++] = b[0]; positions[k++] = b[1]; positions[k++] = b[2];
+      }
+      line.geometry.dispose();
+      line.geometry = new THREE.BufferGeometry();
+      line.geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      line.geometry.computeBoundingSphere();
+    }
+
+    function updateFrame() {
+      const frames = sourceFrames();
+      if (!currentPayload || frames.length === 0) {
+        setLineSegments(bodyLines, []);
+        setLineSegments(guideRedLines, []);
+        setLineSegments(guideBlueLines, []);
+        els.frameReadout.textContent = "0 / 0";
+        return;
+      }
+      const frameIndex = Math.max(0, Math.min(frames.length - 1, Math.round(frameFloat)));
+      const points = frames[frameIndex].map(applyScale);
+      const edges = currentPayload.edges?.body || [];
+      for (let i = 0; i < jointMeshes.length; i += 1) {
+        const p = points[i] || [0, 0, 0];
+        jointMeshes[i].position.set(p[0], p[1], p[2]);
+      }
+      setLineSegments(bodyLines, edges.map(([a, b]) => [points[a], points[b]]).filter(([a, b]) => a && b));
+
+      const red = [];
+      const blue = [];
+      if (showGuides) {
+        for (const index of currentPayload.keyJointIndices || []) {
+          const p = points[index];
+          if (!p) continue;
+          const floor = [p[0], 0, p[2]];
+          red.push([p, floor]);
+          blue.push([floor, [0, 0, p[2]]]);
+        }
+      }
+      setLineSegments(guideRedLines, red);
+      setLineSegments(guideBlueLines, blue);
+
+      els.frame.value = String(frameIndex);
+      els.frameReadout.textContent = `${frameIndex + 1} / ${frames.length}`;
+      updateHud(frameIndex, points);
+    }
+
+    function updateHud(frameIndex, points) {
+      if (!currentPayload) {
+        els.hud.textContent = "No motion loaded.";
+        return;
+      }
+      const names = currentPayload.jointNames || [];
+      const keyNames = ["pelvis_skel", "left_wrist_yaw_skel", "right_wrist_yaw_skel", "left_ankle_roll_skel", "right_ankle_roll_skel"];
+      const lines = [`Frame ${frameIndex + 1}`];
+      for (const name of keyNames) {
+        const index = names.indexOf(name);
+        if (index >= 0 && points[index]) {
+          const p = points[index];
+          lines.push(`${name.replace("_skel", "")} ${formatNumber(p[0])}, ${formatNumber(p[1])}, ${formatNumber(p[2])}`);
+        }
+      }
+      els.hud.textContent = lines.join("\n");
+    }
+
+    function updateProof() {
+      const stats = currentPayload?.stats || {};
+      const rows = [
+        ["Source", stats.source || "-"],
+        ["Frames", stats.frames || currentPayload?.frameCount || "-"],
+        ["Joints", stats.joints || currentPayload?.jointNames?.length || "-"],
+        ["3D span", `${formatNumber(useCentered ? stats.centeredSpan : stats.span)} m`],
+        ["FPS", formatNumber(stats.fps || currentPayload?.fps, 1)],
+        ["Duration", `${formatNumber(stats.duration || currentPayload?.duration, 2)} s`],
+      ];
+      els.proof.innerHTML = rows.map(([k, v]) => `<div>${k}</div><div>${String(v)}</div>`).join("");
+    }
+
+    function frameCamera() {
+      if (!currentPayload) {
+        target.set(0, 0.9, 0);
+        distance = 4.2;
+        updateCamera();
+        return;
+      }
+      const bounds = useCentered ? currentPayload.centeredBounds : currentPayload.bounds;
+      const mn = bounds?.min || [-1, 0, -1];
+      const mx = bounds?.max || [1, 2, 1];
+      const scale = Number(els.scale.value || 1);
+      target.set((mn[0] + mx[0]) * 0.5 * scale, (mn[1] + mx[1]) * 0.5 * scale, (mn[2] + mx[2]) * 0.5 * scale);
+      const size = Math.max(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]) * scale;
+      distance = Math.max(1.8, size * 2.2);
+      updateCamera();
+    }
+
+    function setPayload(data) {
+      currentPayload = data.payload;
+      currentMotion = data.motion || null;
+      currentJoints = data.joints || null;
+      vnyanActive = false;
+      frameFloat = 0;
+      playing = false;
+      els.playBtn.textContent = "Play";
+      els.frame.max = String(Math.max(0, (currentPayload?.frameCount || 1) - 1));
+      els.frame.value = "0";
+      if (currentMotion?.path) els.csvPath.value = currentMotion.path;
+      makeJointMeshes(currentPayload?.jointNames?.length || 0);
+      updateProof();
+      frameCamera();
+      updateFrame();
+      void syncVnyan({ forceStart: true });
+    }
+
+    function clearView() {
+      if (vnyanActive) void stopVnyan(true);
+      currentPayload = null;
+      currentMotion = null;
+      currentJoints = null;
+      frameFloat = 0;
+      playing = false;
+      makeJointMeshes(0);
+      setLineSegments(bodyLines, []);
+      setLineSegments(guideRedLines, []);
+      setLineSegments(guideBlueLines, []);
+      updateProof();
+      els.hud.textContent = "No motion loaded.";
+      els.playBtn.textContent = "Play";
+      els.frame.max = "0";
+      els.frame.value = "0";
+      els.frameReadout.textContent = "0 / 0";
+    }
+
+    async function syncVnyan({ forceStart = false } = {}) {
+      if (!driveVnyan || !currentPayload || vnyanRequestInFlight) return;
+      vnyanRequestInFlight = true;
+      try {
+        const frameIndex = Math.max(0, Math.min((currentPayload.frameCount || 1) - 1, Math.round(frameFloat)));
+        const data = await postJson(vnyanActive && !forceStart ? "/api/vnyan/control" : "/api/vnyan/play", {
+          payload: vnyanActive && !forceStart ? undefined : currentPayload,
+          frameIndex,
+          playing,
+          loop: loopPlayback,
+          speed: Number(els.speed.value || 1),
+        });
+        vnyanActive = true;
+        updateVnyanState(data.state);
+      } catch (error) {
+        els.vnyanStatus.textContent = error.message;
+        els.vnyanDot.className = "dot bad";
+        els.vnyanPill.textContent = "VNyan output error";
+      } finally {
+        vnyanRequestInFlight = false;
+      }
+    }
+
+    async function stopVnyan(sendRest = true) {
+      try {
+        const data = await postJson("/api/vnyan/stop", { sendRest });
+        vnyanActive = false;
+        updateVnyanState(data.state);
+      } catch (error) {
+        els.vnyanStatus.textContent = error.message;
+      }
+    }
+
+    async function startKimodo() {
+      setBusy(true, "Starting Kimodo service...");
+      try {
+        await postJson("/api/kimodo/start");
+        els.actionStatus.textContent = "Kimodo start requested. Generate will wait for the model if it is still loading.";
+        await refreshState();
+      } catch (error) {
+        els.actionStatus.textContent = error.message;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function pingKimodo() {
+      setBusy(true, "Pinging Kimodo...");
+      try {
+        const data = await postJson("/api/kimodo/ping");
+        els.actionStatus.textContent = data.kimodoOnline ? "Kimodo responded." : "Kimodo is offline.";
+        updateKimodoPill(data.state);
+      } catch (error) {
+        els.actionStatus.textContent = error.message;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function generate() {
+      setBusy(true, "Generating Kimodo motion. First run may take a bit while CUDA warms.");
+      try {
+        const data = await postJson("/api/generate", {
+          prompt: els.prompt.value,
+          duration: Number(els.duration.value),
+          diffusionSteps: Number(els.steps.value),
+          cfgWeight: Number(els.cfg.value),
+          seed: els.seed.value.trim(),
+        });
+        setPayload(data);
+        els.actionStatus.textContent = `Generated ${data.payload.frameCount} frames.`;
+        updateKimodoPill(data.state);
+      } catch (error) {
+        els.actionStatus.textContent = error.message;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function loadCsv() {
+      setBusy(true, "Loading Kimodo CSV...");
+      try {
+        const data = await postJson("/api/load", {
+          csvPath: els.csvPath.value.trim(),
+          fps: 30,
+        });
+        setPayload(data);
+        els.loadStatus.textContent = `Loaded ${data.payload.frameCount} frames.`;
+        els.actionStatus.textContent = `Loaded ${data.payload.frameCount} frames from CSV.`;
+      } catch (error) {
+        els.loadStatus.textContent = error.message;
+        els.actionStatus.textContent = error.message;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function updateCamera() {
+      const cp = Math.cos(pitch);
+      camera.position.set(
+        target.x + Math.sin(yaw) * cp * distance,
+        target.y + Math.sin(pitch) * distance,
+        target.z + Math.cos(yaw) * cp * distance,
+      );
+      camera.lookAt(target);
+    }
+
+    function resize() {
+      const rect = els.viewport.getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      updateCamera();
+    }
+
+    let dragging = false;
+    let lastPointer = [0, 0];
+    document.querySelector(".timeline").addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    els.viewport.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button, input, textarea, select, .timeline")) return;
+      dragging = true;
+      lastPointer = [event.clientX, event.clientY];
+      els.viewport.setPointerCapture(event.pointerId);
+    });
+    els.viewport.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const dx = event.clientX - lastPointer[0];
+      const dy = event.clientY - lastPointer[1];
+      lastPointer = [event.clientX, event.clientY];
+      yaw -= dx * 0.006;
+      pitch = Math.max(-1.2, Math.min(1.2, pitch + dy * 0.004));
+      updateCamera();
+    });
+    els.viewport.addEventListener("pointerup", () => { dragging = false; });
+    els.viewport.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      distance = Math.max(0.35, Math.min(25, distance * (event.deltaY > 0 ? 1.08 : 0.92)));
+      updateCamera();
+    }, { passive: false });
+
+    function animate(now) {
+      const dt = Math.min(0.1, (now - lastNow) / 1000);
+      lastNow = now;
+      if (playing && currentPayload) {
+        const fps = Number(currentPayload.fps || 30);
+        frameFloat += dt * fps * Number(els.speed.value || 1);
+        if (frameFloat >= currentPayload.frameCount) {
+          if (loopPlayback) {
+            frameFloat %= currentPayload.frameCount;
+          } else {
+            frameFloat = currentPayload.frameCount - 1;
+            playing = false;
+            els.playBtn.textContent = "Play";
+          }
+        }
+        updateFrame();
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    for (const input of [els.duration, els.steps, els.cfg, els.scale, els.speed]) {
+      input.addEventListener("input", () => {
+        updateSliderLabels();
+        if (input === els.scale) {
+          updateProof();
+          updateFrame();
+        }
+        if (input === els.speed && vnyanActive) {
+          void syncVnyan();
+        }
+      });
+    }
+    els.startBtn.addEventListener("click", startKimodo);
+    els.pingBtn.addEventListener("click", pingKimodo);
+    els.generateBtn.addEventListener("click", generate);
+    els.clearBtn.addEventListener("click", clearView);
+    els.loadBtn.addEventListener("click", loadCsv);
+    els.useLastBtn.addEventListener("click", () => {
+      if (currentMotion?.path) els.csvPath.value = currentMotion.path;
+    });
+    els.playBtn.addEventListener("click", () => {
+      if (!currentPayload) return;
+      playing = !playing;
+      els.playBtn.textContent = playing ? "Pause" : "Play";
+      void syncVnyan({ forceStart: !vnyanActive });
+    });
+    els.frame.addEventListener("input", () => {
+      frameFloat = Number(els.frame.value || 0);
+      updateFrame();
+      void syncVnyan({ forceStart: !vnyanActive });
+    });
+    els.centerBtn.addEventListener("click", () => {
+      useCentered = !useCentered;
+      els.centerBtn.textContent = useCentered ? "Root Centered" : "World Space";
+      els.centerBtn.classList.toggle("primary", useCentered);
+      updateProof();
+      frameCamera();
+      updateFrame();
+    });
+    els.guidesBtn.addEventListener("click", () => {
+      showGuides = !showGuides;
+      els.guidesBtn.textContent = showGuides ? "Guides On" : "Guides Off";
+      els.guidesBtn.classList.toggle("primary", showGuides);
+      updateFrame();
+    });
+    els.loopBtn.addEventListener("click", () => {
+      loopPlayback = !loopPlayback;
+      els.loopBtn.textContent = loopPlayback ? "Loop On" : "Loop Off";
+      els.loopBtn.classList.toggle("primary", loopPlayback);
+      if (vnyanActive) void syncVnyan();
+    });
+    els.vnyanDriveBtn.addEventListener("click", () => {
+      driveVnyan = !driveVnyan;
+      els.vnyanDriveBtn.textContent = driveVnyan ? "Drive On" : "Drive Off";
+      els.vnyanDriveBtn.classList.toggle("primary", driveVnyan);
+      if (driveVnyan) {
+        void syncVnyan({ forceStart: !vnyanActive });
+      } else {
+        void stopVnyan(true);
+      }
+    });
+    els.vnyanResetBtn.addEventListener("click", () => {
+      playing = false;
+      els.playBtn.textContent = "Play";
+      void stopVnyan(true);
+    });
+    els.frameBtn.addEventListener("click", frameCamera);
+
+    window.addEventListener("resize", resize);
+    updateSliderLabels();
+    clearView();
+    resize();
+    refreshState();
+    setInterval(refreshState, 2500);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

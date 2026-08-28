@@ -1,0 +1,16 @@
+{
+  "name": "motion-drive-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.3",
+    "three": "^0.165.0"
+  },
+  "scripts": {
+    "start": "node motion-control-server.js",
+    "motion": "node motion-control-server.js",
+    "kimodo": "node kimodo-lab-server.js",
+    "legacy:emage": "node legacy/emage-diffusion/server.js"
+  }
+}

@@ -1,0 +1,2319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Motion 3D Retargetting Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #151615;
+      color: #f2efe7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(67, 160, 145, 0.18), transparent 34rem),
+        linear-gradient(135deg, #171817 0%, #24231f 52%, #151719 100%);
+      overflow: hidden;
+    }
+
+    main {
+      width: min(1680px, calc(100% - 16px));
+      min-width: 980px;
+      height: 100vh;
+      margin: 0 auto;
+      padding: 8px 0 10px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(242, 239, 231, 0.12);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 720;
+    }
+
+    .title-stack {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .title-sub {
+      color: #c7c0b4;
+      font-size: 12px;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 48vw;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #c9c3b7;
+    }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: end;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #d2ccc0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid rgba(242, 239, 231, 0.16);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #c8534c;
+    }
+
+    .dot.ok {
+      background: #42bd86;
+    }
+
+    .dot.busy {
+      background: #d8a63f;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(420px, 520px) minmax(320px, 1fr);
+      gap: 8px;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .left {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    section,
+    details.panel {
+      padding: 8px;
+      border: 1px solid rgba(242, 239, 231, 0.12);
+      border-radius: 8px;
+      background: rgba(28, 29, 27, 0.82);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+      min-width: 0;
+    }
+
+    details.panel > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    details.panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.panel > summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: #aaa49a;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    details.panel[open] > summary::after {
+      content: "-";
+    }
+
+    .panel-body {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      min-width: 0;
+    }
+
+    textarea,
+    input,
+    select,
+    button {
+      border: 1px solid rgba(242, 239, 231, 0.17);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.22);
+      color: #f2efe7;
+      font: inherit;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      padding: 8px;
+      line-height: 1.35;
+    }
+
+    input,
+    select {
+      min-height: 32px;
+      padding: 6px 8px;
+      width: 100%;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: #36bba4;
+    }
+
+    button {
+      min-height: 32px;
+      padding: 6px 10px;
+      cursor: pointer;
+      background: #29312e;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    button:hover {
+      background: #35443f;
+    }
+
+    button.primary {
+      border-color: rgba(54, 187, 164, 0.75);
+      background: #146656;
+    }
+
+    button.primary:hover {
+      background: #197a68;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .slider {
+      display: grid;
+      grid-template-columns: minmax(78px, 108px) minmax(0, 1fr) minmax(34px, 42px);
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      min-width: 0;
+    }
+
+    label {
+      font-size: 13px;
+      line-height: 1.2;
+      color: #f4efe4;
+      min-width: 0;
+    }
+
+    output {
+      text-align: right;
+      color: #cfc8bc;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .toggle-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 30px;
+      min-width: 0;
+    }
+
+    details.subpanel {
+      min-width: 0;
+      padding: 7px;
+      border: 1px solid rgba(242, 239, 231, 0.1);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    details.subpanel > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      list-style: none;
+      color: #c9c3b7;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    details.subpanel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.subpanel > summary::after {
+      content: "+";
+      color: #aaa49a;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    details.subpanel[open] > summary::after {
+      content: "-";
+    }
+
+    .subpanel-body {
+      display: grid;
+      gap: 7px;
+      margin-top: 7px;
+      min-width: 0;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .knob {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #494941;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.15s ease;
+    }
+
+    .switch input:checked + .knob {
+      background: #36bba4;
+    }
+
+    .switch input:checked + .knob::before {
+      transform: translateX(24px);
+    }
+
+    .result {
+      min-height: 30px;
+      padding: 7px 8px;
+      border: 1px solid rgba(242, 239, 231, 0.12);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.16);
+      color: #d3ccc1;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .metrics {
+      width: 100%;
+      border-collapse: collapse;
+      color: #d8d1c5;
+      font-size: 12px;
+    }
+
+    .metrics th,
+    .metrics td {
+      padding: 6px;
+      border-bottom: 1px solid rgba(242, 239, 231, 0.1);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .metrics th {
+      color: #bdb6aa;
+      font-weight: 650;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid rgba(242, 239, 231, 0.14);
+      border-radius: 8px;
+      background: #060807;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+    }
+
+    #viewer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .hud {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      display: grid;
+      grid-template-columns: auto minmax(180px, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(242, 239, 231, 0.12);
+      border-radius: 8px;
+      background: rgba(15, 16, 15, 0.78);
+      backdrop-filter: blur(8px);
+    }
+
+    .hud input[type="range"] {
+      width: 100%;
+    }
+
+    .readout {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: min(360px, calc(100% - 20px));
+      padding: 8px;
+      border: 1px solid rgba(242, 239, 231, 0.12);
+      border-radius: 8px;
+      background: rgba(15, 16, 15, 0.72);
+      color: #d8d1c5;
+      font-size: 12px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    audio {
+      width: 100%;
+      min-height: 34px;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        overflow: auto;
+      }
+
+      main {
+        min-width: 0;
+        height: auto;
+      }
+
+      .layout,
+      .row,
+      .actions,
+      .hud {
+        grid-template-columns: 1fr;
+      }
+
+      .stage {
+        min-height: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="title-stack">
+        <h1>Motion 3D Retargetting Lab</h1>
+        <div id="source-summary" class="title-sub">No motion source loaded</div>
+      </div>
+      <div class="status">
+        <span class="pill">Source <span id="source-status">none</span></span>
+        <span class="pill"><span id="kokoro-dot" class="dot"></span>Kokoro <span id="kokoro-status">warming</span></span>
+        <span class="pill"><span id="emage-dot" class="dot"></span>EMAGE <span id="emage-status">idle</span></span>
+        <span class="pill"><span id="kimodo-dot" class="dot"></span>Kimodo <span id="kimodo-status">idle</span></span>
+        <span class="pill"><span id="vnyan-dot" class="dot"></span>VNyan <span id="vnyan-status">listening</span></span>
+        <span class="pill">Frames <span id="frame-count">0</span></span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="left">
+        <details class="panel">
+          <summary><h2>Kokoro</h2></summary>
+          <div class="panel-body">
+            <textarea id="text">This is a short test for spatial joint tracking. The hands should move naturally while the body stays coherent.</textarea>
+            <div class="row">
+              <select id="voice" aria-label="Kokoro voice"></select>
+              <div class="slider">
+                <label for="speed">Speed</label>
+                <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1">
+                <output for="speed">1</output>
+              </div>
+            </div>
+            <div class="actions">
+              <button id="preload" type="button">Preload Bridges</button>
+              <button id="tts-only" type="button">Kokoro Only</button>
+            </div>
+            <audio id="audio" controls></audio>
+            <div id="status" class="result">Ready.</div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>EMAGE</h2></summary>
+          <div class="panel-body">
+            <div class="actions">
+              <button id="generate" class="primary" type="button">Generate + Track</button>
+              <button id="emage-only" type="button">EMAGE From Audio</button>
+            </div>
+            <div id="emage-result" class="result">No EMAGE motion loaded.</div>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>Kimodo</h2></summary>
+          <div class="panel-body">
+            <details class="subpanel" open>
+              <summary>Prompt Generation</summary>
+              <div class="subpanel-body">
+                <textarea id="kimodo-prompt">A person gives a small conversational hand gesture.</textarea>
+                <div class="slider">
+                  <label for="kimodo-duration">Duration</label>
+                  <input id="kimodo-duration" type="range" min="0.5" max="12" step="0.5" value="3">
+                  <output for="kimodo-duration">3s</output>
+                </div>
+                <div class="slider">
+                  <label for="kimodo-steps">Steps</label>
+                  <input id="kimodo-steps" type="range" min="10" max="150" step="5" value="50">
+                  <output for="kimodo-steps">50</output>
+                </div>
+                <div class="slider">
+                  <label for="kimodo-cfg">CFG</label>
+                  <input id="kimodo-cfg" type="range" min="0" max="10" step="0.25" value="2">
+                  <output for="kimodo-cfg">2</output>
+                </div>
+                <input id="kimodo-seed" placeholder="Seed optional" aria-label="Kimodo seed">
+                <div class="actions">
+                  <button id="kimodo-start" type="button">Start Quantized Server</button>
+                  <button id="kimodo-ping" type="button">Ping Kimodo</button>
+                  <button id="kimodo-generate" class="primary" type="button">Generate + Track</button>
+                </div>
+                <div id="kimodo-result" class="result">Kimodo prompt generation idle.</div>
+              </div>
+            </details>
+
+            <details class="subpanel" open>
+              <summary>Load Existing Motion</summary>
+              <div class="subpanel-body">
+                <input id="motion-path" placeholder="C:\\Users\\forre\\Downloads\\output (1).npz" aria-label="Kimodo or EMAGE NPZ path">
+                <div class="actions">
+                  <button id="load-motion" class="primary" type="button">Load NPZ + Track</button>
+                  <button id="latest-motion" type="button">Use Last Motion</button>
+                </div>
+              </div>
+            </details>
+            <div id="motion-result" class="result">No Kimodo motion loaded.</div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>Idle / Procedural Blend</h2></summary>
+          <div class="panel-body">
+            <div class="toggle-row">
+              <label for="neutral-loop">Neutral loop padding</label>
+              <label class="switch">
+                <input id="neutral-loop" type="checkbox">
+                <span class="knob"></span>
+              </label>
+            </div>
+            <div class="slider">
+              <label for="neutral-loop-seconds">Neutral Blend</label>
+              <input id="neutral-loop-seconds" type="range" min="0.1" max="1.5" step="0.05" value="0.45">
+              <output for="neutral-loop-seconds">0.45s</output>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>VNyan / VRM</h2></summary>
+          <div class="panel-body">
+            <details class="subpanel">
+              <summary>Connection</summary>
+              <div class="subpanel-body">
+                <input id="vnyan-target" value="VMC Sender target: 127.0.0.1:33369" aria-label="VNyan VMC receiver" readonly>
+                <input id="vnyan-output-target" value="VMC Receiver output: 127.0.0.1:3333" aria-label="VNyan VMC output" readonly>
+                <div class="actions">
+                  <button id="vnyan-live" class="primary" type="button">Start Live View</button>
+                  <button id="vnyan-stop" type="button">Stop Live View</button>
+                </div>
+                <div class="slider">
+                  <label for="vnyan-motion-scale">Live Proof Scale</label>
+                  <input id="vnyan-motion-scale" type="range" min="1" max="30" step="0.5" value="1">
+                  <output for="vnyan-motion-scale">1</output>
+                </div>
+                <div id="vnyan-result" class="result">Waiting for VNyan VMC Sender bones.</div>
+              </div>
+            </details>
+
+            <details class="subpanel" open>
+              <summary>Retarget Options</summary>
+              <div class="subpanel-body">
+                <div class="slider">
+                  <label for="retarget-strength">Retarget Strength</label>
+                  <input id="retarget-strength" type="range" min="0" max="2" step="0.05" value="1">
+                  <output for="retarget-strength">1</output>
+                </div>
+                <div class="toggle-row">
+                  <label for="unlock-legs">Drive legs / feet</label>
+                  <label class="switch">
+                    <input id="unlock-legs" type="checkbox">
+                    <span class="knob"></span>
+                  </label>
+                </div>
+                <div class="toggle-row">
+                  <label for="lock-feet">Lock feet at neutral</label>
+                  <label class="switch">
+                    <input id="lock-feet" type="checkbox">
+                    <span class="knob"></span>
+                  </label>
+                </div>
+                <div class="toggle-row">
+                  <label for="sleeve-barrier">Sleeve barrier</label>
+                  <label class="switch">
+                    <input id="sleeve-barrier" type="checkbox" checked>
+                    <span class="knob"></span>
+                  </label>
+                </div>
+                <div class="slider">
+                  <label for="sleeve-barrier-width">Barrier Width</label>
+                  <input id="sleeve-barrier-width" type="range" min="0" max="0.22" step="0.005" value="0.16">
+                  <output for="sleeve-barrier-width">0.160m</output>
+                </div>
+                <div class="slider">
+                  <label for="sleeve-barrier-strength">Barrier Strength</label>
+                  <input id="sleeve-barrier-strength" type="range" min="0" max="1" step="0.05" value="1">
+                  <output for="sleeve-barrier-strength">1</output>
+                </div>
+              </div>
+            </details>
+
+            <details class="subpanel" open>
+              <summary>Output</summary>
+              <div class="subpanel-body">
+                <div class="actions">
+                  <button id="capture-vnyan-rest" type="button">Capture VRM Rest</button>
+                  <button id="retarget-vnyan" class="primary" type="button">Retarget Motion</button>
+                </div>
+                <div class="actions">
+                  <button id="play-retarget-vnyan" class="primary" type="button">Mirror To VNyan</button>
+                  <button id="stop-retarget-vnyan" type="button">Stop VNyan Pose</button>
+                </div>
+                <div id="retarget-result" class="result">Load or generate motion, then capture VNyan rest.</div>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>Tracking Proof</h2></summary>
+          <div class="panel-body">
+            <div class="toggle-row">
+              <label for="centered">Root-centered skeleton</label>
+              <label class="switch">
+                <input id="centered" type="checkbox" checked>
+                <span class="knob"></span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label for="guides">Joint grid guides</label>
+              <label class="switch">
+                <input id="guides" type="checkbox" checked>
+                <span class="knob"></span>
+              </label>
+            </div>
+            <select id="comparison-mode" aria-label="Retarget comparison mode">
+              <option value="off">VNyan Only</option>
+              <option value="overlay">Overlay Aligned Source</option>
+              <option value="side">Side By Side Aligned</option>
+              <option value="depth">Front / Behind Aligned</option>
+              <option value="raw-side">Side By Side Raw Source</option>
+              <option value="raw-overlay">Overlay Raw Source</option>
+            </select>
+            <table class="metrics">
+              <tbody id="metrics"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>Joint Coordinates</h2></summary>
+          <div class="panel-body">
+            <table class="metrics">
+              <tbody id="joint-table"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <section class="stage">
+        <div id="viewer"></div>
+        <div id="readout" class="readout">No source joints loaded.</div>
+        <div class="hud">
+          <button id="play" type="button">Play</button>
+          <input id="frame" type="range" min="0" max="0" step="1" value="0" aria-label="Frame">
+          <span id="frame-label">0 / 0</span>
+          <button id="reset-view" type="button">Reset View</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    import * as THREE from "/vendor/three.module.js";
+
+    const $ = (id) => document.getElementById(id);
+    const state = {
+      payload: null,
+      frame: 0,
+      playing: false,
+      lastTick: 0,
+      playTimer: 0,
+      vnyanLive: false,
+      vnyanTimer: 0,
+      vnyanFrameLimit: 600,
+      vnyanLastPacketAt: 0,
+      vnyanSignature: "",
+      vnyanRawFrames: [],
+      vnyanCenteredFrames: [],
+      vnyanLastLivePayload: null,
+      vnyanReferencePayload: null,
+      vnyanMirrorActive: false,
+      vnyanMirrorPending: false,
+      vnyanMirrorDirty: false,
+      vnyanMirrorLastSentFrame: -1,
+      vnyanMirrorLastSentPlaying: false,
+      lastEmagePayload: null,
+      cameraRadius: 4.2,
+      yaw: -0.55,
+      pitch: 0.22,
+      dragging: false,
+      lastPointer: null,
+      lastAudio: null,
+      lastMotion: null,
+      activeSourceType: "",
+      activeSourceLabel: "",
+    };
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x060807);
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    $("viewer").append(renderer.domElement);
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    const grid = new THREE.GridHelper(4, 16, 0x35524b, 0x1c2a27);
+    grid.position.y = -1.05;
+    scene.add(grid);
+    const gridY = grid.position.y;
+
+    const axes = new THREE.AxesHelper(0.75);
+    scene.add(axes);
+
+    const light = new THREE.DirectionalLight(0xffffff, 2.4);
+    light.position.set(2, 4, 3);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xa6c8bd, 0.72));
+
+    const bodyLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x5ad7bf }));
+    const handLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf1bd5a }));
+    const jointPoints = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xf4efe4, size: 0.026, sizeAttenuation: true }));
+    const comparisonLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff8a38, transparent: true, opacity: 0.86 }));
+    const comparisonPoints = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xffb36b, size: 0.022, sizeAttenuation: true, transparent: true, opacity: 0.9 }));
+    const leftGuideLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xe35252, transparent: true, opacity: 0.78 }));
+    const rightGuideLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xe35252, transparent: true, opacity: 0.78 }));
+    const centerGuideLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xe35252, transparent: true, opacity: 0.42 }));
+    const leftGuideFeet = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xe35252, size: 0.022, sizeAttenuation: true }));
+    const rightGuideFeet = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xe35252, size: 0.022, sizeAttenuation: true }));
+    const centerGuideFeet = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xe35252, size: 0.018, sizeAttenuation: true, transparent: true, opacity: 0.65 }));
+    const horizontalGuideLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x4d8dff, transparent: true, opacity: 0.72 }));
+    const horizontalGuideFeet = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4d8dff, size: 0.018, sizeAttenuation: true, transparent: true, opacity: 0.78 }));
+    group.add(horizontalGuideLines, centerGuideLines, leftGuideLines, rightGuideLines, horizontalGuideFeet, centerGuideFeet, leftGuideFeet, rightGuideFeet, comparisonLines, comparisonPoints, bodyLines, handLines, jointPoints);
+
+    const leftGuideJoints = [1, 4, 7, 13, 16, 18, 20];
+    const rightGuideJoints = [2, 5, 8, 14, 17, 19, 21];
+    const centerGuideJoints = [0, 3, 6, 9, 12, 15];
+    const mainGuideJoints = [...centerGuideJoints, ...leftGuideJoints, ...rightGuideJoints];
+
+    function format(value, digits = 3) {
+      const number = Number(value || 0);
+      return Number.isInteger(number) ? String(number) : number.toFixed(digits);
+    }
+
+    function setStatus(text) {
+      $("status").textContent = text;
+    }
+
+    function detectSourceType(payload) {
+      const explicit = String(payload?.sourceType || "").toLowerCase();
+      if (explicit === "ardy" || explicit === "kimodo" || explicit === "emage") return explicit;
+      const source = String(payload?.source || "").toLowerCase();
+      if (source.includes("ardy") || payload?.centeredJoints?.[0]?.length === 27) return "ardy";
+      if (source.includes("kimodo") || payload?.centeredJoints?.[0]?.length === 77) return "kimodo";
+      if (source.includes("emage") || payload?.centeredJoints?.[0]?.length === 76) return "emage";
+      return "";
+    }
+
+    function sourceDisplayName(payload) {
+      const type = detectSourceType(payload);
+      if (type === "ardy") return "ARDY";
+      if (type === "kimodo") return "Kimodo";
+      if (type === "emage") return "EMAGE";
+      return "Motion";
+    }
+
+    function sourceFrameText(payload) {
+      const frames = payload?.stats?.sourceFrameCount || payload?.frameCount || payload?.centeredJoints?.length || 0;
+      return frames ? `${frames} frames` : "idle";
+    }
+
+    function rememberSourcePayload(payload) {
+      const type = detectSourceType(payload);
+      if (!type) return;
+      state.activeSourceType = type;
+      state.activeSourceLabel = `${sourceDisplayName(payload)} ${sourceFrameText(payload)}`;
+    }
+
+    function updateSourceStatus(payload = state.payload) {
+      const directType = detectSourceType(payload);
+      const type = directType || state.activeSourceType;
+      const frameText = directType
+        ? sourceFrameText(payload)
+        : (state.activeSourceLabel ? state.activeSourceLabel.replace(/^(ARDY|Kimodo|EMAGE)\s+/, "") : "loaded");
+      const label = type ? (state.activeSourceLabel || `${sourceDisplayName(payload)} ${frameText}`) : "none";
+      $("source-status").textContent = label;
+      $("source-summary").textContent = type ? `${label} loaded` : "No motion source loaded";
+    }
+
+    function updateSpeedOutput() {
+      $("speed").nextElementSibling.textContent = format($("speed").value, 2);
+    }
+
+    function updateVnyanScaleOutput() {
+      $("vnyan-motion-scale").nextElementSibling.textContent = format($("vnyan-motion-scale").value, 1);
+    }
+
+    function updateRetargetStrengthOutput() {
+      $("retarget-strength").nextElementSibling.textContent = format($("retarget-strength").value, 2);
+    }
+
+    function updateRetargetOptionOutputs() {
+      $("neutral-loop-seconds").nextElementSibling.textContent = `${format($("neutral-loop-seconds").value, 2)}s`;
+      $("sleeve-barrier-width").nextElementSibling.textContent = `${format($("sleeve-barrier-width").value, 3)}m`;
+      $("sleeve-barrier-strength").nextElementSibling.textContent = format($("sleeve-barrier-strength").value, 2);
+    }
+
+    function updateKimodoOptionOutputs() {
+      $("kimodo-duration").nextElementSibling.textContent = `${format($("kimodo-duration").value, 1)}s`;
+      $("kimodo-steps").nextElementSibling.textContent = String(Math.round(Number($("kimodo-steps").value || 50)));
+      $("kimodo-cfg").nextElementSibling.textContent = format($("kimodo-cfg").value, 2);
+    }
+
+    function retargetOptions() {
+      const unlockLegs = $("unlock-legs").checked;
+      const lockFeet = $("lock-feet").checked;
+      return {
+        legMode: unlockLegs ? (lockFeet ? "feet-locked" : "unlocked") : "locked",
+        neutralLoop: $("neutral-loop").checked,
+        neutralLoopSeconds: Math.max(0.05, Number($("neutral-loop-seconds").value || 0.45)),
+        sleeveBarrier: $("sleeve-barrier").checked,
+        sleeveBarrierWidth: Math.max(0, Number($("sleeve-barrier-width").value || 0)),
+        sleeveBarrierStrength: Math.max(0, Math.min(1, Number($("sleeve-barrier-strength").value || 0))),
+      };
+    }
+
+    async function postJson(url, body = {}) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      if (!payload.ok) throw new Error(payload.error || "Request failed.");
+      applyServerState(payload.state);
+      return payload;
+    }
+
+    async function getJson(url) {
+      const response = await fetch(url, { cache: "no-store" });
+      const payload = await response.json();
+      if (!payload.ok) throw new Error(payload.error || "Request failed.");
+      return payload;
+    }
+
+    function applyServerState(serverState) {
+      if (!serverState) return;
+      $("kokoro-dot").classList.toggle("ok", Boolean(serverState.kokoro?.ready));
+      $("kokoro-status").textContent = serverState.kokoro?.ready ? "ready" : (serverState.kokoro?.error || "warming");
+      $("emage-dot").classList.toggle("ok", Boolean(serverState.emage?.ready));
+      $("emage-status").textContent = serverState.emage?.ready ? "ready" : (serverState.emage?.warming ? "warming" : (serverState.emage?.error || "idle"));
+      const kimodo = serverState.kimodo || {};
+      $("kimodo-dot").classList.toggle("ok", Boolean(kimodo.ready));
+      $("kimodo-dot").classList.toggle("busy", Boolean(kimodo.starting));
+      $("kimodo-status").textContent = kimodo.ready
+        ? `ready ${kimodo.model || ""}`.trim()
+        : (kimodo.starting ? "loading" : (kimodo.error ? "offline" : "idle"));
+      const vnyan = serverState.vnyan || {};
+      const ageMs = vnyan.lastPacketAt ? Date.now() - Number(vnyan.lastPacketAt) : Infinity;
+      const vnyanLive = Boolean(vnyan.listening && vnyan.boneCount && ageMs < 1500);
+      $("vnyan-dot").classList.toggle("ok", vnyanLive);
+      $("vnyan-status").textContent = vnyan.outputPlaying
+        ? `${vnyan.outputMode || "output"} ${vnyan.outputFrame || 0}/${vnyan.outputFrameCount || 0}`
+        : (vnyanLive ? `live ${vnyan.boneCount}` : (vnyan.listening ? `port ${vnyan.port}` : (vnyan.error || "offline")));
+      $("vnyan-target").value = `VMC Sender target: ${vnyan.host || "127.0.0.1"}:${vnyan.port || 33369}`;
+      $("vnyan-output-target").value = `VMC Receiver output: ${vnyan.outputHost || "127.0.0.1"}:${vnyan.outputPort || 3333}`;
+      state.lastAudio = serverState.lastAudio || state.lastAudio;
+      state.lastMotion = serverState.lastMotion || state.lastMotion;
+      if (serverState.lastMotion?.path) {
+        $("motion-path").value = serverState.lastMotion.path;
+      }
+      updateSourceStatus();
+    }
+
+    function updateGeometry(lineObject, edges, joints) {
+      const positions = new Float32Array(edges.length * 2 * 3);
+      let offset = 0;
+      for (const [a, b] of edges) {
+        const pa = joints[a] || [0, 0, 0];
+        const pb = joints[b] || [0, 0, 0];
+        positions[offset++] = pa[0];
+        positions[offset++] = pa[1];
+        positions[offset++] = pa[2];
+        positions[offset++] = pb[0];
+        positions[offset++] = pb[1];
+        positions[offset++] = pb[2];
+      }
+      lineObject.geometry.dispose();
+      lineObject.geometry = new THREE.BufferGeometry();
+      lineObject.geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    }
+
+    function updatePoints(joints, pointsObject = jointPoints) {
+      const positions = new Float32Array(joints.length * 3);
+      let offset = 0;
+      for (const joint of joints) {
+        positions[offset++] = joint[0];
+        positions[offset++] = joint[1];
+        positions[offset++] = joint[2];
+      }
+      pointsObject.geometry.dispose();
+      pointsObject.geometry = new THREE.BufferGeometry();
+      pointsObject.geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    }
+
+    function updateGuideSet(lineObject, footObject, indices, joints) {
+      const linePositions = new Float32Array(indices.length * 2 * 3);
+      const footPositions = new Float32Array(indices.length * 3);
+      let lineOffset = 0;
+      let footOffset = 0;
+      for (const index of indices) {
+        const joint = joints[index] || [0, 0, 0];
+        linePositions[lineOffset++] = joint[0];
+        linePositions[lineOffset++] = joint[1];
+        linePositions[lineOffset++] = joint[2];
+        linePositions[lineOffset++] = joint[0];
+        linePositions[lineOffset++] = gridY;
+        linePositions[lineOffset++] = joint[2];
+
+        footPositions[footOffset++] = joint[0];
+        footPositions[footOffset++] = gridY;
+        footPositions[footOffset++] = joint[2];
+      }
+      lineObject.geometry.dispose();
+      lineObject.geometry = new THREE.BufferGeometry();
+      lineObject.geometry.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
+      footObject.geometry.dispose();
+      footObject.geometry = new THREE.BufferGeometry();
+      footObject.geometry.setAttribute("position", new THREE.BufferAttribute(footPositions, 3));
+    }
+
+    function updateHorizontalGuides(joints, indices) {
+      const root = joints[0] || [0, 0, 0];
+      const rootX = root[0];
+      const rootZ = root[2];
+      const linePositions = new Float32Array(indices.length * 2 * 3);
+      const footPositions = new Float32Array(indices.length * 3);
+      let lineOffset = 0;
+      let footOffset = 0;
+      for (const index of indices) {
+        const joint = joints[index] || [0, 0, 0];
+        linePositions[lineOffset++] = rootX;
+        linePositions[lineOffset++] = gridY;
+        linePositions[lineOffset++] = rootZ;
+        linePositions[lineOffset++] = joint[0];
+        linePositions[lineOffset++] = gridY;
+        linePositions[lineOffset++] = joint[2];
+
+        footPositions[footOffset++] = joint[0];
+        footPositions[footOffset++] = gridY;
+        footPositions[footOffset++] = joint[2];
+      }
+      horizontalGuideLines.geometry.dispose();
+      horizontalGuideLines.geometry = new THREE.BufferGeometry();
+      horizontalGuideLines.geometry.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
+      horizontalGuideFeet.geometry.dispose();
+      horizontalGuideFeet.geometry = new THREE.BufferGeometry();
+      horizontalGuideFeet.geometry.setAttribute("position", new THREE.BufferAttribute(footPositions, 3));
+    }
+
+    function updateProjectionGuides(joints) {
+      const visible = $("guides").checked && Boolean(joints);
+      for (const object of [leftGuideLines, rightGuideLines, centerGuideLines, horizontalGuideLines, leftGuideFeet, rightGuideFeet, centerGuideFeet, horizontalGuideFeet]) {
+        object.visible = visible;
+      }
+      if (!visible) return;
+      const guides = state.payload?.guides || {
+        left: leftGuideJoints,
+        right: rightGuideJoints,
+        center: centerGuideJoints,
+        main: mainGuideJoints,
+      };
+      updateGuideSet(leftGuideLines, leftGuideFeet, guides.left || [], joints);
+      updateGuideSet(rightGuideLines, rightGuideFeet, guides.right || [], joints);
+      updateGuideSet(centerGuideLines, centerGuideFeet, guides.center || [], joints);
+      updateHorizontalGuides(joints, guides.main || []);
+    }
+
+    function currentFrames() {
+      if (!state.payload) return [];
+      return $("centered").checked ? state.payload.centeredJoints : state.payload.joints;
+    }
+
+    function currentComparisonFrames() {
+      if (!state.payload) return [];
+      const raw = $("comparison-mode").value.startsWith("raw-");
+      if (raw) {
+        return $("centered").checked ? (state.payload.comparisonRawCenteredJoints || []) : (state.payload.comparisonRawJoints || []);
+      }
+      return $("centered").checked ? (state.payload.comparisonAlignedCenteredJoints || []) : (state.payload.comparisonAlignedJoints || []);
+    }
+
+    function translateJoints(joints, shift) {
+      if (!shift || (!shift[0] && !shift[1] && !shift[2])) return joints;
+      return joints.map((point) => [point[0] + shift[0], point[1] + shift[1], point[2] + shift[2]]);
+    }
+
+    function comparisonShifts() {
+      const mode = $("comparison-mode").value;
+      const span = Math.max(0.8, Number(state.payload?.bounds?.span || 1));
+      if (mode === "side" || mode === "raw-side") {
+        const offset = span * 0.62;
+        return { target: [-offset, 0, 0], comparison: [offset, 0, 0] };
+      }
+      if (mode === "depth") {
+        const offset = span * 0.55;
+        return { target: [0, 0, -offset], comparison: [0, 0, offset] };
+      }
+      return { target: [0, 0, 0], comparison: [0, 0, 0] };
+    }
+
+    function updateComparison(frameIndex) {
+      const comparisonFrames = currentComparisonFrames();
+      const mode = $("comparison-mode").value;
+      const comparisonEdges = state.payload?.comparisonEdges || { body: [], hands: [] };
+      const edges = [...(comparisonEdges.body || []), ...(comparisonEdges.hands || [])];
+      const visible = mode !== "off" && comparisonFrames.length && edges.length;
+      comparisonLines.visible = Boolean(visible);
+      comparisonPoints.visible = Boolean(visible);
+      if (!visible) {
+        updateGeometry(comparisonLines, [], []);
+        updatePoints([], comparisonPoints);
+        return;
+      }
+      const shifts = comparisonShifts();
+      const comparisonJoints = translateJoints(comparisonFrames[Math.min(frameIndex, comparisonFrames.length - 1)], shifts.comparison);
+      updateGeometry(comparisonLines, edges, comparisonJoints);
+      updatePoints(comparisonJoints, comparisonPoints);
+    }
+
+    function setFrame(frame) {
+      const frames = currentFrames();
+      if (!frames.length) return;
+      state.frame = Math.max(0, Math.min(frames.length - 1, Math.round(frame)));
+      $("frame").value = String(state.frame);
+      $("frame-label").textContent = `${state.frame + 1} / ${frames.length}`;
+      const joints = frames[state.frame];
+      const displayJoints = translateJoints(joints, comparisonShifts().target);
+      updateGeometry(bodyLines, state.payload.edges.body, displayJoints);
+      updateGeometry(handLines, state.payload.edges.hands, displayJoints);
+      updatePoints(displayJoints);
+      updateProjectionGuides(displayJoints);
+      updateComparison(state.frame);
+      updateReadout(joints);
+    }
+
+    function renderPayload(payload, { resetCamera = false, keepFrame = false, latest = false } = {}) {
+      const previousFrame = state.frame;
+      state.payload = payload;
+      if (payload?.kind === "vnyan-retarget") {
+        rememberSourcePayload(payload);
+      }
+      const frames = currentFrames();
+      if (latest) {
+        state.frame = Math.max(0, frames.length - 1);
+      } else if (keepFrame) {
+        state.frame = Math.max(0, Math.min(frames.length - 1, previousFrame));
+      } else {
+        state.frame = 0;
+      }
+      $("frame-count").textContent = payload.kind === "vnyan-live" || payload.kind === "vnyan-retarget"
+        ? `${payload.frameCount || frames.length || 0} / ${payload.stats?.boneCount || 0} bones`
+        : String(payload.frameCount || frames.length || 0);
+      $("frame").max = String(Math.max(0, frames.length - 1));
+      if (resetCamera) {
+        state.cameraRadius = Math.max(2.2, Number(payload.bounds?.span || 2) * 2.4);
+      }
+      updateMetrics(payload);
+      setFrame(state.frame);
+      updateSourceStatus(payload);
+    }
+
+    function loadPayload(payload) {
+      stopVnyanLive();
+      stopPlayback();
+      if (state.vnyanMirrorActive && payload?.kind !== "vnyan-retarget") {
+        stopRetargetOnVnyan().catch((error) => {
+          $("retarget-result").textContent = error.message;
+        });
+      }
+      if (payload?.kind !== "vnyan-live" && payload?.kind !== "vnyan-retarget") {
+        state.lastEmagePayload = payload;
+        rememberSourcePayload(payload);
+      }
+      renderPayload(payload, { resetCamera: true });
+    }
+
+    function row(label, value) {
+      return `<tr><th>${label}</th><td>${value}</td></tr>`;
+    }
+
+    function updateMetrics(payload) {
+      const stats = payload.stats || {};
+      if (payload.kind === "vnyan-live") {
+        const age = stats.ageMs == null ? "none" : `${format(stats.ageMs, 0)} ms`;
+        $("metrics").innerHTML = [
+          row("Source", payload.source || ""),
+          row("Buffered frames", `${stats.bufferFrames || payload.frameCount || 0} (${format(stats.bufferSeconds || 0, 1)} sec)`),
+          row("Motion scale", `${format(stats.motionScale || 1, 1)}x`),
+          row("Source motion max", `${format(stats.sourceMotionMaxM || 0, 4)} m`),
+          row("Visible motion max", `${format(stats.visibleMotionMaxM || 0, 4)} m`),
+          row("Visible max step", `${format(stats.visibleMotionStepM || 0, 4)} m`),
+          row("Drawn body bones", `${stats.boneCount || 0}`),
+          row("Fresh VMC bones", `${stats.receivedBoneCount || 0}`),
+          row("Edges", `${stats.edgeCount || 0}`),
+          row("3D span", `${format(payload.bounds?.span, 4)} m`),
+          row("Last packet", age),
+          row("Packets", `${stats.packets || 0} total / ${stats.bonePackets || 0} bone`),
+          row("Sender", stats.source || "waiting"),
+        ].join("");
+        return;
+      }
+      if (payload.kind === "vnyan-retarget") {
+        $("metrics").innerHTML = [
+          row("Source type", sourceDisplayName(payload)),
+          row("Source", payload.source || ""),
+          row("Frames", `${payload.frameCount} @ ${payload.fps} fps`),
+          row("Mapped joints", `${stats.mappedJoints || 0}`),
+          row("Driven bones", `${stats.drivenBones || payload.drivenBones?.length || 0}`),
+          row("Retarget strength", `${format(stats.retargetStrength || 1, 2)}`),
+          row("Leg mode", stats.legMode || "locked"),
+          row("Neutral loop", stats.neutralLoop ? `${format(stats.neutralLoopSeconds || 0, 2)}s` : "off"),
+          row("Sleeve barrier", stats.sleeveBarrier ? `${format(stats.sleeveBarrierWidth || 0, 3)}m @ ${format(stats.sleeveBarrierStrength || 0, 2)}` : "off"),
+          row("Median bone scale", `${format(stats.medianBoneScale || 1, 3)}x`),
+          row("Source motion max", `${format(stats.sourceMotionMaxM || 0, 4)} m`),
+          row("Source ref max", `${format(stats.comparisonMotionMaxM || 0, 4)} m`),
+          row("VRM motion max", `${format(stats.appliedMotionMaxM || 0, 4)} m`),
+          row("VRM max step", `${format(stats.appliedMotionStepM || 0, 4)} m`),
+          row("3D span", `${format(payload.bounds?.span, 4)} m`),
+        ].join("");
+        return;
+      }
+      const coreRel = Number(stats.coreBoneLengthMaxRelativeStd || stats.maxBoneLengthRelativeStd || 0);
+      const bodyRel = Number(stats.bodyBoneLengthMaxRelativeStd || coreRel);
+      const handRel = Number(stats.handBoneLengthMaxRelativeStd || 0);
+      const allRel = Number(stats.maxBoneLengthRelativeStd || 0);
+      const proof = coreRel < 0.002 ? "pass" : "check";
+      $("metrics").innerHTML = [
+        row("Source type", sourceDisplayName(payload)),
+        row("Source", payload.source || ""),
+        row("Frames", `${payload.frameCount} @ ${payload.fps} fps`),
+        row("3D span", `${format(payload.bounds?.span, 4)} m`),
+        row("Core bone rel std", `${format(coreRel, 6)} (${proof})`),
+        row("Body edge rel std", `${format(bodyRel, 6)}`),
+        row("Hand edge rel std", `${format(handRel, 6)}`),
+        row("All edge rel std", `${format(allRel, 6)}`),
+        row("Left elbow", `${format(stats.leftElbowDeg?.min, 1)}-${format(stats.leftElbowDeg?.max, 1)} deg`),
+        row("Right elbow", `${format(stats.rightElbowDeg?.min, 1)}-${format(stats.rightElbowDeg?.max, 1)} deg`),
+        row("Left wrist travel", `${format(stats.leftWristTravelM, 4)} m`),
+        row("Right wrist travel", `${format(stats.rightWristTravelM, 4)} m`),
+      ].join("");
+    }
+
+    function jointValue(joints, index) {
+      const name = state.payload?.jointNames?.[String(index)] || `joint_${index}`;
+      const p = joints[index] || [0, 0, 0];
+      return row(name, `${format(p[0], 4)}, ${format(p[1], 4)}, ${format(p[2], 4)}`);
+    }
+
+    function updateReadout(joints) {
+      const important = state.payload?.readoutIndices?.length ? state.payload.readoutIndices : [16, 18, 20, 17, 19, 21];
+      $("joint-table").innerHTML = important.map((index) => jointValue(joints, index)).join("");
+      if (!important.length || !joints.length) {
+        $("readout").innerHTML = `<strong>Frame ${state.frame + 1}</strong><br>No VNyan bones received yet.`;
+        return;
+      }
+      $("readout").innerHTML = [
+        `<strong>Frame ${state.frame + 1}</strong>`,
+        ...important.slice(0, 6).map((index) => `${state.payload?.jointNames?.[String(index)] || `joint_${index}`} ${jointText(joints[index])}`),
+      ].join("<br>");
+    }
+
+    function jointText(point) {
+      return point ? `${format(point[0], 3)}, ${format(point[1], 3)}, ${format(point[2], 3)}` : "n/a";
+    }
+
+    function resize() {
+      const rect = $("viewer").getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    function updateCamera() {
+      const r = state.cameraRadius;
+      const cp = Math.cos(state.pitch);
+      camera.position.set(
+        Math.sin(state.yaw) * cp * r,
+        Math.sin(state.pitch) * r + 0.25,
+        Math.cos(state.yaw) * cp * r,
+      );
+      camera.lookAt(0, 0.1, 0);
+    }
+
+    function animate(now) {
+      resize();
+      updateCamera();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    function stopPlayback() {
+      state.playing = false;
+      if (state.playTimer) {
+        clearInterval(state.playTimer);
+        state.playTimer = 0;
+      }
+      $("play").textContent = "Play";
+      queueVnyanMirrorControl({ force: true });
+    }
+
+    function startPlayback() {
+      const frames = currentFrames();
+      if (!frames.length) return;
+      stopPlayback();
+      state.playing = true;
+      state.lastTick = 0;
+      $("play").textContent = "Pause";
+      const fps = Math.max(1, Number(state.payload?.fps || 30));
+      state.playTimer = setInterval(() => {
+        const current = currentFrames();
+        if (!current.length) {
+          stopPlayback();
+          return;
+        }
+        setFrame((state.frame + 1) % current.length);
+      }, 1000 / fps);
+      queueVnyanMirrorControl({ force: true });
+    }
+
+    function togglePlayback() {
+      if (state.playing) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    }
+
+    function stopVnyanLive() {
+      state.vnyanLive = false;
+      if (state.vnyanTimer) {
+        clearInterval(state.vnyanTimer);
+        state.vnyanTimer = 0;
+      }
+      $("vnyan-live").textContent = "Start Live View";
+    }
+
+    function resetVnyanBuffer() {
+      state.vnyanLastPacketAt = 0;
+      state.vnyanSignature = "";
+      state.vnyanRawFrames = [];
+      state.vnyanCenteredFrames = [];
+      state.vnyanLastLivePayload = null;
+    }
+
+    function vnyanPayloadSignature(payload) {
+      const names = payload.jointNames || {};
+      return Object.keys(names).sort((a, b) => Number(a) - Number(b)).map((index) => names[index]).join("|");
+    }
+
+    function getVnyanMotionScale() {
+      return Math.max(1, Number($("vnyan-motion-scale").value || 1));
+    }
+
+    function scalePoint(reference, point, scale) {
+      return [
+        reference[0] + (point[0] - reference[0]) * scale,
+        reference[1] + (point[1] - reference[1]) * scale,
+        reference[2] + (point[2] - reference[2]) * scale,
+      ];
+    }
+
+    function scaleVnyanFrames(rawFrames, centeredFrames, scale) {
+      const referenceCentered = centeredFrames[0] || [];
+      const centered = centeredFrames.map((frame) => frame.map((point, index) => {
+        const reference = referenceCentered[index] || point;
+        return scalePoint(reference, point, scale);
+      }));
+      const raw = rawFrames.map((frame, frameIndex) => {
+        const root = frame[0] || [0, 0, 0];
+        return (centered[frameIndex] || []).map((point) => [
+          root[0] + point[0],
+          root[1] + point[1],
+          root[2] + point[2],
+        ]);
+      });
+      return { raw, centered };
+    }
+
+    function distance(a, b) {
+      if (!a || !b) return 0;
+      return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    }
+
+    function computeMotionStats(frames, indices) {
+      if (!frames.length) return { maxFromFirst: 0, maxStep: 0, maxPath: 0 };
+      const tracked = (indices?.length ? indices : frames[0].map((_, index) => index)).filter((index) => frames[0][index]);
+      let maxFromFirst = 0;
+      let maxStep = 0;
+      let maxPath = 0;
+      for (const index of tracked) {
+        const first = frames[0][index];
+        let previous = first;
+        let path = 0;
+        for (let frameIndex = 1; frameIndex < frames.length; frameIndex += 1) {
+          const point = frames[frameIndex][index];
+          if (!point) continue;
+          const step = distance(point, previous);
+          maxStep = Math.max(maxStep, step);
+          path += step;
+          maxFromFirst = Math.max(maxFromFirst, distance(point, first));
+          previous = point;
+        }
+        maxPath = Math.max(maxPath, path);
+      }
+      return { maxFromFirst, maxStep, maxPath };
+    }
+
+    const RETARGET_BONES = [
+      ["Hips", "Spine", "pelvis", "spine1"],
+      ["Spine", "Chest", "spine1", "spine2"],
+      ["Neck", "Head", "neck", "head"],
+      ["LeftShoulder", "LeftUpperArm", "left_collar", "left_shoulder"],
+      ["LeftUpperArm", "LeftLowerArm", "left_shoulder", "left_elbow"],
+      ["LeftLowerArm", "LeftHand", "left_elbow", "left_wrist"],
+      ["RightShoulder", "RightUpperArm", "right_collar", "right_shoulder"],
+      ["RightUpperArm", "RightLowerArm", "right_shoulder", "right_elbow"],
+      ["RightLowerArm", "RightHand", "right_elbow", "right_wrist"],
+      ["Hips", "LeftUpperLeg", "pelvis", "left_hip"],
+      ["LeftUpperLeg", "LeftLowerLeg", "left_hip", "left_knee"],
+      ["LeftLowerLeg", "LeftFoot", "left_knee", "left_ankle"],
+      ["Hips", "RightUpperLeg", "pelvis", "right_hip"],
+      ["RightUpperLeg", "RightLowerLeg", "right_hip", "right_knee"],
+      ["RightLowerLeg", "RightFoot", "right_knee", "right_ankle"],
+    ];
+
+    function retargetBonesForTarget(targetNames) {
+      const hasUpperChest = Number.isInteger(targetNames.UpperChest);
+      const upperTorso = hasUpperChest ? "UpperChest" : "Chest";
+      return [
+        ...RETARGET_BONES.slice(0, 2),
+        ...(hasUpperChest ? [["Chest", "UpperChest", "spine2", "spine3"]] : []),
+        [upperTorso, "Neck", "spine3", "neck"],
+        ...RETARGET_BONES.slice(2, 3),
+        [upperTorso, "LeftShoulder", "spine3", "left_collar"],
+        ...RETARGET_BONES.slice(3, 6),
+        [upperTorso, "RightShoulder", "spine3", "right_collar"],
+        ...RETARGET_BONES.slice(6),
+      ];
+    }
+
+    function retargetJointMapForTarget(targetNames, legMode = "locked") {
+      const hasUpperChest = Number.isInteger(targetNames.UpperChest);
+      const map = [
+        ["Hips", "pelvis"],
+        ["Spine", "spine1"],
+        ["Chest", hasUpperChest ? "spine2" : "spine3"],
+        ["Neck", "neck"],
+        ["Head", "head"],
+        ["LeftShoulder", "left_collar"],
+        ["LeftUpperArm", "left_shoulder"],
+        ["LeftLowerArm", "left_elbow"],
+        ["LeftHand", "left_wrist"],
+        ["RightShoulder", "right_collar"],
+        ["RightUpperArm", "right_shoulder"],
+        ["RightLowerArm", "right_elbow"],
+        ["RightHand", "right_wrist"],
+      ];
+      if (legMode !== "locked") {
+        map.push(
+          ["LeftUpperLeg", "left_hip"],
+          ["LeftLowerLeg", "left_knee"],
+          ["RightUpperLeg", "right_hip"],
+          ["RightLowerLeg", "right_knee"],
+        );
+        if (legMode === "unlocked") {
+          map.push(
+            ["LeftFoot", "left_ankle"],
+            ["RightFoot", "right_ankle"],
+          );
+        }
+      }
+      if (hasUpperChest) {
+        map.splice(3, 0, ["UpperChest", "spine3"]);
+      }
+      return map;
+    }
+
+    function retargetDrivenBonesForTarget(targetNames, options) {
+      const names = [
+        "Hips", "Spine", "Chest", "UpperChest", "Neck", "Head",
+        "LeftShoulder", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+        "RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand",
+      ];
+      if (options.legMode !== "locked") {
+        names.push(
+          "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+          "RightUpperLeg", "RightLowerLeg", "RightFoot",
+        );
+      }
+      return names.filter((name) => Number.isInteger(targetNames[name]));
+    }
+
+    function indexByName(payload) {
+      return Object.fromEntries(Object.entries(payload?.jointNames || {}).map(([index, name]) => [name, Number(index)]));
+    }
+
+    function clonePayload(payload) {
+      return JSON.parse(JSON.stringify(payload));
+    }
+
+    function subtract(a, b) {
+      return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    }
+
+    function add(a, b) {
+      return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+    }
+
+    function multiply(vector, scalar) {
+      return [vector[0] * scalar, vector[1] * scalar, vector[2] * scalar];
+    }
+
+    function dot(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    function cross(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+      ];
+    }
+
+    function length(vector) {
+      return Math.hypot(vector[0], vector[1], vector[2]);
+    }
+
+    function normalize(vector, fallback = [0, 0, 0]) {
+      const magnitude = length(vector);
+      return magnitude > 1e-7 ? multiply(vector, 1 / magnitude) : fallback.slice();
+    }
+
+    function makeBodyBasis(points, indices) {
+      const left = points[indices.left];
+      const right = points[indices.right];
+      const root = points[indices.root];
+      const head = points[indices.head];
+      if (!left || !right || !root || !head) {
+        return {
+          x: [1, 0, 0],
+          y: [0, 1, 0],
+          z: [0, 0, 1],
+        };
+      }
+      const x = normalize(subtract(right, left), [1, 0, 0]);
+      const yRaw = normalize(subtract(head, root), [0, 1, 0]);
+      const z = normalize(cross(x, yRaw), [0, 0, 1]);
+      const y = normalize(cross(z, x), [0, 1, 0]);
+      return { x, y, z };
+    }
+
+    function transformSourceVector(vector, sourceBasis, targetBasis) {
+      const coords = [
+        dot(vector, sourceBasis.x),
+        dot(vector, sourceBasis.y),
+        -dot(vector, sourceBasis.z),
+      ];
+      return add(add(multiply(targetBasis.x, coords[0]), multiply(targetBasis.y, coords[1])), multiply(targetBasis.z, coords[2]));
+    }
+
+    function median(values) {
+      const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+      if (!sorted.length) return 1;
+      const middle = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+
+    function boundsFromFrames(frames) {
+      const flat = frames.flat();
+      if (!flat.length) return { min: [0, 0, 0], max: [0, 0, 0], span: 0 };
+      const min = [0, 1, 2].map((axis) => Math.min(...flat.map((point) => point[axis])));
+      const max = [0, 1, 2].map((axis) => Math.max(...flat.map((point) => point[axis])));
+      return { min, max, span: Math.max(...max.map((value, axis) => value - min[axis]), 0) };
+    }
+
+    function smoothStep01(value) {
+      const t = Math.max(0, Math.min(1, value));
+      return t * t * (3 - 2 * t);
+    }
+
+    function blendFrame(a, b, amount) {
+      return a.map((point, index) => {
+        const target = b[index] || point;
+        return add(point, multiply(subtract(target, point), amount));
+      });
+    }
+
+    function applyNeutralLoopPadding(frames, restFrame, fps, options) {
+      if (!options.neutralLoop || !frames.length || !restFrame.length) {
+        return frames;
+      }
+      const count = Math.max(1, Math.round(Math.max(1, fps) * options.neutralLoopSeconds));
+      const first = frames[0];
+      const last = frames[frames.length - 1];
+      const padded = [restFrame.map((point) => point.slice())];
+      for (let i = 1; i <= count; i += 1) {
+        padded.push(blendFrame(restFrame, first, smoothStep01(i / (count + 1))));
+      }
+      padded.push(...frames.map((frame) => frame.map((point) => point.slice())));
+      for (let i = 1; i <= count; i += 1) {
+        padded.push(blendFrame(last, restFrame, smoothStep01(i / count)));
+      }
+      return padded;
+    }
+
+    function solveFabrikChain(frame, restFrame, chain, goalMap, iterations = 8) {
+      const usable = chain.filter((index) => Number.isInteger(index) && frame[index] && restFrame[index]);
+      if (usable.length < 2) return;
+      const root = frame[usable[0]].slice();
+      const endGoal = goalMap.get(usable[usable.length - 1]);
+      if (!endGoal) return;
+
+      const lengths = [];
+      let totalLength = 0;
+      for (let i = 0; i < usable.length - 1; i += 1) {
+        const segmentLength = distance(restFrame[usable[i]], restFrame[usable[i + 1]]);
+        lengths.push(segmentLength);
+        totalLength += segmentLength;
+      }
+
+      const positions = usable.map((index) => (goalMap.get(index) || frame[index]).slice());
+      positions[0] = root.slice();
+      const rootToGoal = distance(root, endGoal);
+      if (rootToGoal >= totalLength) {
+        const direction = normalize(subtract(endGoal, root), normalize(subtract(restFrame[usable.at(-1)], restFrame[usable[0]]), [0, 1, 0]));
+        for (let i = 1; i < usable.length; i += 1) {
+          positions[i] = add(positions[i - 1], multiply(direction, lengths[i - 1]));
+        }
+      } else {
+        for (let iteration = 0; iteration < iterations; iteration += 1) {
+          positions[positions.length - 1] = endGoal.slice();
+          for (let i = positions.length - 2; i >= 0; i -= 1) {
+            const fallback = normalize(subtract(restFrame[usable[i]], restFrame[usable[i + 1]]), [0, 1, 0]);
+            const direction = normalize(subtract(positions[i], positions[i + 1]), fallback);
+            positions[i] = add(positions[i + 1], multiply(direction, lengths[i]));
+          }
+          positions[0] = root.slice();
+          for (let i = 0; i < positions.length - 1; i += 1) {
+            const fallback = normalize(subtract(restFrame[usable[i + 1]], restFrame[usable[i]]), [0, 1, 0]);
+            const direction = normalize(subtract(positions[i + 1], positions[i]), fallback);
+            positions[i + 1] = add(positions[i], multiply(direction, lengths[i]));
+          }
+        }
+      }
+
+      for (let i = 1; i < usable.length; i += 1) {
+        frame[usable[i]] = positions[i];
+      }
+    }
+
+    function sleeveBarrierWeight(point, restFrame, upperIndex, handIndex) {
+      const upper = restFrame[upperIndex];
+      const hand = restFrame[handIndex];
+      if (!point || !upper || !hand) return 1;
+      const span = Math.max(0.03, upper[1] - hand[1]);
+      return Math.max(0.25, Math.min(1, (upper[1] - point[1]) / span));
+    }
+
+    function pushGoalOutsideSleeveBarrier(goalMap, restFrame, index, side, minAbsX, amount) {
+      if (!Number.isInteger(index) || !restFrame[index] || amount <= 0) return;
+      const goal = (goalMap.get(index) || restFrame[index]).slice();
+      const sideX = goal[0] * side;
+      if (sideX < minAbsX) {
+        goal[0] += (side * minAbsX - goal[0]) * amount;
+      }
+      const closeWeight = sideX < minAbsX * 1.35 ? amount * 0.35 : 0;
+      if (closeWeight > 0) {
+        goal[2] += (restFrame[index][2] - goal[2]) * closeWeight;
+      }
+      goalMap.set(index, goal);
+    }
+
+    function applySleeveBarrierGoals(goalMap, restFrame, targetNames, options) {
+      if (!options.sleeveBarrier || options.sleeveBarrierStrength <= 0 || options.sleeveBarrierWidth <= 0) return;
+      const pairs = [
+        { side: -1, upper: targetNames.LeftUpperArm, lower: targetNames.LeftLowerArm, hand: targetNames.LeftHand },
+        { side: 1, upper: targetNames.RightUpperArm, lower: targetNames.RightLowerArm, hand: targetNames.RightHand },
+      ];
+      for (const { side, upper, lower, hand } of pairs) {
+        if (![upper, lower, hand].every((index) => Number.isInteger(index) && restFrame[index])) continue;
+        const handGoal = goalMap.get(hand) || restFrame[hand];
+        const lowerGoal = goalMap.get(lower) || restFrame[lower];
+        const width = Math.max(
+          options.sleeveBarrierWidth,
+          Math.abs(restFrame[hand][0]) * 0.72,
+          Math.abs(restFrame[lower][0]) * 0.68,
+        );
+        const handAmount = options.sleeveBarrierStrength * sleeveBarrierWeight(handGoal, restFrame, upper, hand);
+        const lowerAmount = options.sleeveBarrierStrength * sleeveBarrierWeight(lowerGoal, restFrame, upper, hand) * 0.9;
+        pushGoalOutsideSleeveBarrier(goalMap, restFrame, lower, side, width * 0.9, lowerAmount);
+        pushGoalOutsideSleeveBarrier(goalMap, restFrame, hand, side, width, handAmount);
+      }
+    }
+
+    function solveTwoBone(frame, restFrame, rootIndex, midIndex, endIndex, endGoal, poleGoal) {
+      if (![rootIndex, midIndex, endIndex].every((index) => Number.isInteger(index) && frame[index] && restFrame[index]) || !endGoal) return;
+      const root = frame[rootIndex].slice();
+      const upperLength = distance(restFrame[rootIndex], restFrame[midIndex]);
+      const lowerLength = distance(restFrame[midIndex], restFrame[endIndex]);
+      if (upperLength < 1e-5 || lowerLength < 1e-5) return;
+
+      const rawTarget = subtract(endGoal, root);
+      const rawDistance = length(rawTarget);
+      const minReach = Math.abs(upperLength - lowerLength) + 1e-4;
+      const maxReach = upperLength + lowerLength - 1e-4;
+      const targetDistance = Math.min(Math.max(rawDistance, minReach), maxReach);
+      const forward = normalize(rawTarget, normalize(subtract(restFrame[endIndex], restFrame[rootIndex]), [0, -1, 0]));
+      const poleRaw = poleGoal ? subtract(poleGoal, root) : subtract(restFrame[midIndex], restFrame[rootIndex]);
+      const poleProjected = subtract(poleRaw, multiply(forward, dot(poleRaw, forward)));
+      const fallbackPole = subtract(subtract(restFrame[midIndex], restFrame[rootIndex]), multiply(forward, dot(subtract(restFrame[midIndex], restFrame[rootIndex]), forward)));
+      const pole = normalize(poleProjected, normalize(fallbackPole, [0, 0, 1]));
+      const along = (upperLength * upperLength + targetDistance * targetDistance - lowerLength * lowerLength) / (2 * targetDistance);
+      const height = Math.sqrt(Math.max(upperLength * upperLength - along * along, 0));
+
+      frame[midIndex] = add(root, add(multiply(forward, along), multiply(pole, height)));
+      frame[endIndex] = add(root, multiply(forward, targetDistance));
+    }
+
+    function buildRetargetedPayload(emagePayload, vnyanReferencePayload) {
+      const sourceFrames = emagePayload?.centeredJoints || [];
+      const targetRest = vnyanReferencePayload?.centeredJoints?.[0] || [];
+      const targetRawRest = vnyanReferencePayload?.joints?.[0] || targetRest;
+      if (!sourceFrames.length || !targetRest.length) {
+        throw new Error("Need both source joints and a captured VNyan rest pose.");
+      }
+
+      const sourceType = detectSourceType(emagePayload);
+      const sourceLabel = sourceDisplayName(emagePayload);
+      const sourceNames = indexByName(emagePayload);
+      const targetNames = indexByName(vnyanReferencePayload);
+      const sourceRest = emagePayload.restCenteredJoints || emagePayload.bindCenteredJoints || sourceFrames[0];
+      const rootIndex = targetNames.Hips ?? 0;
+      const rawRoot = targetRawRest[rootIndex] || [0, 0, 0];
+      const sourceBasis = makeBodyBasis(sourceRest, {
+        left: sourceNames.left_shoulder,
+        right: sourceNames.right_shoulder,
+        root: sourceNames.pelvis,
+        head: sourceNames.head,
+      });
+      const targetBasis = makeBodyBasis(targetRest, {
+        left: targetNames.LeftUpperArm ?? targetNames.LeftShoulder,
+        right: targetNames.RightUpperArm ?? targetNames.RightShoulder,
+        root: targetNames.Hips,
+        head: targetNames.Head,
+      });
+
+      const strength = Math.max(0, Number($("retarget-strength").value || 1));
+      const options = retargetOptions();
+      const mapped = retargetBonesForTarget(targetNames).map(([targetParent, targetChild, sourceParent, sourceChild]) => ({
+        targetParent,
+        targetChild,
+        sourceParent,
+        sourceChild,
+        targetParentIndex: targetNames[targetParent],
+        targetChildIndex: targetNames[targetChild],
+        sourceParentIndex: sourceNames[sourceParent],
+        sourceChildIndex: sourceNames[sourceChild],
+      })).filter((bone) => Number.isInteger(bone.targetParentIndex)
+        && Number.isInteger(bone.targetChildIndex)
+        && Number.isInteger(bone.sourceParentIndex)
+        && Number.isInteger(bone.sourceChildIndex));
+
+      const boneScales = mapped.map((bone) => {
+        const targetVector = subtract(targetRest[bone.targetChildIndex], targetRest[bone.targetParentIndex]);
+        const sourceVector = transformSourceVector(
+          subtract(sourceRest[bone.sourceChildIndex], sourceRest[bone.sourceParentIndex]),
+          sourceBasis,
+          targetBasis,
+        );
+        return length(targetVector) / Math.max(length(sourceVector), 1e-5);
+      });
+
+      const jointMap = retargetJointMapForTarget(targetNames, options.legMode).map(([targetName, sourceName]) => ({
+        targetName,
+        sourceName,
+        targetIndex: targetNames[targetName],
+        sourceIndex: sourceNames[sourceName],
+      })).filter((joint) => Number.isInteger(joint.targetIndex) && Number.isInteger(joint.sourceIndex));
+
+      const globalBoneScale = median(boneScales);
+      const bodyChain = [
+        targetNames.Hips,
+        targetNames.Spine,
+        targetNames.Chest,
+        targetNames.UpperChest,
+        targetNames.Neck,
+        targetNames.Head,
+      ];
+      const upperTorsoIndex = Number.isInteger(targetNames.UpperChest) ? targetNames.UpperChest : targetNames.Chest;
+      const leftShoulderChain = [upperTorsoIndex, targetNames.LeftShoulder, targetNames.LeftUpperArm];
+      const rightShoulderChain = [upperTorsoIndex, targetNames.RightShoulder, targetNames.RightUpperArm];
+      const leftLegChain = [targetNames.Hips, targetNames.LeftUpperLeg, targetNames.LeftLowerLeg, targetNames.LeftFoot];
+      const rightLegChain = [targetNames.Hips, targetNames.RightUpperLeg, targetNames.RightLowerLeg, targetNames.RightFoot];
+
+      const comparisonRawCenteredFrames = sourceFrames.map((frame) => frame.map((point) => point.slice()));
+      const comparisonAlignedCenteredFrames = sourceFrames.map((sourceFrame) => sourceFrame.map((point) => (
+        add(targetRest[rootIndex] || [0, 0, 0], multiply(transformSourceVector(point, sourceBasis, targetBasis), globalBoneScale))
+      )));
+      const retargetedCenteredFrames = sourceFrames.map((sourceFrame) => {
+        const targetFrame = targetRest.map((point) => point.slice());
+        const goals = new Map();
+        for (const joint of jointMap) {
+          if (joint.targetName === "Hips") {
+            goals.set(joint.targetIndex, targetRest[joint.targetIndex].slice());
+            continue;
+          }
+          const absoluteSource = transformSourceVector(sourceFrame[joint.sourceIndex], sourceBasis, targetBasis);
+          const absoluteGoal = add(targetRest[rootIndex] || [0, 0, 0], multiply(absoluteSource, globalBoneScale));
+          const restToGoal = subtract(absoluteGoal, targetRest[joint.targetIndex]);
+          goals.set(joint.targetIndex, add(targetRest[joint.targetIndex], multiply(restToGoal, strength)));
+        }
+        if (options.legMode === "feet-locked") {
+          if (Number.isInteger(targetNames.LeftFoot) && targetRest[targetNames.LeftFoot]) {
+            goals.set(targetNames.LeftFoot, targetRest[targetNames.LeftFoot].slice());
+          }
+          if (Number.isInteger(targetNames.RightFoot) && targetRest[targetNames.RightFoot]) {
+            goals.set(targetNames.RightFoot, targetRest[targetNames.RightFoot].slice());
+          }
+        }
+        applySleeveBarrierGoals(goals, targetRest, targetNames, options);
+
+        solveFabrikChain(targetFrame, targetRest, bodyChain, goals, 10);
+        solveFabrikChain(targetFrame, targetRest, leftShoulderChain, goals, 8);
+        solveTwoBone(targetFrame, targetRest, targetNames.LeftUpperArm, targetNames.LeftLowerArm, targetNames.LeftHand, goals.get(targetNames.LeftHand), goals.get(targetNames.LeftLowerArm));
+        solveFabrikChain(targetFrame, targetRest, rightShoulderChain, goals, 8);
+        solveTwoBone(targetFrame, targetRest, targetNames.RightUpperArm, targetNames.RightLowerArm, targetNames.RightHand, goals.get(targetNames.RightHand), goals.get(targetNames.RightLowerArm));
+        if (options.legMode !== "locked") {
+          solveFabrikChain(targetFrame, targetRest, leftLegChain, goals, 10);
+          solveFabrikChain(targetFrame, targetRest, rightLegChain, goals, 10);
+        }
+        return targetFrame;
+      });
+      const fps = Number(emagePayload.fps || 30);
+      const centeredFrames = applyNeutralLoopPadding(retargetedCenteredFrames, targetRest, fps, options);
+
+      const rawFrames = centeredFrames.map((frame) => frame.map((point) => add(rawRoot, point)));
+      const comparisonRawFrames = (emagePayload.joints || comparisonRawCenteredFrames).map((frame) => frame.map((point) => point.slice()));
+      const comparisonAlignedRawFrames = comparisonAlignedCenteredFrames.map((frame) => frame.map((point) => add(rawRoot, point)));
+      const targetReadoutNames = ["Head", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftFoot", "RightFoot"];
+      const targetReadout = targetReadoutNames.map((name) => targetNames[name]).filter(Number.isInteger);
+      const sourceTracked = mapped.map((bone) => bone.sourceChildIndex);
+      const targetTracked = mapped.map((bone) => bone.targetChildIndex);
+      const sourceMotion = computeMotionStats(sourceFrames, sourceTracked);
+      const comparisonMotion = computeMotionStats(comparisonRawCenteredFrames, sourceTracked);
+      const appliedMotion = computeMotionStats(centeredFrames, targetTracked);
+      const drivenBones = retargetDrivenBonesForTarget(targetNames, options);
+
+      return {
+        kind: "vnyan-retarget",
+        sourceType,
+        source: `${sourceLabel} spatial deltas -> VNyan rest (${emagePayload.source || "loaded motion"})`,
+        fps,
+        frameCount: centeredFrames.length,
+        joints: rawFrames,
+        centeredJoints: centeredFrames,
+        drivenBones,
+        comparisonRawJoints: comparisonRawFrames,
+        comparisonRawCenteredJoints: comparisonRawCenteredFrames,
+        comparisonAlignedJoints: comparisonAlignedRawFrames,
+        comparisonAlignedCenteredJoints: comparisonAlignedCenteredFrames,
+        comparisonEdges: { body: emagePayload.edges?.body || [], hands: [] },
+        edges: vnyanReferencePayload.edges || { body: [], hands: [] },
+        jointNames: vnyanReferencePayload.jointNames || {},
+        guides: vnyanReferencePayload.guides || {},
+        readoutIndices: targetReadout,
+        bounds: boundsFromFrames(centeredFrames),
+        stats: {
+          boneCount: targetRest.length,
+          edgeCount: vnyanReferencePayload.stats?.edgeCount || vnyanReferencePayload.edges?.body?.length || 0,
+          mappedJoints: jointMap.length,
+          drivenBones: drivenBones.length,
+          retargetStrength: strength,
+          legMode: options.legMode,
+          neutralLoop: options.neutralLoop,
+          neutralLoopSeconds: options.neutralLoopSeconds,
+          sourceFrameCount: sourceFrames.length,
+          loopPaddingFrames: centeredFrames.length - retargetedCenteredFrames.length,
+          sleeveBarrier: options.sleeveBarrier,
+          sleeveBarrierWidth: options.sleeveBarrierWidth,
+          sleeveBarrierStrength: options.sleeveBarrierStrength,
+          medianBoneScale: globalBoneScale,
+          sourceMotionMaxM: sourceMotion.maxFromFirst,
+          sourceMotionStepM: sourceMotion.maxStep,
+          sourceMotionPathM: sourceMotion.maxPath,
+          comparisonMotionMaxM: comparisonMotion.maxFromFirst,
+          comparisonMotionStepM: comparisonMotion.maxStep,
+          comparisonMotionPathM: comparisonMotion.maxPath,
+          appliedMotionMaxM: appliedMotion.maxFromFirst,
+          appliedMotionStepM: appliedMotion.maxStep,
+          appliedMotionPathM: appliedMotion.maxPath,
+        },
+      };
+    }
+
+    function appendVnyanFrame(payload) {
+      const stats = payload.stats || {};
+      const packetAt = Number(stats.lastPacketAt || 0);
+      const raw = payload.joints?.[0];
+      const centered = payload.centeredJoints?.[0];
+      if (!raw?.length || !centered?.length || !packetAt || packetAt === state.vnyanLastPacketAt) {
+        return false;
+      }
+
+      const signature = vnyanPayloadSignature(payload);
+      if (signature && signature !== state.vnyanSignature) {
+        resetVnyanBuffer();
+        state.vnyanSignature = signature;
+      }
+
+      state.vnyanLastPacketAt = packetAt;
+      state.vnyanRawFrames.push(raw);
+      state.vnyanCenteredFrames.push(centered);
+      while (state.vnyanRawFrames.length > state.vnyanFrameLimit) {
+        state.vnyanRawFrames.shift();
+        state.vnyanCenteredFrames.shift();
+        state.frame = Math.max(0, state.frame - 1);
+      }
+      return true;
+    }
+
+    function buildVnyanBufferedPayload(livePayload) {
+      const frames = state.vnyanRawFrames.length;
+      const motionScale = getVnyanMotionScale();
+      const scaled = scaleVnyanFrames(state.vnyanRawFrames, state.vnyanCenteredFrames, motionScale);
+      const tracked = livePayload.readoutIndices || [];
+      const sourceMotion = computeMotionStats(state.vnyanCenteredFrames, tracked);
+      const visibleMotion = computeMotionStats(scaled.centered, tracked);
+      return {
+        ...livePayload,
+        fps: 10,
+        frameCount: frames,
+        joints: scaled.raw,
+        centeredJoints: scaled.centered,
+        stats: {
+          ...(livePayload.stats || {}),
+          bufferFrames: frames,
+          bufferSeconds: frames / 10,
+          motionScale,
+          sourceMotionMaxM: sourceMotion.maxFromFirst,
+          sourceMotionStepM: sourceMotion.maxStep,
+          sourceMotionPathM: sourceMotion.maxPath,
+          visibleMotionMaxM: visibleMotion.maxFromFirst,
+          visibleMotionStepM: visibleMotion.maxStep,
+          visibleMotionPathM: visibleMotion.maxPath,
+        },
+      };
+    }
+
+    async function updateVnyanLive() {
+      const payload = await getJson("/api/vnyan/live");
+      applyServerState(payload.state);
+      const wasLive = state.payload?.kind === "vnyan-live";
+      state.vnyanLastLivePayload = payload.payload;
+      appendVnyanFrame(payload.payload);
+      const bufferedPayload = buildVnyanBufferedPayload(payload.payload);
+      renderPayload(bufferedPayload, { resetCamera: !wasLive, keepFrame: state.playing, latest: !state.playing });
+      const stats = bufferedPayload.stats || {};
+      const age = stats.ageMs == null ? "no packets" : `${format(stats.ageMs, 0)} ms ago`;
+      $("vnyan-result").textContent = stats.boneCount
+        ? `Buffer ${stats.bufferFrames || 0} frames; source motion ${format(stats.sourceMotionMaxM || 0, 4)} m, visible ${format(stats.visibleMotionMaxM || 0, 4)} m at ${format(stats.motionScale || 1, 1)}x; last packet ${age}.`
+        : `Listening on ${payload.vnyan.host}:${payload.vnyan.port}; waiting for VNyan VMC Sender bones.`;
+    }
+
+    function startVnyanLive() {
+      stopVnyanLive();
+      stopPlayback();
+      resetVnyanBuffer();
+      state.vnyanLive = true;
+      $("vnyan-live").textContent = "Live View On";
+      updateVnyanLive().catch((error) => {
+        $("vnyan-result").textContent = error.message;
+      });
+      state.vnyanTimer = setInterval(() => {
+        updateVnyanLive().catch((error) => {
+          $("vnyan-result").textContent = error.message;
+        });
+      }, 100);
+    }
+
+    async function captureVnyanRest() {
+      let reference = state.vnyanLastLivePayload;
+      if (!reference?.centeredJoints?.[0]?.length) {
+        const payload = await getJson("/api/vnyan/live");
+        applyServerState(payload.state);
+        reference = payload.payload;
+      }
+      if (!reference?.centeredJoints?.[0]?.length) {
+        throw new Error("No VNyan bones are available to capture.");
+      }
+      state.vnyanReferencePayload = clonePayload(reference);
+      $("retarget-result").textContent = `Captured VNyan rest with ${reference.centeredJoints[0].length} joints.`;
+      return state.vnyanReferencePayload;
+    }
+
+    function renderRetargetedPayload({ keepFrame = false } = {}) {
+      const emagePayload = state.lastEmagePayload || (state.payload?.kind ? null : state.payload);
+      if (!emagePayload?.centeredJoints?.length) {
+        throw new Error("Load or generate a source motion first.");
+      }
+      if (!state.vnyanReferencePayload?.centeredJoints?.[0]?.length) {
+        throw new Error("Capture a VNyan rest pose first.");
+      }
+      const payload = buildRetargetedPayload(emagePayload, state.vnyanReferencePayload);
+      stopVnyanLive();
+      stopPlayback();
+      renderPayload(payload, { resetCamera: !keepFrame, keepFrame });
+      const stats = payload.stats || {};
+      const sourceLabel = sourceDisplayName(emagePayload);
+      $("retarget-result").textContent = `Retargeted ${payload.frameCount} frames: ${sourceLabel} motion ${format(stats.sourceMotionMaxM || 0, 4)} m -> VRM motion ${format(stats.appliedMotionMaxM || 0, 4)} m across ${stats.mappedJoints || 0} mapped bones.`;
+      return payload;
+    }
+
+    async function retargetEmageToVnyan() {
+      if (!state.vnyanReferencePayload?.centeredJoints?.[0]?.length) {
+        await captureVnyanRest();
+      }
+      return renderRetargetedPayload();
+    }
+
+    function buildVnyanPlaybackPayload(payload) {
+      const reference = state.vnyanReferencePayload || {};
+      return {
+        kind: payload.kind,
+        fps: payload.fps,
+        frameCount: payload.frameCount,
+        centeredJoints: payload.centeredJoints,
+        jointNames: payload.jointNames,
+        drivenBones: payload.drivenBones,
+        restCenteredJoints: reference.centeredJoints?.[0],
+        restLocalPositions: reference.localPositions,
+        restLocalRotations: reference.localRotations,
+        restWorldRotations: reference.worldRotations,
+      };
+    }
+
+    function setLocalVnyanMirrorActive(active) {
+      state.vnyanMirrorActive = Boolean(active);
+      state.vnyanMirrorPending = false;
+      state.vnyanMirrorDirty = false;
+      state.vnyanMirrorLastSentFrame = active ? state.frame : -1;
+      state.vnyanMirrorLastSentPlaying = active ? state.playing : false;
+      $("play-retarget-vnyan").textContent = active ? "Mirroring To VNyan" : "Mirror To VNyan";
+    }
+
+    async function syncVnyanMirrorControl({ force = false } = {}) {
+      if (!state.vnyanMirrorActive || state.payload?.kind !== "vnyan-retarget") return;
+      if (state.vnyanMirrorPending) {
+        state.vnyanMirrorDirty = true;
+        return;
+      }
+      if (!force && state.vnyanMirrorLastSentFrame === state.frame && state.vnyanMirrorLastSentPlaying === state.playing) return;
+      state.vnyanMirrorPending = true;
+      state.vnyanMirrorDirty = false;
+      try {
+        await postJson("/api/vnyan/control-retarget", { frameIndex: state.frame, playing: state.playing });
+        state.vnyanMirrorLastSentFrame = state.frame;
+        state.vnyanMirrorLastSentPlaying = state.playing;
+      } catch (error) {
+        $("retarget-result").textContent = error.message;
+      } finally {
+        state.vnyanMirrorPending = false;
+        if (state.vnyanMirrorDirty) {
+          state.vnyanMirrorDirty = false;
+          syncVnyanMirrorControl({ force: true });
+        }
+      }
+    }
+
+    function queueVnyanMirrorControl({ force = false } = {}) {
+      if (!state.vnyanMirrorActive || state.payload?.kind !== "vnyan-retarget") return;
+      syncVnyanMirrorControl({ force }).catch((error) => {
+        $("retarget-result").textContent = error.message;
+      });
+    }
+
+    async function mirrorRetargetOnVnyan() {
+      let payload = state.payload?.kind === "vnyan-retarget" ? state.payload : null;
+      if (!payload?.centeredJoints?.length) {
+        payload = await retargetEmageToVnyan();
+      }
+      const response = await postJson("/api/vnyan/play-retarget", {
+        payload: buildVnyanPlaybackPayload(payload),
+        frameIndex: state.frame,
+        playing: state.playing,
+      });
+      const output = response.output || {};
+      setLocalVnyanMirrorActive(true);
+      $("retarget-result").textContent = `Mirroring viewer frame ${state.frame + 1}/${output.frameCount || payload.frameCount} to VNyan ${output.host}:${output.port} with ${output.drivenBones?.length || 0} driven bones.`;
+    }
+
+    async function stopRetargetOnVnyan() {
+      setLocalVnyanMirrorActive(false);
+      const response = await postJson("/api/vnyan/stop-retarget", {});
+      const output = response.output || {};
+      $("retarget-result").textContent = `Stopped VNyan retarget output on ${output.host}:${output.port}.`;
+    }
+
+    async function loadVoices() {
+      const payload = await getJson("/api/voices");
+      $("voice").innerHTML = payload.voices.map((voice) => `<option value="${voice.value}">${voice.label}</option>`).join("");
+      $("voice").value = payload.defaultVoice || "bf_isabella";
+    }
+
+    async function refreshState() {
+      try {
+        const payload = await getJson("/api/state");
+        applyServerState(payload.state);
+      } catch (error) {
+        setStatus(error.message);
+      }
+    }
+
+    async function generateAll() {
+      setStatus("Generating Kokoro audio, EMAGE motion, then SMPL-X 3D joints...");
+      $("emage-result").textContent = "Generating EMAGE motion...";
+      const payload = await postJson("/api/generate", {
+        text: $("text").value,
+        voice: $("voice").value,
+        speed: Number($("speed").value),
+      });
+      $("audio").src = payload.audio.url;
+      $("emage-result").textContent = payload.motion.path;
+      loadPayload(payload.payload);
+      setStatus(`Tracked ${payload.payload.frameCount} frames. Core bone rel std ${format(payload.payload.stats.coreBoneLengthMaxRelativeStd, 6)}.`);
+    }
+
+    async function ttsOnly() {
+      setStatus("Generating Kokoro audio...");
+      const payload = await postJson("/api/tts", {
+        text: $("text").value,
+        voice: $("voice").value,
+        speed: Number($("speed").value),
+      });
+      $("audio").src = payload.audio.url;
+      state.lastAudio = payload.audio;
+      setStatus(`Audio ready: ${format(payload.audio.duration, 2)} sec.`);
+    }
+
+    async function emageOnly() {
+      const audioPath = state.lastAudio?.path;
+      if (!audioPath) throw new Error("Generate Kokoro audio first.");
+      setStatus("Generating EMAGE motion from current audio...");
+      $("emage-result").textContent = "Generating EMAGE motion...";
+      const motionPayload = await postJson("/api/emage", { audioPath });
+      state.lastMotion = motionPayload.motion;
+      $("motion-path").value = motionPayload.motion.path;
+      $("emage-result").textContent = motionPayload.motion.path;
+      setStatus("Extracting 3D joints...");
+      const jointsPayload = await postJson("/api/joints", { motionId: motionPayload.motion.id });
+      loadPayload(jointsPayload.payload);
+      setStatus(`Tracked ${jointsPayload.payload.frameCount} frames from EMAGE motion.`);
+    }
+
+    async function loadMotionPath(pathValue) {
+      const motionPath = String(pathValue || $("motion-path").value || "").trim();
+      if (!motionPath) throw new Error("Motion NPZ path is empty.");
+      setStatus("Extracting 3D joints from NPZ...");
+      const payload = await postJson("/api/joints", { motionPath });
+      loadPayload(payload.payload);
+      const label = sourceDisplayName(payload.payload);
+      $("motion-result").textContent = `${label}: ${payload.motion.path}`;
+      setStatus(`Loaded ${label} ${payload.payload.frameCount} frames. Core bone rel std ${format(payload.payload.stats.coreBoneLengthMaxRelativeStd, 6)}.`);
+    }
+
+    async function startKimodoServer() {
+      $("kimodo-result").textContent = "Starting quantized Kimodo server...";
+      const payload = await postJson("/api/kimodo/start", {});
+      applyServerState(payload.state);
+      $("kimodo-result").textContent = "Kimodo start requested.";
+    }
+
+    async function pingKimodoServer() {
+      $("kimodo-result").textContent = "Pinging Kimodo...";
+      const payload = await postJson("/api/kimodo/ping", {});
+      $("kimodo-result").textContent = payload.kimodoOnline
+        ? `Kimodo ready: ${payload.response?.model || "model loaded"}`
+        : (payload.state?.kimodo?.error || "Kimodo offline.");
+    }
+
+    async function generateKimodo() {
+      const prompt = String($("kimodo-prompt").value || "").trim();
+      if (!prompt) throw new Error("Kimodo prompt is empty.");
+      $("kimodo-result").textContent = "Generating Kimodo motion...";
+      setStatus("Generating quantized Kimodo motion...");
+      const payload = await postJson("/api/kimodo/generate", {
+        prompt,
+        duration: Number($("kimodo-duration").value || 3),
+        diffusionSteps: Number($("kimodo-steps").value || 50),
+        cfgWeight: Number($("kimodo-cfg").value || 2),
+        seed: $("kimodo-seed").value,
+      });
+      $("motion-path").value = payload.motion.path;
+      loadPayload(payload.payload);
+      $("motion-result").textContent = `Kimodo: ${payload.motion.path}`;
+      $("kimodo-result").textContent = `Generated ${payload.payload.frameCount} frames in ${format(payload.motion.generationTimeSec || 0, 2)}s.`;
+      setStatus(`Tracked Kimodo ${payload.payload.frameCount} frames. Core bone rel std ${format(payload.payload.stats.coreBoneLengthMaxRelativeStd, 6)}.`);
+    }
+
+    function rerenderRetargetOptions() {
+      updateRetargetOptionOutputs();
+      if (state.payload?.kind !== "vnyan-retarget") return;
+      try {
+        renderRetargetedPayload({ keepFrame: true });
+        if (state.vnyanMirrorActive) {
+          mirrorRetargetOnVnyan().catch((error) => {
+            $("retarget-result").textContent = error.message;
+          });
+        }
+      } catch (error) {
+        $("retarget-result").textContent = error.message;
+      }
+    }
+
+    $("speed").addEventListener("input", updateSpeedOutput);
+    $("vnyan-motion-scale").addEventListener("input", () => {
+      updateVnyanScaleOutput();
+      if (state.payload?.kind === "vnyan-live" && state.vnyanLastLivePayload) {
+        renderPayload(buildVnyanBufferedPayload(state.vnyanLastLivePayload), { keepFrame: true });
+      }
+    });
+    $("retarget-strength").addEventListener("input", () => {
+      updateRetargetStrengthOutput();
+      if (state.payload?.kind === "vnyan-retarget") {
+        try {
+          renderRetargetedPayload({ keepFrame: true });
+          if (state.vnyanMirrorActive) {
+            mirrorRetargetOnVnyan().catch((error) => {
+              $("retarget-result").textContent = error.message;
+            });
+          }
+        } catch (error) {
+          $("retarget-result").textContent = error.message;
+        }
+      }
+    });
+    $("unlock-legs").addEventListener("change", () => {
+      if (!$("unlock-legs").checked) {
+        $("lock-feet").checked = false;
+      }
+      rerenderRetargetOptions();
+    });
+    $("lock-feet").addEventListener("change", () => {
+      if ($("lock-feet").checked) {
+        $("unlock-legs").checked = true;
+      }
+      rerenderRetargetOptions();
+    });
+    $("neutral-loop").addEventListener("change", rerenderRetargetOptions);
+    $("neutral-loop-seconds").addEventListener("input", rerenderRetargetOptions);
+    $("sleeve-barrier").addEventListener("change", rerenderRetargetOptions);
+    $("sleeve-barrier-width").addEventListener("input", rerenderRetargetOptions);
+    $("sleeve-barrier-strength").addEventListener("input", rerenderRetargetOptions);
+    $("kimodo-duration").addEventListener("input", updateKimodoOptionOutputs);
+    $("kimodo-steps").addEventListener("input", updateKimodoOptionOutputs);
+    $("kimodo-cfg").addEventListener("input", updateKimodoOptionOutputs);
+    $("preload").addEventListener("click", () => postJson("/api/preload", {}).then(() => setStatus("Kokoro and EMAGE preload requested.")).catch((error) => setStatus(error.message)));
+    $("generate").addEventListener("click", () => generateAll().catch((error) => setStatus(error.message)));
+    $("tts-only").addEventListener("click", () => ttsOnly().catch((error) => setStatus(error.message)));
+    $("emage-only").addEventListener("click", () => emageOnly().catch((error) => setStatus(error.message)));
+    $("kimodo-start").addEventListener("click", () => startKimodoServer().catch((error) => {
+      $("kimodo-result").textContent = error.message;
+      setStatus(error.message);
+    }));
+    $("kimodo-ping").addEventListener("click", () => pingKimodoServer().catch((error) => {
+      $("kimodo-result").textContent = error.message;
+      setStatus(error.message);
+    }));
+    $("kimodo-generate").addEventListener("click", () => generateKimodo().catch((error) => {
+      $("kimodo-result").textContent = error.message;
+      setStatus(error.message);
+    }));
+    $("load-motion").addEventListener("click", () => loadMotionPath().catch((error) => setStatus(error.message)));
+    $("vnyan-live").addEventListener("click", startVnyanLive);
+    $("vnyan-stop").addEventListener("click", stopVnyanLive);
+    $("capture-vnyan-rest").addEventListener("click", () => captureVnyanRest().catch((error) => {
+      $("retarget-result").textContent = error.message;
+    }));
+    $("retarget-vnyan").addEventListener("click", () => retargetEmageToVnyan().catch((error) => {
+      $("retarget-result").textContent = error.message;
+    }));
+    $("play-retarget-vnyan").addEventListener("click", () => mirrorRetargetOnVnyan().catch((error) => {
+      $("retarget-result").textContent = error.message;
+    }));
+    $("stop-retarget-vnyan").addEventListener("click", () => stopRetargetOnVnyan().catch((error) => {
+      $("retarget-result").textContent = error.message;
+    }));
+    $("latest-motion").addEventListener("click", () => {
+      if (state.lastMotion?.path) {
+        $("motion-path").value = state.lastMotion.path;
+        loadMotionPath(state.lastMotion.path).catch((error) => setStatus(error.message));
+      }
+    });
+    $("centered").addEventListener("change", () => setFrame(state.frame));
+    $("guides").addEventListener("change", () => setFrame(state.frame));
+    $("comparison-mode").addEventListener("change", () => setFrame(state.frame));
+    $("frame").addEventListener("input", () => {
+      stopPlayback();
+      setFrame(Number($("frame").value));
+      queueVnyanMirrorControl({ force: true });
+    });
+    $("play").addEventListener("click", togglePlayback);
+    $("reset-view").addEventListener("click", () => {
+      state.yaw = -0.55;
+      state.pitch = 0.22;
+      state.cameraRadius = Math.max(2.2, Number(state.payload?.bounds?.span || 2) * 2.4);
+    });
+
+    renderer.domElement.addEventListener("pointerdown", (event) => {
+      state.dragging = true;
+      state.lastPointer = { x: event.clientX, y: event.clientY };
+      renderer.domElement.setPointerCapture(event.pointerId);
+    });
+    renderer.domElement.addEventListener("pointermove", (event) => {
+      if (!state.dragging || !state.lastPointer) return;
+      const dx = event.clientX - state.lastPointer.x;
+      const dy = event.clientY - state.lastPointer.y;
+      state.lastPointer = { x: event.clientX, y: event.clientY };
+      state.yaw -= dx * 0.006;
+      state.pitch = Math.max(-1.2, Math.min(1.2, state.pitch - dy * 0.006));
+    });
+    renderer.domElement.addEventListener("pointerup", (event) => {
+      state.dragging = false;
+      state.lastPointer = null;
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      }
+    });
+    renderer.domElement.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      state.cameraRadius = Math.max(0.6, Math.min(20, state.cameraRadius + event.deltaY * 0.004));
+    }, { passive: false });
+
+    updateSpeedOutput();
+    updateVnyanScaleOutput();
+    updateRetargetStrengthOutput();
+    updateRetargetOptionOutputs();
+    updateKimodoOptionOutputs();
+    await loadVoices();
+    await refreshState();
+    setInterval(refreshState, 2500);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

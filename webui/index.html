@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Unified Character Lab</title>
+  <style>
+    :root { color-scheme: dark; --bg:#080b10; --panel:#101720; --line:#253140; --text:#e8eef4; --muted:#8b9aaa; --mint:#67e3b5; --blue:#72b7ff; --amber:#f1bf68; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    body { display:grid; grid-template-rows:auto 1fr; }
+    header { min-height:72px; display:flex; align-items:center; gap:20px; padding:12px 18px; border-bottom:1px solid var(--line); background:linear-gradient(110deg,#101821,#0d131b 60%,#102019); }
+    .brand { min-width:210px; }
+    .brand strong { display:block; font-size:15px; letter-spacing:.08em; text-transform:uppercase; }
+    .brand span { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
+    nav { display:flex; gap:8px; }
+    button,.open { border:1px solid var(--line); border-radius:10px; padding:10px 14px; background:#141d27; color:var(--text); font-weight:750; cursor:pointer; text-decoration:none; }
+    button.active { border-color:var(--mint); background:#143126; color:var(--mint); box-shadow:0 0 0 3px #67e3b518; }
+    .service-strip { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; max-width:52vw; }
+    .service { display:flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; background:#0b1118; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#586371; }
+    .service.online .dot { background:var(--mint); box-shadow:0 0 8px #67e3b5aa; }
+    .service.online { color:#bedfcf; }
+    main { position:relative; min-height:0; }
+    .view { position:absolute; inset:0; visibility:hidden; opacity:0; pointer-events:none; transition:opacity .16s ease; }
+    .view.active { visibility:visible; opacity:1; pointer-events:auto; }
+    iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:#0a0e14; }
+    .loading { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); pointer-events:none; }
+    .loading div { padding:18px 22px; border:1px solid var(--line); border-radius:14px; background:var(--panel); }
+    .unified-view { display:grid; grid-template-columns:340px minmax(0,1fr); gap:1px; background:var(--line); }
+    .scheduler { position:relative; z-index:2; overflow:auto; padding:18px; background:#0c1219; }
+    .scheduler h2 { margin:0; font-size:18px; }
+    .scheduler-intro { margin:6px 0 16px; color:var(--muted); font-size:12px; line-height:1.5; }
+    .track-card { margin-top:11px; padding:13px; border:1px solid var(--line); border-radius:13px; background:#111923; }
+    .track-card.ready { border-color:#36594d; }
+    .track-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .track-head strong { font-size:13px; }
+    .track-state { color:var(--muted); font-size:10px; }
+    .track-card.ready .track-state { color:var(--mint); }
+    .track-name { margin-top:8px; color:#d9e4ed; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .track-meta { margin-top:3px; color:var(--muted); font-size:10px; }
+    .offset { display:grid; grid-template-columns:1fr 92px; align-items:center; gap:10px; margin-top:11px; color:var(--muted); font-size:11px; }
+    .offset input { width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 9px; background:#090e14; color:var(--text); }
+    .schedule { margin-top:16px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#090e14; }
+    .schedule-scale { display:flex; justify-content:space-between; color:var(--muted); font-size:9px; }
+    .schedule-row { display:grid; grid-template-columns:48px 1fr; align-items:center; gap:8px; margin-top:9px; color:var(--muted); font-size:10px; }
+    .schedule-line { position:relative; height:12px; border-radius:6px; background:#202a36; overflow:hidden; }
+    .schedule-block { position:absolute; top:0; bottom:0; min-width:3px; border-radius:6px; }
+    .schedule-block.face { background:linear-gradient(90deg,#72b7ff,#9ed0ff); }
+    .schedule-block.motion { background:linear-gradient(90deg,#46c997,#79ecc0); }
+    .transport-row { display:grid; grid-template-columns:1fr auto auto; gap:8px; margin-top:14px; }
+    .transport-row button:first-child { background:var(--mint); color:#07110d; border-color:var(--mint); }
+    .transport-row button:disabled { opacity:.45; cursor:not-allowed; }
+    .play-status { min-height:34px; margin-top:10px; color:var(--muted); font-size:11px; line-height:1.45; }
+    .unified-stage { position:relative; min-width:0; background:#080b10; }
+    .time-chip { position:absolute; z-index:4; right:16px; top:14px; padding:7px 10px; border:1px solid var(--line); border-radius:999px; background:#080c12dd; font:700 11px ui-monospace,monospace; color:var(--mint); pointer-events:none; }
+    @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><strong>Unified Character Lab</strong><span>Voice · face · full-body motion</span></div>
+    <nav>
+      <button class="active" data-view="face">Facial Animation</button>
+      <button data-view="motion">ARDY VRM Motion</button>
+      <button data-view="unified">Unified Character</button>
+    </nav>
+    <div class="service-strip" id="services"><span class="service"><i class="dot"></i>Checking local services…</span></div>
+  </header>
+  <main>
+    <div class="loading"><div>Starting the portable lab…</div></div>
+    <section id="face-view" class="view active"><iframe id="face" title="Facial Animation Lab" src="http://localhost:8795/"></iframe></section>
+    <section id="motion-view" class="view"><iframe id="motion" title="ARDY VRM Motion Lab" src="http://127.0.0.1:8793/"></iframe></section>
+    <section id="unified-view" class="view unified-view">
+      <aside class="scheduler">
+        <h2>Unified Character</h2>
+        <p class="scheduler-intro">Generate one clip in each lab. The latest completed clips are captured automatically, then played together on Zome from the offsets below.</p>
+        <div class="track-card" id="face-track-card">
+          <div class="track-head"><strong>Face + voice</strong><span class="track-state" id="face-track-state">waiting</span></div>
+          <div class="track-name" id="face-track-name">Create and run a facial track</div>
+          <div class="track-meta" id="face-track-meta">Facial Animation tab</div>
+          <label class="offset">Start time <input id="face-start" type="number" min="0" step="0.1" value="0" aria-label="Face track start time"></label>
+        </div>
+        <div class="track-card" id="motion-track-card">
+          <div class="track-head"><strong>ARDY body motion</strong><span class="track-state" id="motion-track-state">waiting</span></div>
+          <div class="track-name" id="motion-track-name">Generate an ARDY motion track</div>
+          <div class="track-meta" id="motion-track-meta">ARDY VRM Motion tab</div>
+          <label class="offset">Start time <input id="motion-start" type="number" min="0" step="0.1" value="0" aria-label="Motion track start time"></label>
+        </div>
+        <div class="schedule" aria-label="Unified schedule preview">
+          <div class="schedule-scale"><span>0.0s</span><span id="schedule-end">0.0s</span></div>
+          <div class="schedule-row"><span>Face</span><div class="schedule-line"><i class="schedule-block face" id="face-block"></i></div></div>
+          <div class="schedule-row"><span>Motion</span><div class="schedule-line"><i class="schedule-block motion" id="motion-block"></i></div></div>
+        </div>
+        <div class="transport-row"><button id="play-unified" disabled>Play sequence</button><button id="export-unified" disabled>Export MP4</button><button id="stop-unified">Stop</button></div>
+        <div class="play-status" id="unified-status">Waiting for a face track and an ARDY track.</div>
+        <audio id="unified-audio" preload="auto"></audio>
+      </aside>
+      <div class="unified-stage" id="unified-stage"><iframe id="unified-player" title="Unified Zome playback" src="http://127.0.0.1:8793/"></iframe><div class="time-chip" id="unified-clock">0.0s</div></div>
+    </section>
+  </main>
+  <script>
+    let statusFailures = 0;
+    let resourcesReleased = false;
+
+    function releaseEmbeddedLabs() {
+      if (resourcesReleased) return;
+      resourcesReleased = true;
+      const motionOrigin = 'http://127.0.0.1:8793';
+      for (const id of ['motion', 'unified-player']) document.querySelector(`#${id}`)?.contentWindow?.postMessage({ type: 'unified:dispose' }, motionOrigin);
+      window.setTimeout(() => {
+        for (const iframe of document.querySelectorAll('iframe')) iframe.src = 'about:blank';
+      }, 50);
+      document.querySelector('#services').innerHTML = '<span class="service"><i class="dot"></i>Lab stopped · GPU views released</span>';
+    }
+
+    async function refresh() {
+      try {
+        const payload = await fetch('/api/status', { cache: 'no-store' }).then((response) => response.json());
+        if (resourcesReleased) { window.location.reload(); return; }
+        statusFailures = 0;
+        document.querySelector('#services').innerHTML = payload.services.map((service) =>
+          `<span class="service ${service.online ? 'online' : ''}" title="Port ${service.port}"><i class="dot"></i>${service.name}</span>`
+        ).join('');
+      } catch {
+        statusFailures += 1;
+        if (statusFailures >= 2) { releaseEmbeddedLabs(); return; }
+        document.querySelector('#services').innerHTML = '<span class="service"><i class="dot"></i>Status unavailable</span>';
+      }
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+  <script src="/unified-character.js?v=3"></script>
+</body>
+</html>

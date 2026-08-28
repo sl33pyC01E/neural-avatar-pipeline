@@ -1,0 +1,17 @@
+# Independent upstream engine checkouts and their large model/runtime files.
+/Audio2Face-3D/
+/Audio2Face-3D-SDK/
+/LAM-Audio2Expression/
+/NyxClaw-Wav2Arkit/
+/uLipSync/
+
+# Python/runtime clutter.
+**/__pycache__/
+*.py[cod]
+*.log
+
+# Local exports and scratch files.
+/exports/
+/tmp/
+*.webm
+*.mp4
