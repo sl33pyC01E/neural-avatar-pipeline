@@ -22,7 +22,6 @@ const ports = [
   [8795, 'Face Animation Lab'],
   [8796, 'PocketTTS'],
   [8797, 'LAM Audio2Expression'],
-  [8798, 'Audio2Face'],
 ];
 
 const children = [];
@@ -123,7 +122,7 @@ required(node, 'Bundled Node.js');
 required(npmCli, 'Bundled npm');
 required(path.join(ffmpegBin, 'ffmpeg.exe'), 'Bundled FFmpeg');
 required(path.join(cudaBin, 'cudart64_12.dll'), 'Bundled CUDA 12.9 runtime');
-required(path.join(root, 'vnyan', 'Zome.vrm'), 'Bundled Zome VRM');
+required(path.join(root, 'vnyan', 'Zome.vrm'), 'Local VRM avatar');
 required(path.join(root, 'models', 'huggingface', 'hub', 'models--nvidia--ARDY-Core-RP-20FPS-Horizon8'), 'ARDY Core-8 model');
 required(path.join(root, 'models', 'huggingface', 'hub', 'models--nvidia--ARDY-Core-RP-20FPS-Horizon40'), 'ARDY Core-40 model');
 required(path.join(root, 'models', 'huggingface', 'hub', 'models--kyutai--pocket-tts-without-voice-cloning'), 'PocketTTS model');
@@ -131,16 +130,9 @@ required(path.join(root, 'models', 'huggingface', 'hub', 'models--kyutai--pocket
 mkdirSync(logsRoot, { recursive: true });
 mkdirSync(outputsRoot, { recursive: true });
 
-configureVenv(path.join('face_animation', 'NyxClaw-Wav2Arkit', '.venv'), python310, '3.10.11', false, 'nyxclaw');
 configureVenv(path.join('face_animation', 'LAM-Audio2Expression', '.venv'), python310, '3.10.11', false);
-configureVenv(path.join('face_animation', 'Audio2Face-3D-SDK', '.venv'), python310, '3.10.11', false);
 configureVenv(path.join('ardy', '.venv'), python312, '3.12.10', true);
 configureVenv(path.join('voice', 'pocket_tts'), python312, '3.12.10', true, 'pocket-tts');
-writeFileSync(
-  path.join(root, 'face_animation', 'NyxClaw-Wav2Arkit', '.venv', 'Lib', 'site-packages', '_editable_impl_nyxclaw.pth'),
-  `${path.join(root, 'face_animation', 'NyxClaw-Wav2Arkit')}\r\n`,
-  'utf8',
-);
 
 for (const [port, label] of ports) {
   const host = port === 8795 ? 'localhost' : '127.0.0.1';
@@ -178,7 +170,6 @@ const environment = {
 };
 
 const faceWeb = path.join(root, 'face_animation', 'webui');
-const facePython = path.join(root, 'face_animation', 'NyxClaw-Wav2Arkit', '.venv', 'Scripts', 'python.exe');
 const pocketPython = path.join(root, 'voice', 'pocket_tts', 'Scripts', 'python.exe');
 const lamPython = path.join(root, 'face_animation', 'LAM-Audio2Expression', '.venv', 'Scripts', 'python.exe');
 
@@ -187,10 +178,9 @@ console.log('Starting local services…');
 
 startChild('Unified WebUI', node, [path.join(root, 'webui', 'server.mjs')], root, environment);
 startChild('ARDY Motion Lab', node, [path.join(root, 'retargetting', 'motion-control-server.js')], path.join(root, 'retargetting'), environment);
-startChild('Face backend', facePython, [path.join(faceWeb, 'backend', 'server.py')], faceWeb, environment);
+startChild('Face backend', lamPython, [path.join(faceWeb, 'backend', 'server.py')], faceWeb, environment);
 startChild('PocketTTS', pocketPython, [path.join(faceWeb, 'backend', 'pocket_tts_server.py')], faceWeb, environment);
 startChild('LAM Audio2Expression', lamPython, [path.join(faceWeb, 'backend', 'lam_server.py')], faceWeb, environment);
-startChild('Audio2Face', facePython, [path.join(faceWeb, 'backend', 'audio2face_server.py')], faceWeb, environment);
 startChild('Face Animation Lab', node, [npmCli, 'run', 'dev', '--', '--host', '127.0.0.1', '--port', '8795'], faceWeb, environment);
 
 await Promise.all(ports.map(([port, label]) => waitFor(port, label)));

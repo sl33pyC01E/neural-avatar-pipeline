@@ -1,128 +1,142 @@
-# Unified Character Lab
+# Neural Avatar Pipeline
 
-A self-contained Windows lab for CUDA speech, facial animation, ARDY body-motion
-generation, and direct VRM preview/retargeting.
+Neural Avatar Pipeline is a local Windows workspace for generating synchronized
+speech, facial animation, and full-body character motion. The default pipeline
+uses PocketTTS for the voice, LAM Audio2Expression for ARKit facial motion, and
+both ARDY runtimes for body motion. A unified timeline can play the generated
+tracks together and export the result as an MP4.
 
-## Start
+The application is designed to run offline once its local runtimes, models, and
+avatar have been supplied. Those large or separately licensed payloads are not
+included in the Git repository.
 
-Double-click `launch.bat`. Keep the launcher window open while using the lab.
-The unified interface opens automatically at <http://127.0.0.1:8788/>.
+## Default pipeline
 
-Use the three tabs at the top:
+| Stage | Component | Role |
+| --- | --- | --- |
+| Voice | PocketTTS 2.1.0, `anna` preset | CUDA speech synthesis |
+| Face | LAM Audio2Expression | Audio-to-ARKit facial animation |
+| Body, batch | ARDY Core-8 | Complete prompted motion clips |
+| Body, live | ARDY Core-40 | Longer-horizon interactive motion |
+| Text conditioning | Quantized LLM2Vec | Free-text and cached motion embeddings |
+| Character | User-supplied VRM | Local preview and export target |
 
-- **Facial Animation** — PocketTTS voice generation plus Wav2Arkit,
-  Audio2Face, uLipSync, and LAM facial drivers.
-- **ARDY VRM Motion** — ARDY Core-8 batch generation, Core-40 live motion,
-  route constraints, and direct Zome VRM preview/retargeting.
-- **Unified Character** — captures the latest completed face/voice and ARDY
-  clips, schedules independent start offsets, plays both on one Zome VRM, and
-  exports the combined viewport and voice audio as MP4.
+The interface has three persistent workspaces:
 
-## Default character pipeline
+- **Facial Animation** generates or accepts speech, runs LAM, previews the
+  facial track on the VRM, and exports facial animation with audio.
+- **ARDY VRM Motion** creates batch or live body motion. It supports explicit
+  timed prompt slots and permanently cached text embeddings.
+- **Unified Character** schedules the latest face/voice and motion tracks at
+  independent start times, previews them on one character, and exports the
+  combined result as MP4.
 
-- Voice: PocketTTS `anna` on CUDA
-- Face driver: LAM A2E
-- Face target: Zome
-- Face retargeting: eyes 1.55×, head 1.00×, mouth 0.57×
-- Natural head and eye motion: enabled
-- Motion runtime: ARDY Core-8 batch / Core-40 live
-- Motion text conditioning: bundled 4-bit LLM2Vec with permanent, selectable
-  embedding cache entries
-- Motion target: Zome VRM
+## Quick start
 
-The ARDY workspace remains mounted while changing tabs and also saves its route,
-prompts, duration, constraints, and control values locally across page reloads.
-Timed text uses explicit start-time/input rows. Free-text rows are resolved as
-separate embeddings before rollout; cached mode replaces every prompt field with
-an exact permanent-cache dropdown and loads those tensors without running the
-text encoder again.
-Batch duration is a numeric input without an artificial 12-second maximum;
-longer clips take proportionally longer to generate.
+### Portable local bundle
 
-Close the launcher window, or press `Ctrl+C` in it, to stop all services.
-Shutdown terminates each complete service process tree. CUDA workers also watch
-their owning process and exit if it disappears unexpectedly; the browser page
-then unloads its embedded WebGL labs so an old tab does not retain GPU memory.
-ARDY workers record their owner PID, and a later launch will never silently
-adopt a stale worker left by an earlier run.
+1. Put an appropriately licensed VRM at `vnyan/Zome.vrm`, or update the local
+   avatar configuration to point to another file inside the project.
+2. Double-click `launch.bat`.
+3. Keep the launcher window open while using the application at
+   <http://127.0.0.1:8788/>.
+4. Close the launcher window or press `Ctrl+C` to stop every service it owns.
 
-## Portability
+The supplied launcher resolves paths relative to its own folder. A complete
+local bundle can therefore be copied to another Windows location without
+referring to the original Face, Voice, or Retargetting projects.
 
-Everything needed by the local lab is below this folder: source code, model
-weights, Python runtimes and environments, Node.js, FFmpeg, CUDA user-mode
-libraries, the locally supplied VRM avatar, and browser assets. The launcher resolves paths from its own
-location and repairs copied environment metadata on every start, so the entire
-`unified` folder can be moved or copied to another drive without editing paths.
+### Git source checkout
 
-The original labs are not read at runtime and were not modified. Model loading
-is forced to the bundled offline Hugging Face cache.
+A Git clone contains the integration code, UI, configuration, documentation,
+and small assets. It intentionally excludes model weights, Python and Node
+installations, virtual environments, CUDA libraries, generated output, and VRM
+avatars. To run a source checkout, populate the ignored runtime/model locations
+with legally obtained copies of the upstream dependencies described in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-The destination computer still needs:
+The current launcher expects a Windows 10/11 x64 system with a compatible
+NVIDIA GPU and display driver. The complete portable build carries its own
+application-level Python, Node.js, FFmpeg, CUDA user-mode libraries, and model
+payloads; the system GPU driver remains an external requirement.
 
-- Windows 10 or 11, 64-bit;
-- a compatible NVIDIA GPU and current NVIDIA display driver;
-- enough free disk space for the approximately 44.3 GB folder.
+## Basic workflow
 
-Python, Node.js, FFmpeg, Hugging Face downloads, and a separate CUDA Toolkit
-installation are not required.
+### 1. Generate speech and a face track
 
-## GitHub source checkout
+Open **Facial Animation**. Enter text for Anna, upload audio, or record from a
+microphone. Select **Generate LAM animation** to compute an ARKit expression
+track. The preview includes adjustable eye, head, and mouth gains plus optional
+natural gaze and blinking. Use **Export MP4** when a face-only render is wanted.
 
-The local working folder is the complete portable build. The GitHub repository
-tracks the application source, configuration, documentation, and small assets,
-but intentionally excludes Zome (or any other VRM avatar) and the approximately 46 GB of copied model
-weights, Python/Node runtimes, virtual environments, installed dependencies,
-and generated output. GitHub rejects individual files over 100 MB, and those
-binary payloads also exceed ordinary Git LFS storage quotas.
+### 2. Generate body motion
 
-Therefore, a plain GitHub clone is a source checkout rather than a runnable
-portable distribution. Keep or separately copy the ignored payload directories
-listed in `.gitignore` when moving the fully self-contained build. Supply an
-appropriately licensed local avatar at `vnyan/Zome.vrm` to use the current
-default configuration; that file is never distributed by this repository.
+Open **ARDY VRM Motion** and choose the batch or live runtime:
 
-## Credits, licenses, and research citations
+- Core-8 produces a complete clip from the route, duration, constraints, and
+  prompt schedule.
+- Core-40 supports the live-window workflow while preserving its own controls.
 
-This project integrates third-party software and models; it does not claim
-ownership of them. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for
-upstream authors, source links, licenses, model terms, and publication-ready
-BibTeX citations. Dependency lock files remain the complete version inventory
-for transitive Python and JavaScript packages.
+Timed prompts use explicit rows: a floating-point start time on the left and
+either a free-text prompt or cached-embedding selector on the right. Add rows
+with the plus button. Free-text rows are embedded independently before rollout.
+With cached input enabled, each row references the selected saved embedding
+directly and does not require the prompt text to remain in the input box.
 
-## Included services
+### 3. Combine the tracks
+
+Open **Unified Character** after both source clips exist. Give the face and body
+tracks independent offsets. Two zero offsets start them together; for example,
+a face offset of `0` and motion offset of `5.0` starts body motion five seconds
+after the face/voice track. Preview the result, then export the composed viewport
+and speech track as MP4.
+
+## Local services
 
 | Port | Service |
-| ---: | --- |
-| 8788 | Unified WebUI |
+| --- | --- |
+| 8788 | Unified application shell |
 | 8793 | ARDY motion UI and API |
-| 8794 | Facial-animation backend |
-| 8795 | Facial Animation Lab UI |
+| 8794 | Face API and MP4 export |
+| 8795 | Facial Animation UI |
 | 8796 | PocketTTS CUDA worker |
 | 8797 | LAM Audio2Expression worker |
-| 8798 | Audio2Face worker |
 
-If one of these ports is already occupied, the launcher stops with a clear
-message instead of attaching to another copy of a lab.
+The launcher refuses to adopt an unrelated or stale process already occupying
+a required port. CUDA workers also watch the launcher that owns them so an
+abnormal shutdown does not intentionally leave a model service behind.
 
-## Logs and outputs
+## Repository layout
 
-- Service logs: `logs/`
-- Generated ARDY motion: `motion-models/outputs/webui/`
-- Browser-exported recordings: the browser's normal Downloads folder
+- `webui/` — unified three-tab shell
+- `face_animation/` — LAM face UI, API, and worker adapter
+- `retargetting/` — ARDY browser UI, scheduler, VRM playback, and local API
+- `motion-models/` — ARDY worker, constraints, and generated motion interface
+- `ardy/` — ARDY engine integration for both Core-8 and Core-40
+- `launcher.mjs` / `launch.bat` — portable service supervisor and entry point
+- `PROJECT_MAP.md` — service and data-flow map
+- `THIRD_PARTY_NOTICES.md` — upstream licenses, attribution, and citations
 
-Run `verify.bat` at any time for a read-only completeness check. It confirms
-that the bundled runtimes, environments, model stores, avatar, entry points,
-and WebUI are present.
+`legacy/` exists only in the maintainer's local working copy and is ignored by
+Git. It contains the facial drivers removed from the default pipeline.
 
-## Verified on this build
+## Branches
 
-The finished bundle was launched from this folder and checked end to end:
+- `master` is the public default: PocketTTS + LAM + ARDY Core-8/Core-40.
+- `raw` preserves the original multi-driver research workspace before the
+  default pipeline was reduced.
 
-- all seven local services started and reported healthy;
-- PocketTTS synthesized Anna speech on CUDA;
-- Wav2Arkit, uLipSync, LAM, and native Audio2Face each produced facial frames;
-- ARDY Core-8 generated a constrained batch motion on `cuda:0`;
-- ARDY Core-40 generated a live motion window on `cuda:0`;
-- both unified WebUI tabs and the embedded Zome VRM rendered in the browser.
+## Avatar and model policy
 
-See `PROJECT_MAP.md` for the portable directory and runtime map.
+No Zome VRM—or any other avatar—is distributed in this repository. The default
+local filename is retained only as a configuration convention. Model weights,
+voice assets, gated base models, and generated media remain subject to their
+respective upstream terms. Review the notices before copying or distributing a
+portable bundle.
+
+## Attribution
+
+This project integrates work from NVIDIA Toronto AI Lab, 3D AIGC, Kyutai,
+McGill NLP, three.js, pixiv, and their contributors. License details, model
+terms, pinned revisions, and publication citations are collected in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

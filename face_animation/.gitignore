@@ -1,9 +1,5 @@
-# Independent upstream engine checkouts and their large model/runtime files.
-/Audio2Face-3D/
-/Audio2Face-3D-SDK/
+# Local LAM checkout, environment, and model payload.
 /LAM-Audio2Expression/
-/NyxClaw-Wav2Arkit/
-/uLipSync/
 
 # Python/runtime clutter.
 **/__pycache__/

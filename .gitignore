@@ -5,17 +5,14 @@
 /motion-models/models/
 /motion-models/outputs/
 /vnyan/Zome.vrm
+/legacy/
 
 # Copied Python environments and downloaded/generated model artifacts
 **/.venv/
 **/__pycache__/
 **/*.py[cod]
-/face_animation/NyxClaw-Wav2Arkit/pretrained_models/
 /face_animation/LAM-Audio2Expression/pretrained_models/
 /face_animation/LAM-Audio2Expression/exp/
-/face_animation/Audio2Face-3D-SDK/_build/
-/face_animation/Audio2Face-3D-SDK/_deps/
-/face_animation/Audio2Face-3D-SDK/_data/
 
 # Installed JavaScript dependencies and generated web builds
 **/node_modules/

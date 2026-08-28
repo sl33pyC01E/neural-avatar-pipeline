@@ -7,13 +7,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const workspace = path.dirname(root);
 const unifiedRoot = path.dirname(workspace);
-const python = path.join(workspace, 'NyxClaw-Wav2Arkit', '.venv', 'Scripts', 'python.exe');
 const pocketPython = path.join(unifiedRoot, 'voice', 'pocket_tts', 'Scripts', 'python.exe');
 const lamPython = path.join(workspace, 'LAM-Audio2Expression', '.venv', 'Scripts', 'python.exe');
 const backend = path.join(root, 'backend', 'server.py');
 const pocketBackend = path.join(root, 'backend', 'pocket_tts_server.py');
 const lamBackend = path.join(root, 'backend', 'lam_server.py');
-const a2fBackend = path.join(root, 'backend', 'audio2face_server.py');
 const commandPrompt = process.env.ComSpec || 'cmd.exe';
 const children = [];
 
@@ -54,7 +52,6 @@ function close() {
 }
 process.on('SIGINT', close); process.on('SIGTERM', close);
 
-if (!exists(python)) throw new Error(`Wav2Arkit environment is missing: ${python}`);
 if (!exists(pocketPython)) throw new Error(`PocketTTS environment is missing: ${pocketPython}`);
 if (!exists(lamPython)) throw new Error(`LAM A2E environment is missing: ${lamPython}`);
 if (!exists(path.join(root, 'node_modules'))) {
@@ -64,12 +61,11 @@ if (!exists(path.join(root, 'node_modules'))) {
 }
 
 console.log('Starting Face Lab…');
-if (!(await portOpen(8794))) startChild(python, [backend], 'face backend');
+if (!(await portOpen(8794))) startChild(lamPython, [backend], 'face backend');
 if (!(await portOpen(8796))) startChild(pocketPython, [pocketBackend], 'Anna voice');
 if (!(await portOpen(8797))) startChild(lamPython, [lamBackend], 'LAM A2E');
-if (!(await portOpen(8798))) startChild(python, [a2fBackend], 'Audio2Face');
 if (!(await portOpen(8795, 'localhost'))) startChild(commandPrompt, ['/d', '/s', '/c', 'npm.cmd', 'run', 'dev', '--', '--host', 'localhost', '--port', '8795'], 'web interface');
-await Promise.all([waitFor(8794, 'Face backend', 45000), waitFor(8795, 'Web interface', 45000), waitFor(8796, 'Anna voice', 45000), waitFor(8797, 'LAM A2E', 45000), waitFor(8798, 'Audio2Face', 45000)]);
+await Promise.all([waitFor(8794, 'Face backend', 45000), waitFor(8795, 'Web interface', 45000), waitFor(8796, 'Anna voice', 45000), waitFor(8797, 'LAM A2E', 45000)]);
 
 const url = 'http://localhost:8795/';
 console.log(`Face Lab is ready: ${url}`);

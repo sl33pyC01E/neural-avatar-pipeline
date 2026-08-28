@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Face Lab — Voice-driven VRM comparison',
-  description: 'Local testing surface for Audio2Face, Wav2Arkit, uLipSync, and LAM Audio2Expression.',
+  title: 'Neural Avatar Pipeline — LAM Face',
+  description: 'Local PocketTTS and LAM Audio2Expression pipeline for VRM facial animation.',
 };
 
 export default function RootLayout({

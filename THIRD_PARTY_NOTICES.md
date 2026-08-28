@@ -1,82 +1,51 @@
 # Third-party notices, attribution, and citations
 
-Unified Character Lab is an integration layer. The names, code, models, data,
-voices, and artwork listed below remain the property of their respective
-authors and are governed by their own terms. Inclusion here is attribution, not
-an endorsement by or transfer of ownership from an upstream project.
+Neural Avatar Pipeline is an integration layer. Upstream names, code, models,
+data, voices, and artwork remain the property of their respective authors and
+are governed by their own terms. This notice provides attribution; it does not
+transfer ownership or imply upstream endorsement.
 
-The GitHub source checkout does **not** distribute model weights, Python or
-Node environments, CUDA/TensorRT binaries, voice assets, or a VRM avatar. Those
-items may exist in a local portable build, remain subject to their upstream
-terms, and must not be redistributed without confirming those terms.
+The Git source checkout does **not** distribute model weights, Python or Node
+environments, CUDA libraries, voice assets, generated media, or a VRM avatar.
+Those files may exist in a private local bundle and must not be redistributed
+without independently confirming the applicable terms.
 
-## Primary components
+## Default pipeline components
 
-| Component | Use in this lab | Upstream and attribution | License or model terms |
+| Component | Use | Upstream and attribution | License or model terms |
 | --- | --- | --- | --- |
-| ARDY | Core-8 batch and Core-40 live body-motion generation | NVIDIA Toronto AI Lab, [nv-tlabs/ardy](https://github.com/nv-tlabs/ardy) | Code: [Apache-2.0](ardy/LICENSE). Checkpoints: [Horizon 8](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon8) and [Horizon 40](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon40), each under the [NVIDIA Open Model Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/). |
-| LLM2Vec | ARDY text conditioning and the local quantized encoder | Parishad BehnamGhader, Vaibhav Adlakha, Marius Mosbach, Dzmitry Bahdanau, Nicolas Chapados, and Siva Reddy; [McGill-NLP/llm2vec](https://github.com/McGill-NLP/llm2vec) | MIT for the upstream portions. The vendored notices and Unitree asset notice are preserved in [`ardy/ATTRIBUTIONS.MD`](ardy/ATTRIBUTIONS.MD); NVIDIA modifications carry their file-level Apache-2.0 notices. The underlying gated Meta Llama model has separate Meta terms. |
-| Pocket TTS 2.1.0 | CUDA speech synthesis with the `anna` preset | Kyutai; [kyutai-labs/pocket-tts](https://github.com/kyutai-labs/pocket-tts) | Code: MIT. Local no-cloning model: [CC BY 4.0 model card](https://huggingface.co/kyutai/pocket-tts-without-voice-cloning). The `anna` preset is linked from Kyutai's [voice catalog](https://huggingface.co/kyutai/tts-voices/blob/main/vctk/p228_023_enhanced.wav); voice assets and generated uses remain subject to the catalog/source-dataset terms. |
-| Audio2Face-3D SDK | Native CUDA/TensorRT audio-to-face inference and Claire solver | Copyright © 2025 NVIDIA Corporation; [NVIDIA/Audio2Face-3D-SDK](https://github.com/NVIDIA/Audio2Face-3D-SDK) | SDK code: MIT. Audio2Face-3D v3.0 weights and model assets: [NVIDIA Open Model License](https://huggingface.co/nvidia/Audio2Face-3D-v3.0). |
-| LAM Audio2Expression | Streaming audio-to-ARKit facial expression inference | 3D AIGC / `aigc3d`; [aigc3d/LAM_Audio2Expression](https://github.com/aigc3d/LAM_Audio2Expression), local pinned revision `02a703c` | Code and [model card](https://huggingface.co/3DAIGC/LAM_audio2exp): Apache-2.0. |
-| NyxClaw / Wav2Arkit | CPU ONNX audio-to-52-ARKit driver | Copyright © 2025 Myned AI; [myned-ai/nyxclaw](https://github.com/myned-ai/nyxclaw), local pinned revision `fa5088e` | NyxClaw code: MIT. [Wav2Arkit CPU model](https://huggingface.co/myned-ai/wav2arkit_cpu): Apache-2.0. |
-| uLipSync | MFCC lip-sync algorithm and female calibration profile used by the Python adapter | Copyright © 2021 hecomi; [hecomi/uLipSync](https://github.com/hecomi/uLipSync), local pinned revision `0605879` | [MIT](https://github.com/hecomi/uLipSync/blob/main/LICENSE.md). Any Unity-Chan sample artwork has its own asset terms and is not included in the GitHub source checkout. |
-| three.js | WebGL rendering | Copyright © 2010–2026 three.js authors; [mrdoob/three.js](https://github.com/mrdoob/three.js) | [MIT](https://github.com/mrdoob/three.js/blob/dev/LICENSE). Locked versions: 0.165.0 and 0.185.1. |
-| `@pixiv/three-vrm` | VRM loading, expressions, humanoid bones, and spring-bone playback | pixiv Inc.; [pixiv/three-vrm](https://github.com/pixiv/three-vrm) | [MIT](https://github.com/pixiv/three-vrm/blob/dev/LICENSE). Locked versions: 3.5.3 and 3.5.5. |
+| ARDY | Core-8 batch and Core-40 live body-motion generation | NVIDIA Toronto AI Lab, [`nv-tlabs/ardy`](https://github.com/nv-tlabs/ardy) | Code: [Apache-2.0](ardy/LICENSE). Checkpoints: [Horizon 8](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon8) and [Horizon 40](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon40), under the [NVIDIA Open Model Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/). |
+| LLM2Vec | Quantized ARDY text conditioning and permanent prompt embeddings | Parishad BehnamGhader, Vaibhav Adlakha, Marius Mosbach, Dzmitry Bahdanau, Nicolas Chapados, and Siva Reddy; [`McGill-NLP/llm2vec`](https://github.com/McGill-NLP/llm2vec) | Upstream portions: MIT. Vendored and transitive notices, including the Unitree asset notice, are preserved in [`ardy/ATTRIBUTIONS.MD`](ardy/ATTRIBUTIONS.MD). The underlying gated Meta Llama model has separate Meta terms. |
+| PocketTTS 2.1.0 | CUDA speech synthesis with the `anna` preset | Kyutai, [`kyutai-labs/pocket-tts`](https://github.com/kyutai-labs/pocket-tts) | Code: MIT. Local no-cloning model: [CC BY 4.0 model card](https://huggingface.co/kyutai/pocket-tts-without-voice-cloning). The Anna preset is linked from Kyutai's [voice catalog](https://huggingface.co/kyutai/tts-voices/blob/main/vctk/p228_023_enhanced.wav); voice assets and generated uses remain subject to their source terms. |
+| LAM Audio2Expression | Streaming audio-to-ARKit facial-expression inference | 3D AIGC / `aigc3d`, [`aigc3d/LAM_Audio2Expression`](https://github.com/aigc3d/LAM_Audio2Expression), pinned local revision `02a703c` | Code and [model card](https://huggingface.co/3DAIGC/LAM_audio2exp): Apache-2.0. |
+| three.js | WebGL character rendering | Copyright © 2010–2026 three.js authors, [`mrdoob/three.js`](https://github.com/mrdoob/three.js) | [MIT](https://github.com/mrdoob/three.js/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
+| `@pixiv/three-vrm` | VRM loading, expressions, humanoid bones, and spring-bone playback | pixiv Inc., [`pixiv/three-vrm`](https://github.com/pixiv/three-vrm) | [MIT](https://github.com/pixiv/three-vrm/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
 
-The Audio2Face integration also carries small custom bridge code in
-`face_animation/integrations/audio2face/`; the upstream SDK and model retain
-the terms above. The derived Claire preview asset at
-`face_animation/assets/project_examples/audio2face-claire-points.glb` carries
-the required notice: **Licensed by NVIDIA Corporation under the NVIDIA Open
-Model License.** `face_animation/DEPENDENCIES.md` records the exact locally
-copied upstream revisions.
+## Additional retained source
 
-The Python uLipSync adapter implements the algorithm described by the upstream
-MIT-licensed project. Its applicable notice is:
-
-> Copyright (c) 2021 hecomi
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in
-> all copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
-
-## Secondary and legacy adapters
-
-The repository retains inactive diagnostic or legacy adapters for
-[NVIDIA Kimodo](https://github.com/nv-tlabs/kimodo) (Apache-2.0 code; model
+The repository retains standalone diagnostic and historical body-motion tools
+for [NVIDIA Kimodo](https://github.com/nv-tlabs/kimodo) (Apache-2.0 code; model
 weights use NVIDIA's model-specific terms),
 [EMAGE](https://github.com/PantoMatrix/EMAGE), and
-[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0). These
-adapters are not part of normal Unified Lab startup, and their upstream code or
-weights are not distributed in the GitHub source checkout.
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0). They are
+not launched by the default pipeline, and their upstream code or weights are not
+included in the Git source checkout.
+
+The facial comparison engines removed from `master` are preserved in Git history
+on the `raw` branch. They are not present in or dependencies of the default
+pipeline. That branch contains the notices applicable to its own contents.
 
 ## VRM avatar exclusion
 
 `vnyan/Zome.vrm` is explicitly ignored and is not distributed in this
-repository. The local launcher currently expects a user-supplied, appropriately
-licensed avatar at that path. No license or redistribution right for Zome—or
-for any replacement VRM—is granted by this project.
+repository. The local launcher uses that path as the default convention for a
+user-supplied, appropriately licensed avatar. This project grants no license or
+redistribution right for Zome or any replacement VRM.
 
 ## Research citations
 
 Please cite the upstream research when publishing work that uses the relevant
-model. These entries are reproduced from the authors' official project or
-model pages.
+model. The entries below follow the authors' project or model pages.
 
 ### ARDY
 
@@ -90,21 +59,6 @@ model pages.
   number    = {4},
   articleno = {86},
   doi       = {10.1145/3811284}
-}
-```
-
-### Audio2Face-3D
-
-```bibtex
-@misc{nvidia2025audio2face3d,
-  title         = {Audio2Face-3D: Audio-driven Realistic Facial Animation For Digital Avatars},
-  author        = {Chaeyeon Chung and Ilya Fedorov and Michael Huang and Aleksey Karmanov and Dmitry Korobchenko and Roger Ribera and Yeongho Seol},
-  year          = {2025},
-  eprint        = {2508.16401},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.GR},
-  url           = {https://arxiv.org/abs/2508.16401},
-  note          = {Authors listed in alphabetical order}
 }
 ```
 
@@ -131,7 +85,7 @@ model pages.
 }
 ```
 
-### Pocket TTS / Continuous Audio Language Models
+### PocketTTS / Continuous Audio Language Models
 
 ```bibtex
 @article{rouard2025continuous,
@@ -148,6 +102,6 @@ model pages.
 
 `retargetting/package-lock.json` and `face_animation/webui/package-lock.json`
 record exact JavaScript dependency versions and SPDX license identifiers.
-Python environments are excluded from Git; their installed `.dist-info`
-metadata and license files remain inside the local portable build. Every
-transitive package retains its own license and copyright notices.
+Python environments are excluded from Git; their installed metadata and license
+files remain within the private local bundle. Every transitive package retains
+its own copyright and license notices.

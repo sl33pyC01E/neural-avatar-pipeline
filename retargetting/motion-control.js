@@ -369,37 +369,33 @@ function applyUnifiedFaceFrame(track, values, time) {
   };
   let blinkLeft = 0;
   let blinkRight = 0;
-  if (source.has('uLipSync_A')) {
-    setVowels({ aa: get('uLipSync_A'), ih: get('uLipSync_I'), ou: get('uLipSync_U'), E: get('uLipSync_E'), oh: get('uLipSync_O') });
-  } else {
-    const pair = (left, right) => (get(left) + get(right)) * 0.5;
-    const jaw = get('jawOpen');
-    const funnel = get('mouthFunnel');
-    const pucker = get('mouthPucker');
-    const stretch = pair('mouthStretchLeft', 'mouthStretchRight');
-    const smile = pair('mouthSmileLeft', 'mouthSmileRight');
-    const press = pair('mouthPressLeft', 'mouthPressRight');
-    const lower = pair('mouthLowerDownLeft', 'mouthLowerDownRight');
-    const weights = {
-      PP: Math.max(press, get('mouthClose') * 0.75), FF: lower * 0.58, TH: get('tongueOut'), DD: Math.min(jaw, 0.42) * 0.45,
-      kk: get('mouthShrugLower') * 0.42, CH: funnel * 0.5, SS: stretch * 0.48, nn: get('mouthRollUpper') * 0.48,
-      RR: get('mouthShrugUpper') * 0.45, aa: jaw * (1 - Math.max(funnel, pucker) * 0.7), E: Math.max(stretch * 0.68, lower * 0.28),
-      ih: Math.max(smile * 0.58, stretch * 0.45), oh: Math.max(funnel * 0.82, jaw * funnel), ou: pucker,
-    };
-    setVowels(weights);
-    for (const [name, weight] of Object.entries(weights)) setMorph(`VRC_v_${name}`, mouth(weight));
-    blinkLeft = get('eyeBlinkLeft'); blinkRight = get('eyeBlinkRight');
-    setMorph('EyeWideLeft', eyes(get('eyeWideLeft'))); setMorph('EyeWideRight', eyes(get('eyeWideRight')));
-    setMorph('EyeShrinkLeft', eyes(get('eyeSquintLeft'))); setMorph('EyeShrinkRight', eyes(get('eyeSquintRight')));
-    setMorph('BrowDownLeft', get('browDownLeft')); setMorph('BrowDownRight', get('browDownRight'));
-    setMorph('BrowRiseLeft', get('browOuterUpLeft')); setMorph('BrowRiseRight', get('browOuterUpRight'));
-    setMorph('BrowInnerLeft', get('browInnerUp')); setMorph('BrowInnerRight', get('browInnerUp'));
-    setMorph('MouthSmile', smile); setMorph('MouthTrouble', pair('mouthFrownLeft', 'mouthFrownRight'));
-    const lookLeft = pair('eyeLookOutLeft', 'eyeLookInRight');
-    const lookRight = pair('eyeLookInLeft', 'eyeLookOutRight');
-    setExpression('lookLeft', eyes(lookLeft)); setExpression('lookRight', eyes(lookRight));
-    setExpression('lookUp', eyes(pair('eyeLookUpLeft', 'eyeLookUpRight'))); setExpression('lookDown', eyes(pair('eyeLookDownLeft', 'eyeLookDownRight')));
-  }
+  const pair = (left, right) => (get(left) + get(right)) * 0.5;
+  const jaw = get('jawOpen');
+  const funnel = get('mouthFunnel');
+  const pucker = get('mouthPucker');
+  const stretch = pair('mouthStretchLeft', 'mouthStretchRight');
+  const smile = pair('mouthSmileLeft', 'mouthSmileRight');
+  const press = pair('mouthPressLeft', 'mouthPressRight');
+  const lower = pair('mouthLowerDownLeft', 'mouthLowerDownRight');
+  const weights = {
+    PP: Math.max(press, get('mouthClose') * 0.75), FF: lower * 0.58, TH: get('tongueOut'), DD: Math.min(jaw, 0.42) * 0.45,
+    kk: get('mouthShrugLower') * 0.42, CH: funnel * 0.5, SS: stretch * 0.48, nn: get('mouthRollUpper') * 0.48,
+    RR: get('mouthShrugUpper') * 0.45, aa: jaw * (1 - Math.max(funnel, pucker) * 0.7), E: Math.max(stretch * 0.68, lower * 0.28),
+    ih: Math.max(smile * 0.58, stretch * 0.45), oh: Math.max(funnel * 0.82, jaw * funnel), ou: pucker,
+  };
+  setVowels(weights);
+  for (const [name, weight] of Object.entries(weights)) setMorph(`VRC_v_${name}`, mouth(weight));
+  blinkLeft = get('eyeBlinkLeft'); blinkRight = get('eyeBlinkRight');
+  setMorph('EyeWideLeft', eyes(get('eyeWideLeft'))); setMorph('EyeWideRight', eyes(get('eyeWideRight')));
+  setMorph('EyeShrinkLeft', eyes(get('eyeSquintLeft'))); setMorph('EyeShrinkRight', eyes(get('eyeSquintRight')));
+  setMorph('BrowDownLeft', get('browDownLeft')); setMorph('BrowDownRight', get('browDownRight'));
+  setMorph('BrowRiseLeft', get('browOuterUpLeft')); setMorph('BrowRiseRight', get('browOuterUpRight'));
+  setMorph('BrowInnerLeft', get('browInnerUp')); setMorph('BrowInnerRight', get('browInnerUp'));
+  setMorph('MouthSmile', smile); setMorph('MouthTrouble', pair('mouthFrownLeft', 'mouthFrownRight'));
+  const lookLeft = pair('eyeLookOutLeft', 'eyeLookInRight');
+  const lookRight = pair('eyeLookInLeft', 'eyeLookOutRight');
+  setExpression('lookLeft', eyes(lookLeft)); setExpression('lookRight', eyes(lookRight));
+  setExpression('lookUp', eyes(pair('eyeLookUpLeft', 'eyeLookUpRight'))); setExpression('lookDown', eyes(pair('eyeLookDownLeft', 'eyeLookDownRight')));
   let proceduralBlink = 0;
   if (track.naturalMotion) {
     const cycle = time % 7.4;

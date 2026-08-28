@@ -13,7 +13,6 @@ const services = [
   { id: 'face', name: 'Face Animation', host: 'localhost', port: 8795 },
   { id: 'voice', name: 'PocketTTS CUDA', port: 8796 },
   { id: 'lam', name: 'LAM A2E', port: 8797 },
-  { id: 'a2f', name: 'Audio2Face', port: 8798 },
 ];
 
 function portOpen(servicePort, serviceHost = host) {
