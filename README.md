@@ -102,7 +102,8 @@ Open **Live Full Flow** and use the embedding manager before starting a session:
    each one a short nickname. Existing tensors are reused instead of recomputed.
 2. Choose one embedding as the idle fallback.
 3. Add any embeddings you want to swap between to the control stack.
-4. Start the live session, then use WASD to control locomotion.
+4. Optionally add timed speech, embedding, and walk-path cues.
+5. Start the live session, then use WASD to control locomotion.
 
 Up/Down moves the stack highlight. Right activates the highlighted embedding;
 Left releases it, allowing the idle embedding to take over. Only one stack item
@@ -110,12 +111,23 @@ is active at a time because ARDY accepts one conditioning tensor per live
 horizon. Nicknames can be changed without altering the saved tensor, and cache
 entries can be permanently deleted from the manager.
 
+The three cue lists share a clock that begins when Core-40's first motion
+horizon is ready—not while the model is warming up. A speech row has a start
+time and spoken line. An embedding row has a start time and cached selection,
+including an explicit return to idle. A walk-path row gives an arrival time and
+an X/Z endpoint in metres relative to the session origin. Add as many rows as
+needed with the plus buttons. WASD temporarily overrides scheduled steering;
+releasing the keys resumes pursuit of the current endpoint from the character's
+actual position. Manual arrow-key embedding changes remain available between
+scheduled cues.
+
 Enter speech and press Enter or **Speak**. PocketTTS generates Anna's audio,
 LAM computes its face track, and the prepared result is queued for synchronized
 playback without stopping the live body-motion stream. Multiple submitted lines
-are prepared in order and play sequentially. New embeddings are intentionally
-created while the live session is stopped so loading the text encoder cannot
-interrupt Core-40 replanning.
+are prepared in order and play sequentially. Scheduled lines enter this same
+live queue at their cue times; they are not prerendered when the session starts.
+New embeddings are intentionally created while the live session is stopped so
+loading the text encoder cannot interrupt Core-40 replanning.
 
 ## Local services
 

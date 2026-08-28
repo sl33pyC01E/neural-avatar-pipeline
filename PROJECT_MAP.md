@@ -91,18 +91,26 @@ latest ARDY track + motion start offset ─────┼─ synchronized VRM p
 ```text
 permanent cached embeddings
   → nickname / idle / stack manager
-  → one active key (or idle fallback)
-  → resident ARDY Core-40 + WASD velocity
-  → rolling 0.4-second motion horizons ───────────────┐
+  → manual arrow cycling + timed embedding cues
+  → one active key (or idle fallback) ────────────────┐
+timed X/Z endpoints → live path steering ────────────┤
+WASD temporary override ─────────────────────────────┤
+                                                     ↓
+          resident ARDY Core-40 rolling horizons ─────┐
                                                       ├─ continuous VRM output
-speech text → PocketTTS Anna → waveform → LAM frames ┘
+manual text or timed speech cues
+  → PocketTTS Anna → waveform → LAM frames ──────────┘
 ```
 
 The live workspace reuses the same ARDY/VRM player used by Unified Character
 instead of opening another WebGL context. Embedding tensors are loaded by cache
 key, retained by the live worker after first use, and swapped at the next ARDY
 replan. Speech lines are prepared sequentially and can queue while the current
-line plays.
+line plays. All timed cues use a session clock that begins after the first ARDY
+horizon is ready. Scheduled speech is dispatched into the live pipeline at cue
+time; it is not prerendered. Path steering replans from the reported live root
+position, so releasing a WASD override resumes the route rather than resetting
+the character.
 
 ## Repository boundaries
 

@@ -109,6 +109,18 @@
     .wasd-pad [data-live-key="d"] { grid-column:3; grid-row:2; }
     .live-speed { display:grid; grid-template-columns:72px 1fr 54px; align-items:center; gap:7px; margin-top:9px; color:var(--muted); font-size:10px; }
     .live-speed output { text-align:right; color:var(--mint); font:700 10px ui-monospace,monospace; }
+    .cue-label { margin-top:12px; color:var(--muted); font-size:10px; line-height:1.4; }
+    .cue-list { display:grid; gap:6px; margin-top:7px; }
+    .cue-row { display:grid; align-items:center; gap:6px; }
+    .cue-row.speech-cue,.cue-row.embedding-cue { grid-template-columns:72px minmax(0,1fr) 30px; }
+    .cue-row.path-cue { grid-template-columns:72px minmax(0,1fr) minmax(0,1fr) 30px; }
+    .cue-row input,.cue-row select { min-width:0; padding:7px 8px; border-radius:8px; font-size:10px; }
+    .cue-row button { padding:6px 0; border-radius:8px; color:var(--muted); }
+    .cue-row.fired { opacity:.58; }
+    .cue-row.fired input,.cue-row.fired select { border-color:#36594d; }
+    .cue-add { width:100%; margin-top:7px; padding:7px; border-style:dashed; color:var(--mint); background:#0a1017; font-size:10px; }
+    .cue-columns { display:grid; grid-template-columns:72px 1fr 30px; gap:6px; margin-top:7px; padding:0 3px; color:var(--muted); font-size:9px; }
+    .cue-columns.path { grid-template-columns:72px 1fr 1fr 30px; }
     @media (max-width:900px) { header { gap:10px; flex-wrap:wrap; } .brand { min-width:0; flex:1; } .service-strip { order:3; margin:0; max-width:100%; width:100%; justify-content:flex-start; } .unified-view { grid-template-columns:290px minmax(0,1fr); } .live-view { grid-template-columns:340px minmax(0,1fr); } }
   </style>
 </head>
@@ -165,6 +177,10 @@
           <textarea id="live-speech-text" maxlength="800" placeholder="What should Anna say?" aria-label="Live speech text"></textarea>
           <div class="live-actions"><button class="primary" id="live-speak">Speak</button><button id="live-clear-speech">Clear queue</button></div>
           <div class="live-queue" id="live-speech-queue"><div class="stack-empty">Speech queue is empty.</div></div>
+          <div class="cue-label">Scheduled lines are dispatched live at the entered seconds after Core-40 becomes ready.</div>
+          <div class="cue-columns"><span>Start</span><span>Spoken line</span><span></span></div>
+          <div class="cue-list" id="live-speech-schedule"></div>
+          <button class="cue-add" id="add-live-speech-cue">+ Add spoken line</button>
         </section>
 
         <section class="live-section">
@@ -174,6 +190,18 @@
           <div class="embedding-stack" id="live-embedding-stack"><div class="stack-empty">Add cached embeddings to the control stack.</div></div>
           <div class="keyboard-map">↑ / ↓ highlight · → activate highlighted · ← release to idle<br>W A S D locomotion · controls work while the stage is focused</div>
           <label class="live-speed"><span>Move speed</span><input id="live-speed" type="range" min="0.1" max="2.5" step="0.05" value="0.8"><output id="live-speed-out">0.80 m/s</output></label>
+          <div class="cue-label">Scheduled selections can activate any cached embedding or return to idle. Arrow controls remain live between cues.</div>
+          <div class="cue-columns"><span>Start</span><span>Cached embedding</span><span></span></div>
+          <div class="cue-list" id="live-embedding-schedule"></div>
+          <button class="cue-add" id="add-live-embedding-cue">+ Add embedding cue</button>
+        </section>
+
+        <section class="live-section">
+          <div class="live-section-head"><strong>Scheduled walk path</strong><span>Arrival time · X · Z</span></div>
+          <div class="live-help">Endpoints are relative to the session start. ARDY steers between them live; WASD temporarily takes control and the path resumes when released.</div>
+          <div class="cue-columns path"><span>Arrive</span><span>X metres</span><span>Z metres</span><span></span></div>
+          <div class="cue-list" id="live-path-schedule"></div>
+          <button class="cue-add" id="add-live-path-cue">+ Add path endpoint</button>
         </section>
 
         <details class="live-section" id="embedding-manager">
@@ -187,7 +215,7 @@
         </details>
       </aside>
       <div class="live-stage" id="live-stage">
-        <div class="live-hud"><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
+        <div class="live-hud"><span class="hud-chip" id="live-clock-hud">0.0s</span><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-path-hud">path idle</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
         <div class="wasd-pad" aria-label="Live locomotion controls"><button data-live-key="w">W</button><button data-live-key="a">A</button><button data-live-key="s">S</button><button data-live-key="d">D</button></div>
       </div>
     </section>
@@ -225,6 +253,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=1"></script>
+  <script src="/live-flow.js?v=2"></script>
 </body>
 </html>

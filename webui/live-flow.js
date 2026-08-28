@@ -21,6 +21,18 @@
     currentSource: null,
     audioContext: null,
     sequence: 0,
+    cueSequence: 0,
+    speechSchedule: [],
+    embeddingSchedule: [],
+    pathSchedule: [],
+    firedSpeech: new Set(),
+    firedEmbeddings: new Set(),
+    sessionStartedAt: 0,
+    scheduleTimer: 0,
+    elapsed: 0,
+    livePosition: { x: 0, z: 0 },
+    lastPathVelocity: null,
+    lastPathSentAt: 0,
   };
 
   const $ = (selector) => document.querySelector(selector);
@@ -28,6 +40,8 @@
   const labelFor = (entry) => entry ? (entry.nickname?.trim() || entry.text) : 'missing embedding';
   const effectiveKey = () => state.activeKey || state.idleKey;
   const playerPost = (message) => player.contentWindow?.postMessage(message, MOTION_API);
+  const cueId = () => `cue-${Date.now().toString(36)}-${++state.cueSequence}`;
+  const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
   function setManagerStatus(message, error = false) {
     const element = $('#embedding-manager-status');
@@ -38,12 +52,15 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 1,
+        version: 2,
         stack: state.stack,
         idleKey: state.idleKey,
         activeKey: state.activeKey,
         highlighted: state.highlighted,
         speed: Number($('#live-speed').value),
+        speechSchedule: state.speechSchedule.map(({ id, time, text }) => ({ id, time, text })),
+        embeddingSchedule: state.embeddingSchedule.map(({ id, time, cacheKey }) => ({ id, time, cacheKey })),
+        pathSchedule: state.pathSchedule.map(({ id, time, x, z }) => ({ id, time, x, z })),
       }));
     } catch {}
   }
@@ -51,19 +68,33 @@
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || saved.version !== 1) return;
+      if (!saved || ![1, 2].includes(saved.version)) {
+        state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
+        state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
+        state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
+        return;
+      }
       state.stack = Array.isArray(saved.stack) ? saved.stack.map(String) : [];
       state.idleKey = String(saved.idleKey || '');
       state.activeKey = String(saved.activeKey || '');
       state.highlighted = Math.max(0, Number(saved.highlighted) || 0);
       if (Number.isFinite(Number(saved.speed))) $('#live-speed').value = String(saved.speed);
+      if (saved.version === 2) {
+        state.speechSchedule = Array.isArray(saved.speechSchedule) ? saved.speechSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), text: String(cue.text || '') })) : [];
+        state.embeddingSchedule = Array.isArray(saved.embeddingSchedule) ? saved.embeddingSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), cacheKey: String(cue.cacheKey || '') })) : [];
+        state.pathSchedule = Array.isArray(saved.pathSchedule) ? saved.pathSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), x: finite(cue.x), z: finite(cue.z) })) : [];
+      }
     } catch {}
+    if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
+    if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
+    if (!state.pathSchedule.length) state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
   }
 
   function installEntries(entries) {
     state.entries = Array.isArray(entries) ? entries.filter((entry) => entry?.key && entry?.text) : [];
     const valid = new Set(state.entries.map((entry) => entry.key));
     state.stack = [...new Set(state.stack.filter((key) => valid.has(key)))];
+    state.embeddingSchedule.forEach((cue) => { if (cue.cacheKey && cue.cacheKey !== '__idle__' && !valid.has(cue.cacheKey)) cue.cacheKey = ''; });
     if (!valid.has(state.idleKey)) {
       const namedIdle = state.entries.find((entry) => /^(idle|neutral|rest)$/i.test(entry.nickname?.trim() || entry.text.trim()));
       state.idleKey = namedIdle?.key || '';
@@ -71,6 +102,7 @@
     if (!state.stack.includes(state.activeKey)) state.activeKey = '';
     state.highlighted = Math.max(0, Math.min(state.highlighted, Math.max(0, state.stack.length - 1)));
     renderEmbeddingControls();
+    renderEmbeddingSchedule();
     saveWorkspace();
     sendEffectiveEmbedding();
   }
@@ -151,6 +183,78 @@
       select.add(new Option(`${labelFor(entry)}${suffix}`, entry.key));
     }
     if (state.entries.some((entry) => entry.key === selected)) select.value = selected;
+  }
+
+  function cueTimeInput(cue, render) {
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '0'; input.step = '0.1'; input.value = String(cue.time);
+    input.setAttribute('aria-label', 'Seconds after live session start');
+    input.addEventListener('change', () => {
+      cue.time = Math.max(0, finite(input.value)); input.value = String(cue.time);
+      state.firedSpeech.delete(cue.id); state.firedEmbeddings.delete(cue.id);
+      saveWorkspace(); render();
+    });
+    return input;
+  }
+
+  function cueRemoveButton(list, cue, render) {
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.textContent = '×'; remove.title = 'Remove cue';
+    remove.addEventListener('click', () => {
+      const index = list.indexOf(cue); if (index >= 0) list.splice(index, 1);
+      state.firedSpeech.delete(cue.id); state.firedEmbeddings.delete(cue.id);
+      saveWorkspace(); render();
+    });
+    return remove;
+  }
+
+  function renderSpeechSchedule() {
+    const container = $('#live-speech-schedule');
+    container.replaceChildren();
+    for (const cue of state.speechSchedule) {
+      const row = document.createElement('div');
+      row.className = `cue-row speech-cue${state.firedSpeech.has(cue.id) ? ' fired' : ''}`;
+      const text = document.createElement('input');
+      text.type = 'text'; text.maxLength = 800; text.value = cue.text; text.placeholder = 'Line to synthesize live';
+      text.dataset.cueId = cue.id;
+      text.setAttribute('aria-label', 'Scheduled spoken line');
+      text.addEventListener('input', () => { cue.text = text.value; saveWorkspace(); });
+      text.addEventListener('change', () => { state.firedSpeech.delete(cue.id); row.classList.remove('fired'); });
+      row.append(cueTimeInput(cue, renderSpeechSchedule), text, cueRemoveButton(state.speechSchedule, cue, renderSpeechSchedule));
+      container.appendChild(row);
+    }
+  }
+
+  function renderEmbeddingSchedule() {
+    const container = $('#live-embedding-schedule');
+    container.replaceChildren();
+    for (const cue of state.embeddingSchedule) {
+      const row = document.createElement('div');
+      row.className = `cue-row embedding-cue${state.firedEmbeddings.has(cue.id) ? ' fired' : ''}`;
+      const select = document.createElement('select');
+      select.add(new Option('Choose cue…', ''));
+      select.add(new Option('Return to idle', '__idle__'));
+      for (const entry of state.entries) select.add(new Option(labelFor(entry), entry.key));
+      select.value = cue.cacheKey;
+      select.setAttribute('aria-label', 'Scheduled cached embedding');
+      select.addEventListener('change', () => { cue.cacheKey = select.value; state.firedEmbeddings.delete(cue.id); row.classList.remove('fired'); saveWorkspace(); });
+      row.append(cueTimeInput(cue, renderEmbeddingSchedule), select, cueRemoveButton(state.embeddingSchedule, cue, renderEmbeddingSchedule));
+      container.appendChild(row);
+    }
+  }
+
+  function renderPathSchedule() {
+    const container = $('#live-path-schedule');
+    container.replaceChildren();
+    for (const cue of state.pathSchedule) {
+      const row = document.createElement('div'); row.className = 'cue-row path-cue';
+      const x = document.createElement('input'); x.type = 'number'; x.step = '0.1'; x.value = String(cue.x); x.setAttribute('aria-label', 'Path endpoint X in metres');
+      const z = document.createElement('input'); z.type = 'number'; z.step = '0.1'; z.value = String(cue.z); z.setAttribute('aria-label', 'Path endpoint Z in metres');
+      x.addEventListener('change', () => { cue.x = finite(x.value); x.value = String(cue.x); saveWorkspace(); });
+      z.addEventListener('change', () => { cue.z = finite(z.value); z.value = String(cue.z); saveWorkspace(); });
+      row.append(cueTimeInput(cue, renderPathSchedule), x, z, cueRemoveButton(state.pathSchedule, cue, renderPathSchedule));
+      container.appendChild(row);
+    }
   }
 
   function renderEmbeddingControls() {
@@ -245,6 +349,96 @@
     if (message) $('#live-latency').textContent = message;
   }
 
+  function stopTimeline(resetClock = true) {
+    if (state.scheduleTimer) window.clearInterval(state.scheduleTimer);
+    state.scheduleTimer = 0;
+    state.sessionStartedAt = 0;
+    state.lastPathVelocity = null;
+    state.lastPathSentAt = 0;
+    playerPost({ type: 'live-flow:velocity', velocity: null });
+    if (resetClock) {
+      state.elapsed = 0;
+      $('#live-clock-hud').textContent = '0.0s';
+      $('#live-path-hud').textContent = 'path idle';
+    }
+  }
+
+  function sendPathVelocity(velocity, force = false) {
+    const previous = state.lastPathVelocity;
+    const changed = !previous !== !velocity || (previous && velocity && Math.hypot(previous.x - velocity.x, previous.z - velocity.z) > 0.04);
+    const overdue = Boolean(velocity) && performance.now() - state.lastPathSentAt > 900;
+    if (!force && !changed && !overdue) return;
+    state.lastPathVelocity = velocity ? { ...velocity } : null;
+    state.lastPathSentAt = performance.now();
+    playerPost({ type: 'live-flow:velocity', velocity });
+  }
+
+  function steerScheduledPath() {
+    const endpoints = state.pathSchedule
+      .filter((cue) => Number.isFinite(cue.time) && Number.isFinite(cue.x) && Number.isFinite(cue.z))
+      .sort((a, b) => a.time - b.time);
+    if (!endpoints.length) {
+      sendPathVelocity(null);
+      $('#live-path-hud').textContent = 'path idle';
+      return;
+    }
+    const target = endpoints.find((cue) => cue.time > state.elapsed + 0.03) || endpoints[endpoints.length - 1];
+    const dx = target.x - state.livePosition.x;
+    const dz = target.z - state.livePosition.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.06) {
+      sendPathVelocity(null);
+      $('#live-path-hud').textContent = `path · ${target.x.toFixed(1)}, ${target.z.toFixed(1)}`;
+      return;
+    }
+    const limit = Math.max(0.1, finite($('#live-speed').value, 0.8));
+    const remaining = Math.max(0.08, target.time - state.elapsed);
+    const speed = Math.min(limit, distance / remaining);
+    const velocity = { x: dx / distance * speed, z: dz / distance * speed };
+    sendPathVelocity(velocity);
+    const manual = state.keys.size ? ' · WASD override' : '';
+    $('#live-path-hud').textContent = `to ${target.x.toFixed(1)}, ${target.z.toFixed(1)} @ ${target.time.toFixed(1)}s${manual}`;
+  }
+
+  function tickTimeline() {
+    if (!state.sessionActive || !state.motionReady || !state.sessionStartedAt) return;
+    state.elapsed = Math.max(0, (performance.now() - state.sessionStartedAt) / 1000);
+    $('#live-clock-hud').textContent = `${state.elapsed.toFixed(1)}s`;
+    let speechChanged = false;
+    let embeddingChanged = false;
+    for (const cue of [...state.speechSchedule].sort((a, b) => a.time - b.time)) {
+      if (!state.firedSpeech.has(cue.id) && cue.time <= state.elapsed && cue.text.trim() && document.activeElement?.dataset?.cueId !== cue.id) {
+        state.firedSpeech.add(cue.id);
+        speechChanged = true;
+        enqueueSpeech(cue.text, `scheduled ${cue.time.toFixed(1)}s`);
+      }
+    }
+    for (const cue of [...state.embeddingSchedule].sort((a, b) => a.time - b.time)) {
+      if (!state.firedEmbeddings.has(cue.id) && cue.time <= state.elapsed && cue.cacheKey) {
+        state.firedEmbeddings.add(cue.id);
+        embeddingChanged = true;
+        state.activeKey = cue.cacheKey === '__idle__' || !entryFor(cue.cacheKey) ? '' : cue.cacheKey;
+        renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding();
+      }
+    }
+    steerScheduledPath();
+    if (speechChanged) renderSpeechSchedule();
+    if (embeddingChanged) renderEmbeddingSchedule();
+  }
+
+  function startTimeline() {
+    stopTimeline(false);
+    state.firedSpeech.clear();
+    state.firedEmbeddings.clear();
+    state.elapsed = 0;
+    state.livePosition = { x: 0, z: 0 };
+    state.sessionStartedAt = performance.now();
+    state.scheduleTimer = window.setInterval(tickTimeline, 100);
+    renderSpeechSchedule();
+    renderEmbeddingSchedule();
+    tickTimeline();
+  }
+
   async function setSession(active) {
     if (active) {
       if (!state.idleKey) { setManagerStatus('Choose an idle fallback embedding before starting.', true); $('#embedding-manager').open = true; return; }
@@ -252,6 +446,14 @@
       await state.audioContext.resume().catch(() => {});
       state.sessionActive = true;
       state.motionReady = false;
+      stopTimeline(false);
+      state.firedSpeech.clear();
+      state.firedEmbeddings.clear();
+      state.elapsed = 0;
+      $('#live-clock-hud').textContent = 'waiting';
+      $('#live-path-hud').textContent = 'path waiting';
+      renderSpeechSchedule();
+      renderEmbeddingSchedule();
       playerPost({
         type: 'live-flow:start',
         cacheKey: effectiveKey(),
@@ -264,6 +466,7 @@
     }
     state.sessionActive = false;
     state.motionReady = false;
+    stopTimeline();
     state.keys.clear();
     updateKeyUi();
     playerPost({ type: 'live-flow:stop' });
@@ -304,11 +507,12 @@
     }
   }
 
-  async function enqueueSpeech() {
-    const text = $('#live-speech-text').value.trim();
+  async function enqueueSpeech(textOverride = '', source = 'manual') {
+    const scheduled = typeof textOverride === 'string' && textOverride.trim();
+    const text = (scheduled ? textOverride : $('#live-speech-text').value).trim();
     if (!text) return;
-    $('#live-speech-text').value = '';
-    state.speech.push({ id: ++state.sequence, text, status: 'queued', track: null, audio: null, ttsMs: 0, lamMs: 0 });
+    if (!scheduled) $('#live-speech-text').value = '';
+    state.speech.push({ id: ++state.sequence, text, source, status: 'queued', track: null, audio: null, ttsMs: 0, lamMs: 0 });
     renderSpeechQueue();
     prepareSpeech();
   }
@@ -412,9 +616,24 @@
   });
   $('#live-idle-embedding').addEventListener('change', (event) => { state.idleKey = event.target.value; renderEmbeddingControls(); saveWorkspace(); sendEffectiveEmbedding(); updateSessionUi(); });
   $('#live-session-toggle').addEventListener('click', () => setSession(!state.sessionActive));
-  $('#live-speak').addEventListener('click', enqueueSpeech);
+  $('#live-speak').addEventListener('click', () => enqueueSpeech());
   $('#live-clear-speech').addEventListener('click', clearSpeechQueue);
   $('#live-speech-text').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enqueueSpeech(); } });
+  $('#add-live-speech-cue').addEventListener('click', () => {
+    const last = state.speechSchedule[state.speechSchedule.length - 1];
+    state.speechSchedule.push({ id: cueId(), time: last ? last.time + 1 : 0, text: '' });
+    saveWorkspace(); renderSpeechSchedule();
+  });
+  $('#add-live-embedding-cue').addEventListener('click', () => {
+    const last = state.embeddingSchedule[state.embeddingSchedule.length - 1];
+    state.embeddingSchedule.push({ id: cueId(), time: last ? last.time + 1 : 0, cacheKey: '' });
+    saveWorkspace(); renderEmbeddingSchedule();
+  });
+  $('#add-live-path-cue').addEventListener('click', () => {
+    const last = state.pathSchedule[state.pathSchedule.length - 1];
+    state.pathSchedule.push({ id: cueId(), time: last ? last.time + 5 : 0, x: last?.x || 0, z: last?.z || 0 });
+    saveWorkspace(); renderPathSchedule();
+  });
   $('#live-speed').addEventListener('input', (event) => {
     $('#live-speed-out').textContent = `${Number(event.target.value).toFixed(2)} m/s`;
     saveWorkspace();
@@ -448,15 +667,21 @@
     if (event.source !== player.contentWindow || event.origin !== MOTION_API || !event.data?.type) return;
     if (event.data.type === 'live-flow:arrow') handleArrow(event.data.key);
     if (event.data.type === 'live-flow:player-status') {
+      if (event.data.position && Number.isFinite(Number(event.data.position.x)) && Number.isFinite(Number(event.data.position.z))) {
+        state.livePosition = { x: Number(event.data.position.x), z: Number(event.data.position.z) };
+      }
       if (event.data.error) {
         state.sessionActive = false;
         state.motionReady = false;
+        stopTimeline();
         updateSessionUi(event.data.error);
         return;
       }
       if (state.sessionActive && Number.isFinite(Number(event.data.generationSeconds))) {
+        const firstReady = !state.motionReady;
         state.motionReady = true;
         $('#live-latency').textContent = `${Number(event.data.generationSeconds).toFixed(2)}s replan · ${Number(event.data.realtimeFactor || 0).toFixed(1)}× realtime`;
+        if (firstReady) startTimeline();
         pumpSpeech();
       }
       document.querySelectorAll('[data-live-key]').forEach((button) => button.classList.toggle('down', (event.data.keys || []).includes(button.dataset.liveKey)));
@@ -470,6 +695,9 @@
   $('#live-speed').dispatchEvent(new Event('input'));
   renderEmbeddingControls();
   renderSpeechQueue();
+  renderSpeechSchedule();
+  renderEmbeddingSchedule();
+  renderPathSchedule();
   updateSessionUi();
   refreshEmbeddings();
 })();

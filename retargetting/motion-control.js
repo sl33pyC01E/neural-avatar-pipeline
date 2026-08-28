@@ -29,6 +29,7 @@ const state = {
   liveFetching: false,
   liveExternalMode: false,
   liveExternalCacheKey: "",
+  liveExternalVelocity: null,
   liveFacePlayback: null,
   liveRoot: { x: 0, z: 0 },
   liveGoal: { x: 0, z: 0 },
@@ -1408,6 +1409,9 @@ function liveVelocity() {
   if (state.liveKeys.has("s")) z -= 1;
   if (state.liveKeys.has("a")) x -= 1;
   if (state.liveKeys.has("d")) x += 1;
+  if (!x && !z && state.liveExternalMode && state.liveExternalVelocity) {
+    return { x: Number(state.liveExternalVelocity.x) || 0, z: Number(state.liveExternalVelocity.z) || 0 };
+  }
   const length = Math.hypot(x, z) || 1;
   const speed = Number($("live-speed").value);
   return { x: x / length * speed, z: z / length * speed };
@@ -1425,6 +1429,7 @@ function publishLiveFlowStatus(extra = {}) {
     velocity,
     playbackFrame: state.livePlaybackFrame,
     maxFrame: state.liveMaxFrame,
+    position: { ...state.liveRoot },
     ...extra,
   }, "*");
 }
@@ -1586,6 +1591,7 @@ function startLive() {
 function stopLive() {
   state.liveActive = false;
   state.liveKeys.clear();
+  state.liveExternalVelocity = null;
   state.liveSegments = [];
   state.liveStartedAt = 0;
   state.livePlaybackFrame = 0;
@@ -1938,6 +1944,16 @@ window.addEventListener('message', (event) => {
     liveCommandChanged(state.liveActive);
     return;
   }
+  if (event.data.type === 'live-flow:velocity') {
+    state.liveExternalMode = true;
+    const velocity = event.data.velocity;
+    state.liveExternalVelocity = velocity && Number.isFinite(Number(velocity.x)) && Number.isFinite(Number(velocity.z))
+      ? { x: Number(velocity.x), z: Number(velocity.z) }
+      : null;
+    if (state.liveActive && !state.liveKeys.size) liveCommandChanged();
+    else publishLiveFlowStatus();
+    return;
+  }
   if (event.data.type === 'live-flow:speak') {
     const track = event.data.track;
     if (track?.frames?.length) {
@@ -1953,6 +1969,7 @@ window.addEventListener('message', (event) => {
   if (event.data.type === 'live-flow:stop') {
     stopLive();
     state.liveExternalCacheKey = '';
+    state.liveExternalVelocity = null;
     state.liveExternalMode = false;
     return;
   }
