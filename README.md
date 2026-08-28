@@ -51,6 +51,18 @@ The supplied launcher resolves paths relative to its own folder. A complete
 local bundle can therefore be copied to another Windows location without
 referring to the original Face, Voice, or Retargetting projects.
 
+The populated local working tree contains three relocatable environments and
+two bundled base interpreters entirely below `unified`. ARDY and PocketTTS use
+small isolated overlays over a shared CUDA-enabled Python 3.12 base; LAM uses a
+separate Python 3.10 environment. The launcher rewrites their environment
+metadata after the folder moves. See [`DEPENDENCIES.md`](DEPENDENCIES.md) for
+the exact portability contract.
+
+Run `verify.bat` for a fast environment, package, and payload inventory. Run
+`verify.bat --deep` when copying or archiving the bundle to SHA-256-check every
+recorded model file. Verification does not start services or allocate GPU
+models.
+
 ### Git source checkout
 
 A Git clone contains the integration code, UI, configuration, documentation,
@@ -186,6 +198,12 @@ abnormal shutdown does not intentionally leave a model service behind.
 - `motion-models/` — ARDY worker, constraints, and generated motion interface
 - `ardy/` — ARDY engine integration for both Core-8 and Core-40
 - `launcher.mjs` / `launch.bat` — portable service supervisor and entry point
+- `requirements/` — exact Python base and overlay locks
+- `setup-environments.ps1` — reconstructs local environments from the locks
+- `dependency-manifest.json` — runtime, environment, and source revisions
+- `payload-manifest.json` — model revisions, sizes, and SHA-256 fingerprints
+- `DEPENDENCIES.md` — portable environment and rebuild structure
+- `VALIDATION_PLAN.md` — next-stage quality, benchmark, and demo protocol
 - `PROJECT_MAP.md` — service and data-flow map
 - `THIRD_PARTY_NOTICES.md` — upstream licenses, attribution, and citations
 
@@ -207,6 +225,10 @@ respective upstream terms. Review the notices before copying or distributing a
 portable bundle.
 
 ## Attribution
+
+The original Neural Avatar Pipeline integration code is licensed under the
+[Apache License 2.0](LICENSE). That license does not replace the licenses or
+terms of upstream source, model payloads, voices, or avatars.
 
 This project integrates work from NVIDIA Toronto AI Lab, 3D AIGC, Kyutai,
 McGill NLP, three.js, pixiv, and their contributors. License details, model

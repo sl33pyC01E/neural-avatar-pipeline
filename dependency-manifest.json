@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "platform": {
+    "os": "windows",
+    "architecture": "x64"
+  },
+  "runtimes": {
+    "python310": {
+      "version": "3.10.11",
+      "path": "runtime/python310/python.exe"
+    },
+    "python312": {
+      "version": "3.12.10",
+      "path": "runtime/python312/python.exe"
+    },
+    "node": {
+      "version": "24.13.1",
+      "path": "runtime/node/node.exe"
+    },
+    "npm": {
+      "version": "11.8.0",
+      "path": "runtime/node/node_modules/npm/bin/npm-cli.js"
+    },
+    "ffmpeg": {
+      "version": "8.0.1-full_build-www.gyan.dev",
+      "path": "runtime/ffmpeg/bin/ffmpeg.exe"
+    },
+    "cudaUserMode": {
+      "version": "12.9",
+      "path": "runtime/cuda/v12.9"
+    }
+  },
+  "environments": [
+    {
+      "id": "python312-shared",
+      "path": "runtime/python312/Lib/site-packages",
+      "base": "runtime/python312",
+      "lock": "requirements/python312-shared.lock.txt"
+    },
+    {
+      "id": "ardy",
+      "path": "ardy/.venv",
+      "base": "runtime/python312",
+      "includeSystemSitePackages": true,
+      "lock": "requirements/ardy-overlay.lock.txt",
+      "sourceInstall": "ardy"
+    },
+    {
+      "id": "pockettts",
+      "path": "voice/pocket_tts",
+      "base": "runtime/python312",
+      "includeSystemSitePackages": true,
+      "lock": "requirements/pockettts-overlay.lock.txt"
+    },
+    {
+      "id": "lam",
+      "path": "face_animation/LAM-Audio2Expression/.venv",
+      "base": "runtime/python310",
+      "includeSystemSitePackages": false,
+      "lock": "requirements/lam-python310.lock.txt",
+      "sourceInstall": "face_animation/LAM-Audio2Expression"
+    }
+  ],
+  "sourceComponents": [
+    {
+      "id": "ardy",
+      "repository": "https://github.com/nv-tlabs/ardy.git",
+      "revision": "693f74d13b3d04a0a22ce127ee79c929dd89756b",
+      "path": "ardy",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "lam-audio2expression",
+      "repository": "https://github.com/aigc3d/LAM_Audio2Expression.git",
+      "revision": "02a703c3ea7d8e360eb43098eca85ee98a083529",
+      "path": "face_animation/LAM-Audio2Expression",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "pocket-tts",
+      "package": "pocket-tts",
+      "version": "2.1.0",
+      "license": "MIT"
+    },
+    {
+      "id": "llm2vec",
+      "repository": "https://github.com/McGill-NLP/llm2vec.git",
+      "license": "MIT",
+      "payloadRevisions": {
+        "baseMirror": "53346005fb0ef11d3b6a83b12c895cca40156b6c",
+        "mntp": "31474e395ada192e8ed1586db6be79fb3b70c9c0",
+        "supervised": "baa8ebf04a1c2500e61288e7dad65e8ae42601a7"
+      }
+    }
+  ]
+}

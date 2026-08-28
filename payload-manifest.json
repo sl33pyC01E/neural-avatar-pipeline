@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "sha256",
+  "artifacts": [
+    {
+      "id": "ardy-core-horizon8",
+      "kind": "model",
+      "repository": "nvidia/ARDY-Core-RP-20FPS-Horizon8",
+      "revision": "257a0843a10bf5201065963d7bca2791e9393a7a",
+      "license": "NVIDIA Open Model Agreement",
+      "files": [
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon8/snapshots/257a0843a10bf5201065963d7bca2791e9393a7a/config.yaml", "bytes": 1559, "sha256": "2b4ffc00c24e40aaa0a9d9747c929914f8f821a4315ce31453df40a60131d93a" },
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon8/snapshots/257a0843a10bf5201065963d7bca2791e9393a7a/denoiser.safetensors", "bytes": 623324336, "sha256": "7c309b6026bf9440f2fbf83194b6040f2ffb6cd3a1d63b0b61557b27a4248614" },
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon8/snapshots/257a0843a10bf5201065963d7bca2791e9393a7a/tokenizer.safetensors", "bytes": 141746112, "sha256": "58a887e299a3a6779b5b4ff361b452c4349d45b513b5957f2a961d393623abcd" }
+      ]
+    },
+    {
+      "id": "ardy-core-horizon40",
+      "kind": "model",
+      "repository": "nvidia/ARDY-Core-RP-20FPS-Horizon40",
+      "revision": "abe6c43beb28c867c950acb824b9c4ef3d63fb76",
+      "license": "NVIDIA Open Model Agreement",
+      "files": [
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon40/snapshots/abe6c43beb28c867c950acb824b9c4ef3d63fb76/config.yaml", "bytes": 1560, "sha256": "d8999e5c1f045a91f706fb2d5c9f2eea530af5560c1bc859d0d6257394eadd7e" },
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon40/snapshots/abe6c43beb28c867c950acb824b9c4ef3d63fb76/denoiser.safetensors", "bytes": 623324336, "sha256": "1019d0bf269cf8d1b3e3e9b4a384a58c112672959b071279ddb65814d77660cd" },
+        { "path": "models/huggingface/hub/models--nvidia--ARDY-Core-RP-20FPS-Horizon40/snapshots/abe6c43beb28c867c950acb824b9c4ef3d63fb76/tokenizer.safetensors", "bytes": 141746112, "sha256": "58a887e299a3a6779b5b4ff361b452c4349d45b513b5957f2a961d393623abcd" }
+      ]
+    },
+    {
+      "id": "ardy-llm2vec-4bit",
+      "kind": "derived-model",
+      "format": "bitsandbytes-nf4-double-quant",
+      "license": "Mixed: MIT adapters and Meta Llama terms",
+      "files": [
+        { "path": "motion-models/models/ardy-llm2vec-4bit/READY.json", "bytes": 850, "sha256": "09c0c1c31e313c67b125b64b3ac08d74194074f5c96e3d7e7c4cbacd28bf0fe3" },
+        { "path": "motion-models/models/ardy-llm2vec-4bit/base/model-00001-of-00002.safetensors", "bytes": 3976805157, "sha256": "5536ad11945d4dd2478096671f5f676db5f85c1ec871dc6ff5f39b4b6b38f280" },
+        { "path": "motion-models/models/ardy-llm2vec-4bit/base/model-00002-of-00002.safetensors", "bytes": 675258888, "sha256": "8319dd37d14daa29cb728c76f893e3569574f34dcb0cfd40dbe007dd97ad1f3b" },
+        { "path": "motion-models/models/ardy-llm2vec-4bit/base/model.safetensors.index.json", "bytes": 125207, "sha256": "1c49b4170f380c78831a1b15cb6e1adbbec299837846408ae4fc3c85edb4d863" },
+        { "path": "motion-models/models/ardy-llm2vec-4bit/adapters/supervised/adapter_model.safetensors", "bytes": 167829552, "sha256": "53f8f94ebdf396667ba99dd96e78203edae27bbcdbd1cf5f12b611e1d916b225" },
+        { "path": "motion-models/models/ardy-llm2vec-4bit/tokenizer/tokenizer.json", "bytes": 17210223, "sha256": "bbe5f052d07730cd8dc63dafa6c6d8d655bd06457598c4bfe43c123257b16a7e" }
+      ]
+    },
+    {
+      "id": "pockettts-english-anna",
+      "kind": "voice-model",
+      "repository": "kyutai/pocket-tts-without-voice-cloning",
+      "license": "CC-BY-4.0; voice source terms also apply",
+      "revisions": {
+        "model": "d29db7978e464fb90cb3359ee0c69a273b9142cc",
+        "annaEmbedding": "e041936c75475d350b405bc870bcf7c22da4e9e6"
+      },
+      "files": [
+        { "path": "models/huggingface/hub/models--kyutai--pocket-tts-without-voice-cloning/snapshots/d29db7978e464fb90cb3359ee0c69a273b9142cc/languages/english/model.safetensors", "bytes": 219029196, "sha256": "be9c6b4876d3f30740a8225dfcaa2e43dc4aeb753c15272735bee16bbb4abb0a" },
+        { "path": "models/huggingface/hub/models--kyutai--pocket-tts-without-voice-cloning/snapshots/d29db7978e464fb90cb3359ee0c69a273b9142cc/languages/english/tokenizer.model", "bytes": 59339, "sha256": "d461765ae179566678c93091c5fa6f2984c31bbe990bf1aa62d92c64d91bc3f6" },
+        { "path": "models/huggingface/hub/models--kyutai--pocket-tts-without-voice-cloning/snapshots/e041936c75475d350b405bc870bcf7c22da4e9e6/languages/english/embeddings/anna.safetensors", "bytes": 7816440, "sha256": "5ea82f78db006c9fd34e32ddd5aae82674b5b32646097977436458d00af80dfa" }
+      ]
+    },
+    {
+      "id": "lam-audio2expression-streaming",
+      "kind": "model",
+      "repository": "3DAIGC/LAM_audio2exp",
+      "sourceRevision": "unrecorded-upstream-model-revision",
+      "license": "Apache-2.0",
+      "files": [
+        { "path": "face_animation/LAM-Audio2Expression/pretrained_models/lam_audio2exp_streaming.tar", "bytes": 408538564, "sha256": "38084d471966381f2e52d9f59e5654c9b8cde6fa36d4c6f18fc02cbaf593d157" }
+      ]
+    },
+    {
+      "id": "ardy-motion-correction-win64",
+      "kind": "native-extension",
+      "platform": "cp312-win_amd64",
+      "license": "Apache-2.0",
+      "files": [
+        { "path": "ardy/MotionCorrection/python/motion_correction/_motion_correction.cp312-win_amd64.pyd", "bytes": 361984, "sha256": "b51ccc74330fe2513f6c4f5e522edc0e7956d41f46940ab4559249de2b3a96bd" }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "kind": "avatar",
+      "path": "vnyan/Zome.vrm",
+      "reason": "User-supplied and intentionally excluded from Git and this manifest's redistribution grant."
+    }
+  ]
+}

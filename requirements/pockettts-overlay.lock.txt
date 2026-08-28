@@ -1,0 +1,7 @@
+# Packages physically installed in voice/pocket_tts. This overlay intentionally
+# shadows the shared NumPy 1.26 build because PocketTTS 2.1 requires NumPy 2.
+
+beartype==0.22.9
+numpy==2.5.1
+pocket-tts==2.1.0
+sentencepiece==0.2.2

@@ -8,7 +8,7 @@ if not exist "runtime\node\node.exe" (
   exit /b 1
 )
 
-"runtime\node\node.exe" "verify.mjs"
+"runtime\node\node.exe" "verify.mjs" %*
 set "VERIFY_EXIT=%ERRORLEVEL%"
 echo.
 pause

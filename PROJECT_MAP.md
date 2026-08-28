@@ -29,6 +29,13 @@ unified/
 ├─ launch.bat                         user entry point
 ├─ launcher.mjs                       service supervisor/path resolver
 ├─ verify.bat / verify.mjs            read-only bundle inventory
+├─ LICENSE / NOTICE                    Apache-2.0 integration license
+├─ DEPENDENCIES.md                     portable environment contract
+├─ dependency-manifest.json            runtime/source/environment topology
+├─ payload-manifest.json               model revisions and SHA-256 hashes
+├─ requirements/                       exact Python base/overlay locks
+├─ setup-environments.ps1              local environment reconstruction
+├─ VALIDATION_PLAN.md                   staged QA, benchmark, demo protocol
 ├─ CONTROL_API.md                      local LLM command protocol and examples
 ├─ webui/                              four-workspace application shell
 ├─ face_animation/
@@ -45,13 +52,19 @@ unified/
 │  ├─ constraints/                     motion constraints
 │  └─ outputs/webui/                   generated clips; ignored
 ├─ ardy/                               ARDY engine and MotionCorrection
-├─ voice/pocket_tts/                   local PocketTTS environment; ignored
+├─ voice/pocket_tts/                   local PocketTTS overlay; ignored
 ├─ models/huggingface/hub/             local offline model store; ignored
 ├─ vnyan/Zome.vrm                      local avatar convention; ignored
 ├─ runtime/                            Python, Node, FFmpeg, CUDA payloads
 ├─ logs/                               service logs; ignored
 └─ legacy/                             removed face drivers; local/ignored only
 ```
+
+The portable Python layout is layered rather than flat. `runtime/python312`
+contains the shared CUDA PyTorch base; `ardy/.venv` and `voice/pocket_tts`
+inherit it while shadowing incompatible packages. LAM is isolated under its
+source folder on `runtime/python310`. All paths stay below `unified`, and the
+launcher rewrites the three `pyvenv.cfg` files when the project is moved.
 
 ## Data flow
 

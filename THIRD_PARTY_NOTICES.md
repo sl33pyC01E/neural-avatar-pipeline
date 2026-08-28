@@ -5,6 +5,10 @@ data, voices, and artwork remain the property of their respective authors and
 are governed by their own terms. This notice provides attribution; it does not
 transfer ownership or imply upstream endorsement.
 
+The repository's original integration code is licensed under Apache-2.0 as
+stated in the root `LICENSE` and `NOTICE`. That grant does not relicense any
+component or payload listed below.
+
 The Git source checkout does **not** distribute model weights, Python or Node
 environments, CUDA libraries, voice assets, generated media, or a VRM avatar.
 Those files may exist in a private local bundle and must not be redistributed

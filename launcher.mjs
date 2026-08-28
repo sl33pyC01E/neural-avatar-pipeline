@@ -122,6 +122,8 @@ required(node, 'Bundled Node.js');
 required(npmCli, 'Bundled npm');
 required(path.join(ffmpegBin, 'ffmpeg.exe'), 'Bundled FFmpeg');
 required(path.join(cudaBin, 'cudart64_12.dll'), 'Bundled CUDA 12.9 runtime');
+required(path.join(root, 'dependency-manifest.json'), 'Dependency manifest');
+required(path.join(root, 'payload-manifest.json'), 'Payload manifest');
 required(path.join(root, 'vnyan', 'Zome.vrm'), 'Local VRM avatar');
 required(path.join(root, 'models', 'huggingface', 'hub', 'models--nvidia--ARDY-Core-RP-20FPS-Horizon8'), 'ARDY Core-8 model');
 required(path.join(root, 'models', 'huggingface', 'hub', 'models--nvidia--ARDY-Core-RP-20FPS-Horizon40'), 'ARDY Core-40 model');
