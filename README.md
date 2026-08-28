@@ -18,12 +18,6 @@ The application is designed to run offline once its local runtimes, models, and
 avatar have been supplied. Those large or separately licensed payloads are not
 included in the Git repository.
 
-Measured steady-state latency, generation throughput, GPU memory, system RAM,
-and MP4 export performance are documented in [`BENCHMARKS.md`](BENCHMARKS.md).
-On the tested system, Live Full Flow's median speech time to first audible
-playback was 2.788 seconds with an empty queue. This is measured from submitting
-`speech.say` until the UI reports the line as playing.
-
 ## Default pipeline
 
 | Stage | Component | Role |
@@ -49,6 +43,36 @@ The interface has four persistent workspaces:
   animation on the same character. It includes independent cue loops,
   anatomical position and direction anchors, follow/orbit shots, and a local
   LLM control API.
+
+## Hardware guidance and measured performance
+
+The complete pipeline was tested on Windows 11 with an RTX 4090 (24 GB VRAM),
+an i9-13900KF, and 64 GB system RAM. With PocketTTS, LAM, both ARDY runtimes,
+the browser renderer, and their models loaded, peak observed whole-device GPU
+memory was **8,238 MiB**. The increase above the stopped desktop baseline was
+**4,761 MiB**, and the project's loaded system-memory working set was
+**6.025 GiB**.
+
+Based on that measured peak and the headroom needed by Windows and the browser,
+the practical recommendation is an NVIDIA CUDA GPU with **at least 12 GB of
+VRAM**. An 8 GB GPU is not currently claimed as supported. Use at least **16 GB
+of system RAM**; **32 GB or more** is recommended for comfortable operation
+alongside the browser and development tools.
+
+| Steady-state workload | Tested result |
+| --- | ---: |
+| Live speech time to first audible playback (TTFA) | 2.788 s median |
+| PocketTTS synthesis | 2.186 s median |
+| LAM facial inference | 171.5 ms median |
+| ARDY Core-40, 7 denoising steps | 170 ms median; 11.94× realtime |
+| Live session start to motion ready | 483.8 ms median |
+| Export 32.49-second introduction | 37.01 s median |
+
+TTFA begins when `speech.say` is submitted with an empty queue and ends when
+the UI reports the line as `speaking`. It is a software-observed playback-start
+measurement, not an acoustic microphone measurement. See
+[`BENCHMARKS.md`](BENCHMARKS.md) for ranges, methodology, resource sampling,
+additional ARDY configurations, and machine-readable results.
 
 ## Quick start
 

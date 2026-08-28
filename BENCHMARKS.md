@@ -38,6 +38,10 @@ PocketTTS dominates live speech response time. Direct synthesis took 2185.5 ms, 
 
 Relative to the median stopped-device baseline, the fully loaded observed VRAM increase was 4761 MiB (19.4% of the RTX 4090's VRAM). Peak sampled GPU utilization was 92%, peak board power 102.37 W, and peak temperature 54°C. The loaded project working set was 9.4% of installed RAM.
 
+## Practical hardware guidance
+
+The measured full-stack peak slightly exceeds the usable capacity normally available on an 8 GB GPU once Windows and browser rendering are included. The current practical recommendation is therefore an NVIDIA CUDA GPU with at least **12 GB VRAM**; 8 GB configurations are not claimed as supported. Use at least **16 GB system RAM**, with **32 GB or more recommended** when running development tools alongside the pipeline. These are headroom-based recommendations derived from the measured configuration, not validation results for every GPU model.
+
 ## Export characteristics
 
 - Approved output: H.264 High profile video and AAC-LC audio in MP4
@@ -58,7 +62,7 @@ Relative to the median stopped-device baseline, the fully loaded observed VRAM i
 
 - Windows WDDM did not expose reliable per-process VRAM, so GPU figures are whole-device readings and include the desktop, browser, and other GPU applications. The stopped baseline makes the project-attributable increase visible.
 - Speech generation is stochastic; identical text produced 5.44–5.76 seconds of audio, so real-time factors vary slightly with generated duration.
-- The benchmark is a measured profile of this machine, not a minimum hardware requirement.
+- The benchmark is a measured profile of this machine. The published hardware guidance adds operational headroom but has not yet been validated across multiple GPU models.
 
 ## Supplemental startup sample
 
