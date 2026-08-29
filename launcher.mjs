@@ -171,6 +171,8 @@ const environment = {
   FACE_LAB_TTS_DEVICE: 'cpu',
   UNIFIED_LAB_ROOT: root,
   UNIFIED_CUDA_BIN: cudaBin,
+  UNIFIED_EFFICIENCY_MODE: process.env.UNIFIED_EFFICIENCY_MODE === '1' ? '1' : '0',
+  UNIFIED_EXPERIMENTAL_ARDY_COMPILE: process.env.UNIFIED_EXPERIMENTAL_ARDY_COMPILE === '1' ? '1' : '0',
   UNIFIED_WEBUI_HOST: lanBindHost,
   MOTION_CONTROL_HOST: lanBindHost,
   FACE_LAB_HOST: lanBindHost,
@@ -181,6 +183,7 @@ const pocketPython = path.join(root, 'voice', 'pocket_tts', 'Scripts', 'python.e
 const lamPython = path.join(root, 'face_animation', 'LAM-Audio2Expression', '.venv', 'Scripts', 'python.exe');
 
 console.log(`Unified Lab root: ${root}`);
+console.log(`Runtime profile: ${environment.UNIFIED_EFFICIENCY_MODE === '1' ? 'Efficiency Mode' : 'Quality baseline'}`);
 console.log('Starting local services…');
 
 startChild('Unified WebUI', node, [path.join(root, 'webui', 'server.mjs')], root, environment);

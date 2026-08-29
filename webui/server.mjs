@@ -222,7 +222,12 @@ const server = http.createServer(async (request, response) => {
   }
   if (url.pathname === '/api/status') {
     const status = await Promise.all(services.map(async (service) => ({ ...service, online: await portOpen(service.port, service.host) })));
-    json(response, 200, { ok: true, root: process.env.UNIFIED_LAB_ROOT || path.dirname(root), services: status });
+    json(response, 200, {
+      ok: true,
+      root: process.env.UNIFIED_LAB_ROOT || path.dirname(root),
+      efficiencyMode: process.env.UNIFIED_EFFICIENCY_MODE === '1',
+      services: status,
+    });
     return;
   }
   if (url.pathname === '/unified-character.js' || url.pathname === '/live-flow.js') {

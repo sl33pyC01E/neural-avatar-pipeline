@@ -16,6 +16,11 @@ packages in separate overlays. ARDY sees NumPy 1.26 and Transformers 5.8.1;
 PocketTTS sees its overlay NumPy 2.5.1. LAM remains isolated on PyTorch 2.1.2,
 CUDA 12.1 wheels, NumPy 1.26.3, and Transformers 4.36.2.
 
+The ARDY overlay also pins `triton-windows==3.2.0.post21`, the Triton 3.2
+toolchain matched to the shared PyTorch 2.6 build. It enables the optional
+experimental `torch.compile` denoiser path; the standard Efficiency Mode does
+not enable compilation.
+
 The vendored ARDY source is installed separately from `./ardy` in editable
 mode. Its source identity is recorded in `dependency-manifest.json`. LAM is
 executed from its local source checkout and is not installed as a Python

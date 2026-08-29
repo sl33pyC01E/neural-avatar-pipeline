@@ -8,5 +8,6 @@ einx==0.4.3
 hydra-core==1.3.5
 setuptools==84.0.0
 transformers==5.8.1
+triton-windows==3.2.0.post21
 vector-quantize-pytorch==1.25.2
 wheel==0.48.0

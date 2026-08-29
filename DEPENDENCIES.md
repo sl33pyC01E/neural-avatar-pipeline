@@ -16,7 +16,7 @@ No active service reads the original Face, Voice, or Retargetting projects.
 | Runtime | Location inside `unified` | Python | Dependency role |
 | --- | --- | --- | --- |
 | Shared CUDA base | `runtime/python312` | 3.12.10 | PyTorch 2.6.0+cu124 and common ARDY/PocketTTS dependencies |
-| ARDY overlay | `ardy/.venv` | 3.12.10 | ARDY-specific Transformers 5.8.1, bitsandbytes, and model packages |
+| ARDY overlay | `ardy/.venv` | 3.12.10 | ARDY-specific Transformers 5.8.1, bitsandbytes, Triton 3.2 for Windows, and model packages |
 | PocketTTS overlay | `voice/pocket_tts` | 3.12.10 | PocketTTS 2.1.0, Anna support, and NumPy 2.5.1 |
 | LAM environment | `face_animation/LAM-Audio2Expression/.venv` | 3.10.11 | Isolated PyTorch 2.1.2+cu121 and Transformers 4.36.2 stack |
 
@@ -35,6 +35,13 @@ environment, and upstream-source topology in machine-readable form.
 Given populated bundled interpreters and source checkouts,
 `setup-environments.ps1` recreates these same three environments. Pass
 `-Rebuild` only when intentionally replacing existing environment folders.
+
+The optional compiler backend uses `triton-windows==3.2.0.post21`. Triton 3.2
+is the version paired with PyTorch 2.6; its Windows wheel includes the compiler
+toolchain required by CUDA Inductor. This package lives inside `ardy/.venv`, so
+it travels with a populated portable copy. Compilation is not enabled by the
+default Efficiency Mode because Core-40's changing live-history shapes caused
+an unacceptable first-horizon compile stall during initial integration.
 
 ## Relocation
 

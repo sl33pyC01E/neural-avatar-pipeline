@@ -24,6 +24,7 @@ without independently confirming the applicable terms.
 | LAM Audio2Expression | Streaming audio-to-ARKit facial-expression inference | 3D AIGC / `aigc3d`, [`aigc3d/LAM_Audio2Expression`](https://github.com/aigc3d/LAM_Audio2Expression), pinned local revision `02a703c` | Code and [model card](https://huggingface.co/3DAIGC/LAM_audio2exp): Apache-2.0. |
 | three.js | WebGL character rendering | Copyright © 2010–2026 three.js authors, [`mrdoob/three.js`](https://github.com/mrdoob/three.js) | [MIT](https://github.com/mrdoob/three.js/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
 | `@pixiv/three-vrm` | VRM loading, expressions, humanoid bones, and spring-bone playback | pixiv Inc., [`pixiv/three-vrm`](https://github.com/pixiv/three-vrm) | [MIT](https://github.com/pixiv/three-vrm/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
+| Triton for Windows 3.2.0.post21 | Optional CUDA compiler backend for ARDY `torch.compile` in Efficiency Mode | Triton authors and Windows maintainers, [`triton-lang/triton-windows`](https://github.com/triton-lang/triton-windows) | MIT. The exact portable wheel version is pinned in `requirements/ardy-overlay.lock.txt`. |
 
 ## Additional retained source
 

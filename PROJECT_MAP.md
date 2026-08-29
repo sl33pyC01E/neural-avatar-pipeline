@@ -14,19 +14,23 @@ launch.bat
     face_animation/webui/backend/server.py        face API/export · 8794
     face_animation/webui                          LAM face UI · 8795
     face_animation/webui/backend/pocket_tts_server.py
-                                                   PocketTTS CUDA · 8796
+                                                   PocketTTS CPU stream · 8796
     face_animation/webui/backend/lam_server.py    LAM worker · 8797
 ```
 
 `launcher.mjs` validates required local payloads, repairs copied environment
 metadata, sets bundled runtime and offline model paths, waits for service ports,
 opens the WebUI, records logs, and terminates the process trees it started.
+`launch-efficient.bat` selects the load-time FP16/TF32/lightweight-render
+profile and then delegates to the same supervisor. Experimental ARDY compilation
+is separate from this default profile.
 
 ## Directory layout
 
 ```text
 unified/
 ├─ launch.bat                         user entry point
+├─ launch-efficient.bat               optimized startup profile
 ├─ launcher.mjs                       service supervisor/path resolver
 ├─ verify.bat / verify.mjs            read-only bundle inventory
 ├─ LICENSE / NOTICE                    Apache-2.0 integration license

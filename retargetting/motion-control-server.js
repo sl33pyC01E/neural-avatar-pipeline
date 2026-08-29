@@ -6,6 +6,7 @@ const spatialRetarget = require("../vnyan/control-panel/spatial-retarget");
 
 const HOST = process.env.MOTION_CONTROL_HOST || "127.0.0.1";
 const PORT = Number(process.env.MOTION_CONTROL_PORT || 8793);
+const EFFICIENCY_MODE = process.env.UNIFIED_EFFICIENCY_MODE === "1";
 const ROOT = __dirname;
 const FACE_ROOT = path.resolve(ROOT, "..");
 const WORKER = path.join(FACE_ROOT, "motion-models", "motion_worker.py");
@@ -220,6 +221,9 @@ const server = http.createServer(async (req, res) => {
       const file = path.join(ROOT, "motion-control.html");
       const data = fs.readFileSync(file);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-length": data.length, "cache-control": "no-store" }); res.end(data); return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/runtime-profile") {
+      sendJson(res, 200, { ok: true, efficiencyMode: EFFICIENCY_MODE }); return;
     }
     if (req.method === "GET" && url.pathname === "/vendor/three.module.js") {
       sendFile(res, THREE_MODULE, "text/javascript; charset=utf-8", "public, max-age=86400"); return;

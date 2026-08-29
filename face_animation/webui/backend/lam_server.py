@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
+import torch
 
 from runtime_watchdog import start_parent_watchdog
 
@@ -25,6 +26,7 @@ WEBUI_ROOT = Path(__file__).resolve().parents[1]
 LAM_ROOT = WEBUI_ROOT.parent / "LAM-Audio2Expression"
 CONFIG = LAM_ROOT / "configs" / "lam_audio2exp_config_streaming.py"
 WEIGHT = LAM_ROOT / "pretrained_models" / "lam_audio2exp_streaming.tar"
+EFFICIENCY_MODE = os.environ.get("UNIFIED_EFFICIENCY_MODE", "0") == "1"
 
 sys.path.insert(0, str(LAM_ROOT))
 os.chdir(LAM_ROOT)
@@ -63,6 +65,28 @@ def load_engine():
             cfg = default_setup(cfg)
             engine = INFER.build(dict(type=cfg.infer.type, cfg=cfg))
             engine.model.eval()
+            engine.efficiency_mode = EFFICIENCY_MODE
+            if EFFICIENCY_MODE:
+                # Keep post-processing in NumPy/FP32, but halve the resident CUDA
+                # weights and activations used by Wav2Vec + the expression head.
+                engine.model.half()
+                audio_encoder = engine.model.backbone.audio_encoder
+                original_audio_forward = audio_encoder.forward
+
+                def forward_without_attention_maps(*args, **kwargs):
+                    # The pinned LAM Wav2Vec fork otherwise forces this back to
+                    # True internally. Network.py consumes last_hidden_state only.
+                    kwargs["output_attentions"] = False
+                    return original_audio_forward(*args, **kwargs)
+
+                audio_encoder.forward = forward_without_attention_maps
+                original_model_forward = engine.model.forward
+
+                def fp16_model_forward(*args, **kwargs):
+                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                        return original_model_forward(*args, **kwargs)
+
+                engine.model.forward = fp16_model_forward
             # Building the model does not initialize every CUDA kernel used by
             # streaming inference. Run and discard one real-sized silent window
             # so the first user line does not pay that one-time penalty.
@@ -76,7 +100,8 @@ def load_engine():
             _engine = engine
             _load_ms = round((time.perf_counter() - started) * 1000, 1)
             _load_error = None
-            print(f"LAM A2E ready ({_load_ms} ms warm-up)", flush=True)
+            profile = "FP16 efficiency" if EFFICIENCY_MODE else "FP32 baseline"
+            print(f"LAM A2E ready ({_load_ms} ms warm-up, {profile})", flush=True)
         except Exception as error:
             _load_error = str(error)
             print(f"LAM A2E warm-up failed: {_load_error}", flush=True)
@@ -210,7 +235,16 @@ class LAMHandler(BaseHTTPRequestHandler):
         if urlparse(self.path).path not in {"/", "/api/status"}:
             self.send_json(404, {"ok": False, "error": "Not found."})
             return
-        self.send_json(200, {"ok": True, "ready": _engine is not None, "loading": _loading, "loadMs": _load_ms, "error": _load_error})
+        self.send_json(200, {
+            "ok": True,
+            "ready": _engine is not None,
+            "loading": _loading,
+            "loadMs": _load_ms,
+            "error": _load_error,
+            "efficiencyMode": EFFICIENCY_MODE,
+            "modelDtype": "float16" if EFFICIENCY_MODE else "float32",
+            "attentionMaps": "disabled" if EFFICIENCY_MODE else "baseline",
+        })
 
     def do_POST(self) -> None:
         request_url = urlparse(self.path)

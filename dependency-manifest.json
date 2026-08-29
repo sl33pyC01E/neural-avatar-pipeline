@@ -91,6 +91,13 @@
         "mntp": "31474e395ada192e8ed1586db6be79fb3b70c9c0",
         "supervised": "baa8ebf04a1c2500e61288e7dad65e8ae42601a7"
       }
+    },
+    {
+      "id": "triton-windows",
+      "package": "triton-windows",
+      "version": "3.2.0.post21",
+      "repository": "https://github.com/triton-lang/triton-windows",
+      "license": "MIT"
     }
   ]
 }

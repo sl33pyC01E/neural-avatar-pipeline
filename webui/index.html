@@ -279,7 +279,7 @@
         </details>
       </aside>
       <div class="live-stage" id="live-stage">
-        <div class="live-hud"><span class="hud-chip" id="live-clock-hud">0.0s</span><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-path-hud">path idle</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
+        <div class="live-hud"><span class="hud-chip" id="live-clock-hud">0.0s</span><span class="hud-chip" id="live-profile-hud">quality baseline</span><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-path-hud">path idle</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
         <div class="wasd-pad" aria-label="Live locomotion controls"><button data-live-key="w">W</button><button data-live-key="a">A</button><button data-live-key="s">S</button><button data-live-key="d">D</button></div>
       </div>
     </section>
@@ -287,11 +287,19 @@
   <script>
     let statusFailures = 0;
     let resourcesReleased = false;
+    let embeddedLabsLoaded = false;
     const serviceOrigin = (port) => `${window.location.protocol}//${window.location.hostname}:${port}`;
     const motionOrigin = serviceOrigin(8793);
-    document.querySelector('#face').src = `${serviceOrigin(8795)}/`;
-    document.querySelector('#motion').src = `${motionOrigin}/`;
-    document.querySelector('#unified-player').src = `${motionOrigin}/`;
+
+    function loadEmbeddedLabs(efficiencyMode) {
+      if (embeddedLabsLoaded) return;
+      embeddedLabsLoaded = true;
+      const profileQuery = efficiencyMode ? '?efficiency=1' : '';
+      document.querySelector('#face').src = `${serviceOrigin(8795)}/${profileQuery}`;
+      document.querySelector('#motion').src = `${motionOrigin}/${profileQuery}`;
+      document.querySelector('#unified-player').src = `${motionOrigin}/${profileQuery}`;
+      document.querySelector('#live-profile-hud').textContent = efficiencyMode ? 'EFFICIENCY MODE' : 'quality baseline';
+    }
 
     function releaseEmbeddedLabs() {
       if (resourcesReleased) return;
@@ -306,11 +314,12 @@
     async function refresh() {
       try {
         const payload = await fetch('/api/status', { cache: 'no-store' }).then((response) => response.json());
+        loadEmbeddedLabs(Boolean(payload.efficiencyMode));
         if (resourcesReleased) { window.location.reload(); return; }
         statusFailures = 0;
-        document.querySelector('#services').innerHTML = payload.services.map((service) =>
+        document.querySelector('#services').innerHTML = `${payload.efficiencyMode ? '<span class="service online" title="FP16 LAM · fused ARDY SDPA · lightweight VRM"><i class="dot"></i>Efficiency</span>' : ''}${payload.services.map((service) =>
           `<span class="service ${service.online ? 'online' : ''}" title="Port ${service.port}"><i class="dot"></i>${service.name}</span>`
-        ).join('');
+        ).join('')}`;
       } catch {
         statusFailures += 1;
         if (statusFailures >= 2) { releaseEmbeddedLabs(); return; }

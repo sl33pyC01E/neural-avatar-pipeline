@@ -89,6 +89,30 @@ additional ARDY configurations, and machine-readable results.
    lab and open one of the `LAN WebUI` addresses printed by the launcher.
 5. Close the launcher window or press `Ctrl+C` to stop every service it owns.
 
+For the first-stage optimized runtime, launch with `launch-efficient.bat`
+instead. Efficiency Mode is an explicit startup profile because its model
+precision and compiler choices are made while the workers load. It currently:
+
+- runs the LAM Audio2Expression model and its CUDA activations in FP16;
+- omits LAM's unused per-layer Wav2Vec attention maps;
+- keeps ARDY's fused PyTorch scaled-dot-product attention enabled and enables
+  TF32 matrix multiplication on supported NVIDIA GPUs;
+- preserves the existing 4-bit ARDY text encoder and direct cached-embedding
+  path; and
+- renders the VRM at native 1× pixel density without shadow maps or WebGL
+  antialiasing, while updating spring-bone physics at 30 Hz.
+
+The motion prompt, denoising, guidance, history, path, speech, and camera
+controls are unchanged. Use `launch.bat` at any time to return to the measured
+quality baseline. Efficiency Mode needs its own resource and quality benchmark
+pass before a lower VRAM recommendation is published.
+
+The portable ARDY environment includes the matching Windows Triton compiler,
+but denoiser compilation is deliberately excluded from the default profile.
+Core-40's changing live-history shapes caused an unacceptable first-horizon
+compile stall. The remaining compile path is experimental and requires an
+explicit `UNIFIED_EXPERIMENTAL_ARDY_COMPILE=1` environment override.
+
 The LAN page provides the same four workspaces, live controls, audio playback,
 exports, and control API as the host machine. All browser-facing service URLs
 follow the hostname or IP address used to open the main WebUI, so another
@@ -272,7 +296,7 @@ abnormal shutdown does not intentionally leave a model service behind.
 - `retargetting/` — ARDY browser UI, scheduler, VRM playback, and local API
 - `motion-models/` — ARDY worker, constraints, and generated motion interface
 - `ardy/` — ARDY engine integration for both Core-8 and Core-40
-- `launcher.mjs` / `launch.bat` — portable service supervisor and entry point
+- `launcher.mjs` / `launch.bat` / `launch-efficient.bat` — portable service supervisor and baseline/optimized entry points
 - `requirements/` — exact Python base and overlay locks
 - `setup-environments.ps1` — reconstructs local environments from the locks
 - `dependency-manifest.json` — runtime, environment, and source revisions

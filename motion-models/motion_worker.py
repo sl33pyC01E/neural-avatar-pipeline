@@ -379,8 +379,20 @@ class MotionRuntime:
         self.live_session_token = ""
         self.live_mesh_segments: OrderedDict[str, bytes] = OrderedDict()
         self.loaded_at = 0.0
+        self.efficiency_mode = os.environ.get("UNIFIED_EFFICIENCY_MODE", "0") == "1"
+        self.efficiency_compiled = False
+        self.efficiency_compile_note = "experimental compile disabled"
         self.keep_text_encoder_loaded = os.environ.get("TEXT_ENCODER_RESIDENCY", "ephemeral").strip().lower() == "resident"
         self.lock = threading.Lock()
+
+        if self.efficiency_mode and torch.cuda.is_available():
+            # ARDY's denoiser already calls PyTorch scaled-dot-product attention,
+            # which selects the fused flash/memory-efficient CUDA kernel on Ada.
+            torch.backends.cuda.enable_flash_sdp(True)
+            torch.backends.cuda.enable_mem_efficient_sdp(True)
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            torch.set_float32_matmul_precision("high")
 
     def load(self) -> None:
         if self.model is not None:
@@ -392,6 +404,33 @@ class MotionRuntime:
 
             self.model = load_model(os.environ.get("ARDY_MODEL", "core8"), device=self.device, text_encoder=False)
             self.raw_denoiser = self.model.denoiser.model
+            if self.efficiency_mode and os.environ.get("UNIFIED_EXPERIMENTAL_ARDY_COMPILE", "0") == "1":
+                # CUDA Inductor requires Triton. The portable Windows payload
+                # intentionally does not pretend compilation succeeded when that
+                # backend is absent; fused SDPA remains active either way.
+                import importlib.util
+
+                if importlib.util.find_spec("triton") is None:
+                    self.efficiency_compile_note = "skipped: portable environment has no Triton backend"
+                else:
+                    from ardy.model.cfg import AutoLatentClassifierFreeGuidedModel
+
+                    torch._dynamo.config.suppress_errors = True
+                    self.raw_denoiser = torch.compile(
+                        self.raw_denoiser,
+                        backend="inductor",
+                        # Avoid CUDA graph pools (which trade extra VRAM for
+                        # launch latency) and allow the live history window to
+                        # change shape without compiling one graph per horizon.
+                        mode="max-autotune-no-cudagraphs",
+                        dynamic=True,
+                    )
+                    self.model.denoiser = AutoLatentClassifierFreeGuidedModel(
+                        self.raw_denoiser,
+                        cfg_type="regular",
+                    )
+                    self.efficiency_compiled = True
+                    self.efficiency_compile_note = "inductor"
         else:
             from kimodo import load_model
 
@@ -417,6 +456,12 @@ class MotionRuntime:
             "textReady": self.text_encoder is not None,
             "textEncoderLoaded": bool(self.text_encoder and self.text_encoder.backend is not None),
             "textArtifactReady": (QUANTIZED_ENCODER_ROOT / "READY.json").is_file(),
+            "efficiencyMode": self.efficiency_mode,
+            "attentionBackend": "PyTorch SDPA (flash/memory-efficient enabled)" if self.engine == "ardy" else None,
+            "denoiserCompiled": self.efficiency_compiled,
+            "compileNote": self.efficiency_compile_note,
+            "motionPrecision": "float32 + TF32 matmul" if self.efficiency_mode else "float32",
+            "textPrecision": "4-bit cached encoder / stored embeddings",
             "cachedTextCount": len(CachedTextEncoder(self.engine, self.device).entries()),
             "loadedAt": self.loaded_at,
             "model": (

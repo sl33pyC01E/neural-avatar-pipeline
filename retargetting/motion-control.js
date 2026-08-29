@@ -5,10 +5,12 @@ import { VRMLoaderPlugin, VRMUtils } from "/vendor/three-vrm.module.js";
 const serviceOrigin = (port) => `${window.location.protocol}//${window.location.hostname}:${port}`;
 const FACE_API = serviceOrigin(8794);
 const UNIFIED_ORIGIN = serviceOrigin(8788);
+const EFFICIENCY_MODE = new URLSearchParams(window.location.search).get("efficiency") === "1";
 const $ = (id) => document.getElementById(id);
 const routeCanvas = $("route");
 const ctx = routeCanvas.getContext("2d");
 const state = {
+  efficiencyMode: EFFICIENCY_MODE,
   engine: "ardy",
   points: [{ x: 0, z: 0 }],
   scale: 120,
@@ -92,17 +94,17 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x090d12);
 scene.fog = new THREE.Fog(0x090d12, 5, 12);
 const camera = new THREE.PerspectiveCamera(36, 1, 0.02, 50);
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: !EFFICIENCY_MODE, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, EFFICIENCY_MODE ? 1 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !EFFICIENCY_MODE;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $("viewport").appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xbfd6e8, 0x121820, 2.3));
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.2);
 keyLight.position.set(3, 5, 4);
-keyLight.castShadow = true;
+keyLight.castShadow = !EFFICIENCY_MODE;
 scene.add(keyLight);
 const rimLight = new THREE.DirectionalLight(0x76ffd0, 1.8);
 rimLight.position.set(-4, 2.5, -3);
@@ -520,7 +522,12 @@ async function loadDirectVrm(file) {
   VRMUtils.rotateVRM0(vrm);
   vrm.humanoid.autoUpdateHumanBones = true;
   vrm.scene.traverse((object) => {
-    if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; object.frustumCulled = false; }
+    if (object.isMesh) {
+      object.castShadow = !state.efficiencyMode;
+      object.receiveShadow = !state.efficiencyMode;
+      // Animated skinned-mesh bounds are not reliable enough to enable culling.
+      object.frustumCulled = false;
+    }
   });
   if (state.vrm) {
     scene.remove(state.vrm.scene);
@@ -789,8 +796,8 @@ async function loadBindMesh(engine) {
     side: THREE.DoubleSide,
   });
   bodyMesh = new THREE.Mesh(geometry, material);
-  bodyMesh.castShadow = true;
-  bodyMesh.receiveShadow = true;
+  bodyMesh.castShadow = !state.efficiencyMode;
+  bodyMesh.receiveShadow = !state.efficiencyMode;
   bodyMesh.frustumCulled = false;
   scene.add(bodyMesh);
   bodyMesh.visible = state.viewerMode === "skin" || engine !== "ardy";
@@ -866,6 +873,7 @@ function resizeViewport() {
 }
 
 let lastRenderAt = performance.now();
+let springUpdateAccumulator = 0;
 
 function liveFrameAt(frame) {
   for (let index = state.liveSegments.length - 1; index >= 0; index -= 1) {
@@ -1024,7 +1032,17 @@ function animate(now) {
     }
   }
   updateLiveFace(now);
-  if (state.vrm) state.vrm.update(deltaSeconds);
+  if (state.vrm) {
+    if (state.efficiencyMode) {
+      springUpdateAccumulator = Math.min(0.1, springUpdateAccumulator + deltaSeconds);
+      if (springUpdateAccumulator >= 1 / 30) {
+        state.vrm.update(springUpdateAccumulator);
+        springUpdateAccumulator = 0;
+      }
+    } else {
+      state.vrm.update(deltaSeconds);
+    }
+  }
   updateLiveCamera(deltaSeconds);
   renderer.render(scene, camera);
 }
@@ -1045,7 +1063,7 @@ function screenToWorld(x, y) {
 
 function resizeRoute() {
   const rect = routeCanvas.getBoundingClientRect();
-  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const dpr = Math.min(devicePixelRatio || 1, state.efficiencyMode ? 1 : 2);
   routeCanvas.width = Math.round(rect.width * dpr);
   routeCanvas.height = Math.round(rect.height * dpr);
   state.scale = 105 * dpr;
