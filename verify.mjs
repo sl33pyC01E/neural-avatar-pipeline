@@ -24,6 +24,7 @@ const checks = [
   ['ARDY text encoder', 'motion-models/models/ardy-llm2vec-4bit'],
   ['PocketTTS environment', 'voice/pocket_tts/Scripts/python.exe'],
   ['PocketTTS model', 'models/huggingface/hub/models--kyutai--pocket-tts-without-voice-cloning'],
+  ['Emotion classifier', 'models/sentiment/emotion-english-distilroberta-base/model.int8.onnx'],
   ['Local VRM avatar', 'vnyan/Zome.vrm'],
   ['Spatial retargeter', 'vnyan/control-panel/spatial-retarget.js'],
   ['Python 3.10', 'runtime/python310/python.exe'],

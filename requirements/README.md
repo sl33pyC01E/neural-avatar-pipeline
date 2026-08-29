@@ -12,7 +12,9 @@ requirements.
 | `lam-python310.lock.txt` | `face_animation/LAM-Audio2Expression/.venv/Lib/site-packages` | bundled 3.10.11 | isolated |
 
 ARDY and PocketTTS share the large PyTorch/CUDA base but carry conflicting
-packages in separate overlays. ARDY sees NumPy 1.26 and Transformers 5.8.1;
+packages in separate overlays. The shared base includes Transformers 5.2.0 and
+ONNX Runtime 1.24.3 for the CPU emotion classifier. ARDY overrides Transformers
+with 5.8.1 while retaining NumPy 1.26;
 PocketTTS sees its overlay NumPy 2.5.1. LAM remains isolated on PyTorch 2.1.2,
 CUDA 12.1 wheels, NumPy 1.26.3, and Transformers 4.36.2.
 

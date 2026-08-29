@@ -1020,12 +1020,20 @@ class MotionRuntime:
                 key: np.concatenate([self.live_arrays[key][:replace_from], np.asarray(value)], axis=0)
                 for key, value in new_arrays.items()
             }
-        mesh_data, vertex_count = self._skinned_mesh_frames(new_arrays)
-        mesh_token = f"ardy-live-memory-{self.live_session_token}-{self.live_step_index:06d}.meshframes"
-        self.live_mesh_segments[mesh_token] = mesh_data
-        self.live_mesh_segments.move_to_end(mesh_token)
-        while len(self.live_mesh_segments) > 6:
-            self.live_mesh_segments.popitem(last=False)
+        # Live VRM playback consumes joints and rotations directly. Building and
+        # proxying the 4+ MiB skinned preview mesh on every horizon only blocks
+        # the worker and browser main thread. Keep it available for the ARDY
+        # skin viewer, but let the unified VRM runtime omit it entirely.
+        include_mesh = bool(body.get("includeMesh", True))
+        mesh_token = ""
+        vertex_count = 0
+        if include_mesh:
+            mesh_data, vertex_count = self._skinned_mesh_frames(new_arrays)
+            mesh_token = f"ardy-live-memory-{self.live_session_token}-{self.live_step_index:06d}.meshframes"
+            self.live_mesh_segments[mesh_token] = mesh_data
+            self.live_mesh_segments.move_to_end(mesh_token)
+            while len(self.live_mesh_segments) > 6:
+                self.live_mesh_segments.popitem(last=False)
         live_joints = np.asarray(new_arrays["posed_joints"], dtype=np.float32)
         live_centered = live_joints - live_joints[:, [0]]
         live_local_rotations = np.asarray(new_arrays["local_rot_mats"], dtype=np.float32)
@@ -1036,7 +1044,7 @@ class MotionRuntime:
             "fps": fps,
             "generationSeconds": elapsed,
             "realtimeFactor": (horizon / fps) / elapsed,
-            "meshFrameToken": mesh_token,
+            "meshFrameToken": mesh_token or None,
             "meshVertexCount": vertex_count,
             "stepIndex": self.live_step_index - 1,
             "replaceFromFrame": replace_from,

@@ -61,8 +61,14 @@
     .live-state { padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; }
     .live-state.online { border-color:#3d6b59; color:var(--mint); }
     .live-section { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:13px; background:#111923; }
+    .live-section.collapsed > :not(.live-section-head) { display:none !important; }
+    .live-section.collapsed { padding-bottom:12px; }
+    .live-section-head { min-height:27px; }
     .live-section-head strong { font-size:12px; }
     .live-section-head span,.live-help,.live-subtext { color:var(--muted); font-size:10px; line-height:1.45; }
+    .live-section-head > span { margin-left:auto; text-align:right; }
+    .panel-collapse { flex:0 0 26px; width:26px; height:26px; padding:0; border-radius:8px; color:var(--muted); font:800 15px/1 ui-monospace,monospace; }
+    .panel-collapse:hover { color:var(--mint); border-color:#3d6b59; }
     .live-console textarea,.live-console input,.live-console select { width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 10px; background:#090e14; color:var(--text); outline:none; }
     .live-console textarea:focus,.live-console input:focus,.live-console select:focus { border-color:#4b7767; box-shadow:0 0 0 3px #67e3b510; }
     #live-speech-text { min-height:74px; resize:vertical; margin-top:9px; }
@@ -89,6 +95,14 @@
     .stack-remove { padding:4px 7px; border-radius:7px; color:var(--muted); }
     .keyboard-map { margin-top:8px; padding:8px; border-radius:9px; background:#090e14; color:var(--muted); font:10px ui-monospace,monospace; line-height:1.55; }
     .manager-create { display:grid; gap:7px; margin-top:9px; }
+    .performance-grid { display:grid; gap:7px; margin-top:9px; }
+    .performance-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; align-items:center; }
+    .performance-row.load { grid-template-columns:minmax(0,1fr) auto auto; }
+    .performance-row.actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .performance-row button,.performance-upload { padding:8px 9px; border-radius:8px; font-size:9px; text-align:center; }
+    .performance-upload { display:block; border:1px solid var(--line); background:#141d27; color:var(--text); font-weight:750; cursor:pointer; }
+    .performance-upload input { display:none; }
+    .performance-status { min-height:14px; color:var(--muted); font-size:9px; line-height:1.4; }
     #embedding-manager-list { display:grid; gap:7px; margin-top:10px; }
     .manager-item { padding:9px; border:1px solid var(--line); border-radius:10px; background:#0a1017; }
     .manager-item-top { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px; }
@@ -112,7 +126,17 @@
     .cue-label { margin-top:12px; color:var(--muted); font-size:10px; line-height:1.4; }
     .cue-list { display:grid; gap:6px; margin-top:7px; }
     .cue-row { display:grid; align-items:center; gap:6px; }
-    .cue-row.speech-cue,.cue-row.embedding-cue { grid-template-columns:72px minmax(0,1fr) 30px; }
+    .cue-row.embedding-cue { grid-template-columns:72px minmax(0,1fr) 30px; }
+    .cue-row.speech-cue { padding:7px; border:1px solid var(--line); border-radius:10px; background:#0a1017; }
+    .speech-cue-main { display:grid; grid-template-columns:64px minmax(0,1fr) 28px; align-items:center; gap:6px; }
+    .speech-expression-row { display:grid; grid-template-columns:116px minmax(110px,1fr); gap:6px; align-items:center; margin-top:6px; }
+    .speech-expression-row select { min-width:0; }
+    .expression-curve { position:relative; height:46px; min-width:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#080d12; }
+    .expression-curve canvas { display:block; width:100%; height:100%; cursor:crosshair; touch-action:none; }
+    .expression-curve small { position:absolute; right:5px; bottom:3px; color:#8995a699; font:8px ui-monospace,monospace; pointer-events:none; }
+    .speech-expression-status { grid-column:1/-1; min-height:12px; color:var(--muted); font-size:9px; }
+    .speech-expression-status strong { color:var(--mint); }
+    .manual-expression-editor { margin-top:8px; padding:7px; border:1px solid var(--line); border-radius:10px; background:#0a1017; }
     .cue-row.path-cue { grid-template-columns:72px minmax(0,1fr) minmax(0,1fr) 30px; }
     .cue-row input,.cue-row select { min-width:0; padding:7px 8px; border-radius:8px; font-size:10px; }
     .cue-row button { padding:6px 0; border-radius:8px; color:var(--muted); }
@@ -134,6 +158,20 @@
     .schedule-loop-row strong { font-size:10px; }
     .schedule-loop-row small { margin-top:2px; color:var(--muted); font-size:9px; line-height:1.35; }
     .schedule-loop-row input { width:18px; height:18px; accent-color:var(--mint); }
+    .avatar-expression-list { display:grid; gap:6px; margin-top:9px; }
+    .avatar-expression-empty { padding:11px; border:1px dashed var(--line); border-radius:9px; color:var(--muted); text-align:center; font-size:9px; }
+    .avatar-expression-group { padding:7px; border:1px solid var(--line); border-radius:10px; background:#0a1017; }
+    .avatar-expression-row { display:grid; grid-template-columns:82px minmax(0,1fr) 34px; align-items:center; gap:7px; }
+    .avatar-expression-row button { padding:7px 6px; border-radius:8px; font-size:9px; }
+    .avatar-expression-row button.active { color:var(--mint); border-color:#3d6b59; background:#10251e; }
+    .avatar-expression-row input { padding:0; }
+    .avatar-expression-row output { color:var(--mint); text-align:right; font:700 9px ui-monospace,monospace; }
+    .expression-schedule-add { display:block; width:28px; height:22px; margin:5px auto 0; padding:0; border-style:dashed; border-radius:7px; color:var(--mint); font-size:13px; }
+    .expression-schedule-list { display:grid; gap:5px; margin-top:5px; }
+    .expression-schedule-cue { display:grid; grid-template-columns:52px minmax(80px,1fr) 52px 24px; align-items:center; gap:5px; }
+    .expression-schedule-cue input { padding:6px; font-size:9px; text-align:center; }
+    .expression-schedule-cue .expression-curve { height:34px; }
+    .expression-schedule-cue button { height:28px; padding:0; color:var(--muted); }
     .camera-presets { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:9px; }
     .camera-presets button { padding:7px 5px; font-size:9px; }
     .camera-toggles { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
@@ -194,19 +232,31 @@
         <div class="live-actions"><button class="primary" id="live-session-toggle">Start live session</button><button id="live-export-mp4">Export one pass MP4</button><span class="live-subtext" id="live-latency">Ready to connect</span></div>
         <div class="keyboard-map">Local LLM API · <code>GET /api/control/schema</code> · state, commands, and results are JSON</div>
 
-        <section class="live-section">
+        <section class="live-section" data-panel-key="performances">
+          <div class="live-section-head"><strong>Performances</strong><span>Save · load · clear · JSON</span></div>
+          <div class="live-help">Store complete speech, motion, expression, path, camera, and runtime arrangements. Cached embeddings remain in the shared embedding bank.</div>
+          <div class="performance-grid">
+            <div class="performance-row"><input id="live-performance-name" maxlength="80" placeholder="Performance name" aria-label="Performance name"><button id="live-performance-save">Save</button></div>
+            <div class="performance-row load"><select id="live-performance-select" aria-label="Saved performance"><option value="">Choose saved performance…</option></select><button id="live-performance-load">Load</button><button id="live-performance-download">JSON</button></div>
+            <div class="performance-row actions"><button id="live-performance-clear">Clear current</button><button id="live-performance-delete">Delete saved</button><label class="performance-upload">Import JSON<input id="live-performance-file" type="file" accept="application/json,.json"></label></div>
+            <div class="performance-status" id="live-performance-status">No saved performance selected.</div>
+          </div>
+        </section>
+
+        <section class="live-section" data-panel-key="speech">
           <div class="live-section-head"><strong>Speech</strong><span>Enter sends · Shift+Enter adds a line</span></div>
           <textarea id="live-speech-text" maxlength="800" placeholder="What should Anna say?" aria-label="Live speech text"></textarea>
+          <div class="manual-expression-editor"><div class="speech-expression-row"><select id="live-speech-expression" aria-label="Live speech expression"><option value="auto">Automatic sentiment model</option><option value="none">None</option></select><div class="expression-curve"><canvas id="live-speech-expression-curve" width="240" height="46" aria-label="Live speech expression intensity curve"></canvas><small>drag curve</small></div><div class="speech-expression-status" id="live-speech-expression-status">The sentiment model will classify each line before speech begins.</div></div></div>
           <div class="live-actions"><button class="primary" id="live-speak">Speak</button><button id="live-clear-speech">Clear queue</button></div>
           <div class="live-queue" id="live-speech-queue"><div class="stack-empty">Speech queue is empty.</div></div>
           <div class="cue-label">Scheduled lines are dispatched live at the entered seconds after Core-40 becomes ready.</div>
           <label class="schedule-loop-row"><span><strong>Loop speech schedule</strong><small id="live-speech-loop-detail">Each line runs once per session.</small></span><input id="live-speech-loop" type="checkbox" aria-label="Loop scheduled speech"></label>
-          <div class="cue-columns"><span>Start</span><span>Spoken line</span><span></span></div>
+          <div class="cue-columns"><span>Start</span><span>Spoken line · expression · curve</span><span></span></div>
           <div class="cue-list" id="live-speech-schedule"></div>
           <button class="cue-add" id="add-live-speech-cue">+ Add spoken line</button>
         </section>
 
-        <section class="live-section">
+        <section class="live-section" data-panel-key="motion-embeddings">
           <div class="live-section-head"><strong>Motion embedding stack</strong><span id="effective-embedding">idle not set</span></div>
           <label class="idle-row"><span>Primary idle</span><select id="live-idle-embedding" aria-label="Primary idle embedding"><option value="">Choose idle…</option></select></label>
           <label class="idle-row"><span>Secondary idle</span><select id="live-secondary-idle-embedding" aria-label="Secondary idle embedding"><option value="">No secondary idle</option></select></label>
@@ -222,7 +272,7 @@
           <button class="cue-add" id="add-live-embedding-cue">+ Add embedding cue</button>
         </section>
 
-        <section class="live-section">
+        <section class="live-section" data-panel-key="motion-runtime">
           <div class="live-section-head"><strong>Motion runtime</strong><span>Live Full Flow only</span></div>
           <div class="live-help">These controls belong to Live Full Flow and no longer inherit hidden values from the ARDY tab.</div>
           <label class="schedule-loop-row"><span><strong>Path heading</strong><small>Turn the generated body toward its travel direction.</small></span><input id="live-heading-enabled" type="checkbox" checked aria-label="Enable live path heading"></label>
@@ -236,7 +286,7 @@
           <label class="camera-range"><span>Replan buffer frames</span><input id="live-replan-buffer-frames" type="range" min="0" max="12" step="1" value="3"><output id="live-replan-buffer-frames-out">auto · 3</output></label>
         </section>
 
-        <section class="live-section">
+        <section class="live-section" data-panel-key="walk-path">
           <div class="live-section-head"><strong>Scheduled walk path</strong><span>Arrival time · X · Z</span></div>
           <div class="live-help">Endpoints are relative to the session start and become native frame-indexed ARDY root constraints. WASD temporarily switches to live velocity control; the scheduled constraint track resumes when released.</div>
           <label class="schedule-loop-row"><span><strong>Curved path</strong><small>Use smooth Bézier segments while still passing through every timed endpoint.</small></span><input id="live-path-curved" type="checkbox" aria-label="Curve the scheduled path"></label>
@@ -251,7 +301,14 @@
           <button class="cue-add" id="add-live-path-cue">+ Add path endpoint</button>
         </section>
 
-        <section class="live-section">
+        <section class="live-section" data-panel-key="avatar-expressions">
+          <div class="live-section-head"><strong>Avatar expressions</strong><span id="live-avatar-expression-status">Waiting for VRM…</span></div>
+          <div class="live-help">These are expression groups declared by the loaded VRM, layered over LAM lip sync, gaze, and blinking. Toggle a named expression or blend it with the slider.</div>
+          <div class="avatar-expression-list" id="live-avatar-expression-list"><div class="avatar-expression-empty">The player will report available expressions after the avatar loads.</div></div>
+          <div class="live-actions"><button id="live-avatar-expression-clear">Clear manual</button><button id="live-avatar-expression-schedule-clear">Clear schedules</button><span class="live-subtext">LAM mouth and eyes remain active.</span></div>
+        </section>
+
+        <section class="live-section" data-panel-key="camera">
           <div class="live-section-head"><strong>Live camera</strong><span id="live-camera-status">torso · following</span></div>
           <div class="live-help">Choose what stays framed and which body direction the shot turns with. Drag the stage to adjust the relative angle and use the mouse wheel to zoom. For voice-led direction, start the matching camera transition about 1 second after its speech cue so live synthesis can catch up.</div>
           <div class="camera-presets"><button data-camera-preset="face">Face shot</button><button data-camera-preset="torso">Torso shot</button><button data-camera-preset="full">Full body</button></div>
@@ -268,15 +325,15 @@
           <div class="live-actions"><button id="live-camera-reset">Reset camera</button><span class="live-subtext">Camera settings persist locally.</span></div>
         </section>
 
-        <details class="live-section" id="embedding-manager">
-          <summary class="live-section-head"><strong>Embedding manager</strong><span>Create · nickname · delete</span></summary>
+        <section class="live-section" id="embedding-manager" data-panel-key="embedding-manager">
+          <div class="live-section-head"><strong>Embedding manager</strong><span>Create · nickname · delete</span></div>
           <div class="manager-create">
             <input id="new-embedding-nickname" maxlength="80" placeholder="Nickname (optional)" aria-label="New embedding nickname">
             <textarea id="new-embedding-text" maxlength="800" placeholder="Exact motion prompt to embed" aria-label="New embedding prompt"></textarea>
             <div class="live-create-actions"><span class="live-help" id="embedding-manager-status">Embeddings are computed once and stored permanently.</span><button id="create-embedding">Create embedding</button></div>
           </div>
           <div id="embedding-manager-list"></div>
-        </details>
+        </section>
       </aside>
       <div class="live-stage" id="live-stage">
         <div class="live-hud"><span class="hud-chip" id="live-clock-hud">0.0s</span><span class="hud-chip" id="live-profile-hud">quality baseline</span><span class="hud-chip" id="live-motion-hud">ARDY stopped</span><span class="hud-chip" id="live-path-hud">path idle</span><span class="hud-chip" id="live-embedding-hud">idle</span><span class="hud-chip" id="live-speech-hud">speech ready</span></div>
@@ -330,6 +387,6 @@
     setInterval(refresh, 2000);
   </script>
   <script src="/unified-character.js?v=3"></script>
-  <script src="/live-flow.js?v=19"></script>
+  <script src="/live-flow.js?v=23"></script>
 </body>
 </html>

@@ -21,12 +21,13 @@ type Inference = { fps: number; duration: number; latencyMs: number; names: stri
 type ScaleKey = 'eyes' | 'head' | 'mouth';
 type ScaleSetting = { min: number; max: number; value: number };
 type RetargetScales = Record<ScaleKey, ScaleSetting>;
+type AvatarExpression = { name: string; label: string };
 
 const FALLBACK_DRIVER: Driver = { id: 'lam', name: 'LAM Audio2Expression', detail: 'Streaming Wav2Vec · 52 ARKit controls · CUDA', state: 'checking', runnable: false, note: 'Checking the LAM worker…' };
 
 function clamp(value: number) { return Math.max(0, Math.min(1, value || 0)); }
 
-function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, naturalMotion, scales, onLoaded }: {
+function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, naturalMotion, scales, manualExpressions, onLoaded, onExpressionCatalog }: {
   model?: PreviewModel;
   names: string[];
   frame?: number[];
@@ -35,7 +36,9 @@ function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, na
   playing: boolean;
   naturalMotion: boolean;
   scales: RetargetScales;
+  manualExpressions: Record<string, number>;
   onLoaded: (detail: string) => void;
+  onExpressionCatalog: (expressions: AvatarExpression[]) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{ vrm: VRM; renderer: THREE.WebGLRenderer; camera: THREE.PerspectiveCamera; target: THREE.Vector3; morphs: Array<{ mesh: THREE.Mesh & { morphTargetDictionary?: Record<string, number>; morphTargetInfluences?: number[] }; lookup: Map<string, number> }>; head: THREE.Object3D | null; neck: THREE.Object3D | null; headRest: THREE.Quaternion; neckRest: THREE.Quaternion; raf: number } | null>(null);
@@ -69,6 +72,8 @@ function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, na
       set(zomeTarget, mouthWeight(1));
       const manualExpression: Record<string, string> = { aa: 'aa', E: 'ee', ih: 'ih', oh: 'oh', ou: 'ou' };
       if (manualExpression[manual]) setExpression(manualExpression[manual], mouthWeight(1));
+      for (const [name, weight] of Object.entries(manualExpressions)) setExpression(name, weight);
+      expression?.update();
       resetBones();
       return;
     }
@@ -116,8 +121,9 @@ function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, na
     } else resetBones();
     setExpression('blinkLeft', eyeWeight(Math.max(engineBlinkLeft, proceduralBlink)));
     setExpression('blinkRight', eyeWeight(Math.max(engineBlinkRight, proceduralBlink)));
+    for (const [name, weight] of Object.entries(manualExpressions)) setExpression(name, weight);
     expression?.update();
-  }, [model?.id, names, naturalMotion, scales.eyes.value, scales.head.value, scales.mouth.value]);
+  }, [manualExpressions, model?.id, names, naturalMotion, scales.eyes.value, scales.head.value, scales.mouth.value]);
 
   useEffect(() => { applyMorphs(frame, manualViseme, motionTime, playing); }, [applyMorphs, frame, manualViseme, motionTime, playing]);
 
@@ -149,6 +155,12 @@ function FaceViewer({ model, names, frame, manualViseme, motionTime, playing, na
       if (disposed) return;
       const vrm = gltf.userData.vrm as VRM;
       if (!vrm) { onLoaded('The selected file did not load as a VRM.'); return; }
+      const automaticExpressions = new Set(['neutral', 'aa', 'ee', 'ih', 'oh', 'ou', 'blink', 'blinkLeft', 'blinkRight', 'lookUp', 'lookDown', 'lookLeft', 'lookRight']);
+      const labels: Record<string, string> = { happy: 'Joy', sad: 'Sorrow', relaxed: 'Fun' };
+      onExpressionCatalog((vrm.expressionManager?.expressions || [])
+        .map((item) => String(item.expressionName || ''))
+        .filter((name) => name && !automaticExpressions.has(name))
+        .map((name) => ({ name, label: labels[name] || name.replace(/([a-z])([A-Z0-9])/g, '$1 $2') })));
       VRMUtils.rotateVRM0(vrm); vrm.scene.traverse((object) => { object.frustumCulled = false; }); scene.add(vrm.scene); vrm.scene.updateMatrixWorld(true);
       const head = vrm.humanoid?.getNormalizedBoneNode('head');
       if (head) head.getWorldPosition(target); else { const box = new THREE.Box3().setFromObject(vrm.scene); target.set(0, box.max.y * .82, 0); }
@@ -195,6 +207,8 @@ export default function FaceLab() {
   const [playing, setPlaying] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [naturalMotion, setNaturalMotion] = useState(true);
+  const [avatarExpressionCatalog, setAvatarExpressionCatalog] = useState<AvatarExpression[]>([]);
+  const [manualExpressions, setManualExpressions] = useState<Record<string, number>>({});
   const [scales, setScales] = useState<RetargetScales>({ eyes: { min: 0, max: 2, value: 1.55 }, head: { min: 0, max: 2, value: 1 }, mouth: { min: 0, max: 2.5, value: 0.57 } });
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +225,16 @@ export default function FaceLab() {
       if (field === 'max' && next.max <= next.min) next.min = next.max - .05;
       next.value = Math.max(next.min, Math.min(next.max, next.value));
       return { ...current, [key]: next };
+    });
+  };
+
+  const setExpressionWeight = (name: string, value: number) => {
+    const weight = Math.max(0, Math.min(1, Number(value) || 0));
+    setManualExpressions((current) => {
+      const next = { ...current };
+      if (weight > 0) next[name] = weight;
+      else delete next[name];
+      return next;
     });
   };
 
@@ -248,12 +272,13 @@ export default function FaceLab() {
           frames: inference.frames,
           naturalMotion,
           scales: { eyes: scales.eyes.value, head: scales.head.value, mouth: scales.mouth.value },
+          avatarExpressions: { ...manualExpressions },
           audio: { buffer, type: audioBlob.type || 'audio/wav' },
         },
       }, '*');
     });
     return () => { cancelled = true; };
-  }, [audioBlob, audioBuffer?.duration, fileName, inference, naturalMotion, scales.eyes.value, scales.head.value, scales.mouth.value, selectedDriver.name]);
+  }, [audioBlob, audioBuffer?.duration, fileName, inference, manualExpressions, naturalMotion, scales.eyes.value, scales.head.value, scales.mouth.value, selectedDriver.name]);
   const frame = inference?.frames[Math.min(frameIndex, inference.frames.length - 1)];
   const duration = audioBuffer?.duration || 0;
   const progress = duration ? Math.min(100, currentTime / duration * 100) : 0;
@@ -371,11 +396,12 @@ export default function FaceLab() {
           <div className="panel-heading"><span>Face runtime</span><strong>Default pipeline</strong></div>
           <div className="driver-list"><div className="driver-card active"><span><b>{selectedDriver.name}</b><small>{selectedDriver.detail}</small></span><em className={selectedDriver.runnable ? 'ready-label' : ''}>{selectedDriver.state}</em></div></div>
           <div className="panel-section"><span className="section-label">Retarget profile</span><div className="select-like">{selectedModel?.name || 'Finding local avatar…'}</div><p className="helper">{selectedModel?.detail || 'Place an appropriately licensed VRM at vnyan/Zome.vrm.'}</p><div className="scale-controls">{(['eyes', 'head', 'mouth'] as ScaleKey[]).map((key) => <label className="scale-control" key={key}><span><b>{key}</b><output>{scales[key].value.toFixed(2)}×</output></span><div><input type="number" step="0.05" value={scales[key].min} aria-label={`${key} scale minimum`} onChange={(event) => updateScale(key, 'min', event.target.value)} /><input type="range" step="0.01" min={scales[key].min} max={scales[key].max} value={scales[key].value} aria-label={`${key} scale`} onChange={(event) => updateScale(key, 'value', event.target.value)} /><input type="number" step="0.05" value={scales[key].max} aria-label={`${key} scale maximum`} onChange={(event) => updateScale(key, 'max', event.target.value)} /></div></label>)}</div><button className={`motion-toggle${naturalMotion ? ' active' : ''}`} onClick={() => setNaturalMotion((value) => !value)}>Natural head + eyes · {naturalMotion ? 'on' : 'off'}</button></div>
+          <div className="panel-section"><span className="section-label">Avatar expressions · layered over LAM</span><div className="avatar-expression-controls">{avatarExpressionCatalog.length ? avatarExpressionCatalog.map((item) => { const value = manualExpressions[item.name] || 0; return <div className="face-expression-row" key={item.name}><button type="button" className={value > 0 ? 'active' : ''} onClick={() => setExpressionWeight(item.name, value > 0 ? 0 : 1)}>{item.label}</button><input type="range" min="0" max="1" step="0.05" value={value} aria-label={`${item.label} expression weight`} onChange={(event) => setExpressionWeight(item.name, Number(event.target.value))} /><output>{value.toFixed(2)}</output></div>; }) : <p className="helper">Expression groups appear after the VRM loads.</p>}</div><button className="motion-toggle" disabled={!Object.keys(manualExpressions).length} onClick={() => setManualExpressions({})}>Clear expressions</button></div>
           <div className="driver-note"><b>LAM only</b><span>{selectedDriver.note}</span></div>
         </aside>
         <section className="panel stage-panel">
           <div className="stage-head"><div><span>Live preview</span><strong>{selectedModel?.name || 'Local VRM'} · LAM</strong></div></div>
-          <div className="viewport"><FaceViewer key={`avatar-${viewerKey}`} model={selectedModel} names={inference?.names || []} frame={frame} manualViseme={manualViseme} motionTime={currentTime} playing={playing} naturalMotion={naturalMotion} scales={scales} onLoaded={setViewerStatus} /><div className="viewport-chip"><span className={`status-dot${selectedModel?.ready ? ' ready' : ''}`} />{viewerStatus}</div><button className="reset-view" onClick={() => { setViewerKey((value) => value + 1); setViewerStatus('Resetting view…'); }}>Reload view</button></div>
+          <div className="viewport"><FaceViewer key={`avatar-${viewerKey}`} model={selectedModel} names={inference?.names || []} frame={frame} manualViseme={manualViseme} motionTime={currentTime} playing={playing} naturalMotion={naturalMotion} scales={scales} manualExpressions={manualExpressions} onLoaded={setViewerStatus} onExpressionCatalog={(expressions) => { setAvatarExpressionCatalog(expressions); const available = new Set(expressions.map((item) => item.name)); setManualExpressions((current) => Object.fromEntries(Object.entries(current).filter(([name]) => available.has(name)))); }} /><div className="viewport-chip"><span className={`status-dot${selectedModel?.ready ? ' ready' : ''}`} />{viewerStatus}</div><button className="reset-view" onClick={() => { setViewerKey((value) => value + 1); setViewerStatus('Resetting view…'); }}>Reload view</button></div>
           <div className="transport"><button className="play" onClick={togglePlayback}>{playing ? 'Ⅱ' : '▶'}</button><button className="timeline" aria-label="Audio timeline" onClick={(event) => { const audio = audioRef.current; if (!audio || !duration) return; const rect = event.currentTarget.getBoundingClientRect(); audio.currentTime = Math.max(0, Math.min(duration, (event.clientX - rect.left) / rect.width * duration)); tick(); }}><i style={{ width: `${progress}%` }} /></button><span>{formatTime(currentTime)} / {formatTime(duration)}</span><button className="export-button" disabled={exporting} onClick={exportMp4}>{exporting ? 'Encoding…' : 'Export MP4'}</button><audio ref={audioRef} src={audioFileUrl || undefined} onEnded={() => { stopAnimationClock(); setPlaying(false); setCurrentTime(duration); }} /></div>
         </section>
         <aside className="panel test-panel">

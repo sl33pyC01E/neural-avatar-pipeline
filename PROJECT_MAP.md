@@ -14,7 +14,7 @@ launch.bat
     face_animation/webui/backend/server.py        face API/export · 8794
     face_animation/webui                          LAM face UI · 8795
     face_animation/webui/backend/pocket_tts_server.py
-                                                   PocketTTS CPU stream · 8796
+                                                   PocketTTS + CPU emotion model · 8796
     face_animation/webui/backend/lam_server.py    LAM worker · 8797
 ```
 
@@ -38,6 +38,8 @@ unified/
 ├─ dependency-manifest.json            runtime/source/environment topology
 ├─ payload-manifest.json               model revisions and SHA-256 hashes
 ├─ requirements/                       exact Python base/overlay locks
+├─ embedding-bank/                     named ARDY prompt banks and ablations
+├─ scripts/cache_embedding_bank.py     single-residency cache builder/migrator
 ├─ setup-environments.ps1              local environment reconstruction
 ├─ VALIDATION_PLAN.md                   staged QA, benchmark, demo protocol
 ├─ CONTROL_API.md                      local LLM command protocol and examples
@@ -58,6 +60,7 @@ unified/
 ├─ ardy/                               ARDY engine and MotionCorrection
 ├─ voice/pocket_tts/                   local PocketTTS overlay; ignored
 ├─ models/huggingface/hub/             local offline model store; ignored
+├─ models/sentiment/                    local INT8 emotion classifier; ignored
 ├─ vnyan/Zome.vrm                      local avatar convention; ignored
 ├─ runtime/                            Python, Node, FFmpeg, CUDA payloads
 ├─ logs/                               service logs; ignored
@@ -75,12 +78,12 @@ launcher rewrites the three `pyvenv.cfg` files when the project is moved.
 ### Voice and facial animation
 
 ```text
-text ── PocketTTS Anna ──┐
-uploaded/recorded audio ─┴─ waveform
-                            → LAM Audio2Expression
-                            → ARKit expression frames
-                            → VRM retargeting and preview
-                            → optional face-only MP4
+text ── emotion classifier ── speech expression envelope ──┐
+  └── PocketTTS Anna ── waveform ──┐                       │
+uploaded/recorded audio ───────────┴─→ LAM Audio2Expression
+                                      → ARKit expression frames
+                                      → VRM retargeting + envelope blend
+                                      → preview / optional MP4
 ```
 
 ### Body motion
@@ -119,6 +122,11 @@ WASD temporary override ──────────────────�
 manual text or timed speech cues
   → PocketTTS Anna → waveform → LAM frames ──────────┘
 ```
+
+Named performance snapshots serialize the live speech, embedding, expression,
+path, motion-setting, and camera state. Browser-local saved performances appear
+in a dropdown; the same schema can be downloaded or imported as JSON. Clearing
+a performance leaves the permanent embedding bank untouched.
 
 The live workspace reuses the same ARDY/VRM player used by Unified Character
 instead of opening another WebGL context. Embedding tensors are loaded by cache

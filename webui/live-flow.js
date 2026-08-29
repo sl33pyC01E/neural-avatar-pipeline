@@ -4,6 +4,21 @@
   const TTS_API = serviceOrigin(8796);
   const LAM_API = serviceOrigin(8797);
   const STORAGE_KEY = 'neural-avatar-pipeline:live-flow:v1';
+  const PERFORMANCE_STORAGE_KEY = 'neural-avatar-pipeline:performances:v1';
+  const DEFAULT_EXPRESSION_CURVE = [0, 0.45, 0.8, 1, 1, 0.9, 0.72, 0.35, 0];
+  const EMBEDDING_KEY_MIGRATIONS = {
+    '017ed10c9dde15fd358c53ef': 'd9ecfd84f2e76446888818d3', '0428c790806b0b2cfa728b60': 'f587bd740b0298f83073f06a',
+    '0b640ad58ff94bef23ef8c9f': 'fdac6445ef237145b6466ad3', '184c821e415196d2f11ed14a': 'f0e1534682183bfd8a83f754',
+    '1d22448114b52fe035795e2b': '67ec306e5529ee455adb4b8f', '295d67b87ae33c4c53148c81': '061a182636846615e945f7b8',
+    '2e347307fd5b4b21ccfb5aad': '08c66ef18c28c3fb0030ec76', '42c4a712271fdc94bdf19244': '7c979a5d0873d6bcfc76206f',
+    '447e30e52d4324f625f6954d': '6f6b8b9ee393d280d1f4980f', '4d24bc5736d636730eb07013': '3e62a2ee60419c0680fbdd99',
+    '625bc87b40e8e1d807f46a7d': '9ce36569a1af1b342fbdafed', '6daaf32cd07b0c11a2ade60c': 'd7f2579fc0cd5d1c3c08a03d',
+    '73ab621ab21ea0cf281c5282': 'be1f48f69c08f4b365e74aa3', '95c259a67e5f71bd97f54776': 'ea78a993838c941599899cbc',
+    '9cbef57ede4764fa5918d867': 'fcd90855d866bcd9d4660cb0', 'a6274fb494a056ad184f932a': '139362d14ee4c902f3b4f1f9',
+    'c8ee35fd77cd2345fb504de3': 'b65a2c46973cd11a0316babd', 'd1d5011cd5ea31bfd0628cb1': '647dc2faa2110c26f7620bc4',
+    'ef1d6e3d9b2b495ba454079e': 'a5c50781e3b2c91e207c35ed', 'f36b69665741f1be0c2b0cad': 'b388be0576278585eb28408c',
+    'f699edcb2dde49cff818e9d3': '5327439fb68264ba9dd86fa8',
+  };
   const player = document.querySelector('#unified-player');
   const state = {
     entries: [],
@@ -31,6 +46,8 @@
     sequence: 0,
     cueSequence: 0,
     speechSchedule: [],
+    manualSpeechExpression: 'auto',
+    manualSpeechCurve: [...DEFAULT_EXPRESSION_CURVE],
     embeddingSchedule: [],
     pathSchedule: [],
     firedSpeech: new Set(),
@@ -51,9 +68,17 @@
     pathRevision: 0,
     actualReplanBufferFrames: 3,
     lastSeam: null,
+    lastReplanSeconds: null,
+    lastReplanRealtimeFactor: null,
+    underruns: { active: false, count: 0, totalMs: 0, longestMs: 0, lastMs: 0 },
     playerVersion: 0,
     plannerCenter: { x: 0, z: 0 },
     plannerScale: 90,
+    avatarExpressionCatalog: [],
+    avatarExpressionValues: {},
+    expressionSchedule: [],
+    scheduledExpressionValues: {},
+    collapsedPanels: new Set(),
     camera: { target: 'torso', directionAnchor: 'world', follow: true, orbit: false, orbitSpeed: 12, smoothing: 5, targetOffsetY: 0, yaw: 41, pitch: 68, distance: 4.15, transition: 'cut', transitionSeconds: 2 },
     cameraStatusAt: 0,
     controlAfter: 0,
@@ -73,9 +98,181 @@
   const playerPost = (message) => player.contentWindow?.postMessage(message, MOTION_API);
   const cueId = () => `cue-${Date.now().toString(36)}-${++state.cueSequence}`;
   const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const migrateEmbeddingKey = (key) => EMBEDDING_KEY_MIGRATIONS[String(key || '')] || String(key || '');
   const wrapDegrees = (value) => ((finite(value) + 180) % 360 + 360) % 360 - 180;
   const pathCanvas = $('#live-path-canvas');
   const pathContext = pathCanvas.getContext('2d');
+
+  function normalizeExpressionCurve(curve) {
+    const clamp = (value) => Math.max(0, Math.min(1, finite(value)));
+    if (Array.isArray(curve) && curve.length >= 2 && curve.every((value) => typeof value !== 'object')) {
+      const source = curve.map(clamp);
+      return DEFAULT_EXPRESSION_CURVE.map((_, index) => {
+        const position = index / (DEFAULT_EXPRESSION_CURVE.length - 1) * (source.length - 1);
+        const left = Math.floor(position);
+        const right = Math.min(source.length - 1, left + 1);
+        const alpha = position - left;
+        return source[left] * (1 - alpha) + source[right] * alpha;
+      });
+    }
+    if (Array.isArray(curve) && curve.length >= 2) {
+      const points = curve
+        .map((point) => ({ time: Math.max(0, Math.min(1, finite(point?.time ?? point?.x))), value: clamp(point?.value ?? point?.y) }))
+        .sort((first, second) => first.time - second.time);
+      if (points.length >= 2) return DEFAULT_EXPRESSION_CURVE.map((_, index) => {
+        const time = index / (DEFAULT_EXPRESSION_CURVE.length - 1);
+        const rightIndex = points.findIndex((point) => point.time >= time);
+        if (rightIndex <= 0) return points[0].value;
+        const left = points[rightIndex - 1];
+        const right = points[rightIndex];
+        const alpha = (time - left.time) / Math.max(0.0001, right.time - left.time);
+        return left.value * (1 - alpha) + right.value * alpha;
+      });
+    }
+    return [...DEFAULT_EXPRESSION_CURVE];
+  }
+
+  function catalogExpression(selector) {
+    const requested = String(selector || '').trim().toLowerCase();
+    return state.avatarExpressionCatalog.find((item) => item.name.toLowerCase() === requested || item.label.toLowerCase() === requested) || null;
+  }
+
+  function resolveExplicitSpeechExpression(selector) {
+    const requested = String(selector || 'auto');
+    if (requested === 'none' || requested === 'auto') return null;
+    return catalogExpression(requested);
+  }
+
+  async function classifySpeechEmotion(text) {
+    const response = await fetch(`${TTS_API}/api/emotion`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || 'Local emotion classifier failed.');
+    const routes = {
+      anger: ['angry'],
+      disgust: ['angry'],
+      fear: ['Sorrow3', 'Sorrow2', 'sad'],
+      joy: ['happy', 'Fun2', 'relaxed'],
+      neutral: [],
+      sadness: ['sad', 'Sorrow2', 'Sorrow3'],
+      surprise: ['Star', 'happy'],
+    };
+    const emotion = String(result.label || 'neutral').toLowerCase();
+    for (const candidate of routes[emotion] || []) {
+      const expression = catalogExpression(candidate);
+      if (expression) return {
+        ...expression,
+        emotion,
+        confidence: Math.max(0, Math.min(1, finite(result.score))),
+        latencyMs: Math.max(0, finite(result.latencyMs)),
+        model: String(result.model || ''),
+      };
+    }
+    return { name: '', label: 'none', emotion, confidence: Math.max(0, Math.min(1, finite(result.score))), latencyMs: Math.max(0, finite(result.latencyMs)), model: String(result.model || '') };
+  }
+
+  function fillSpeechExpressionSelect(select, selected = 'auto') {
+    select.replaceChildren(new Option('Automatic sentiment model', 'auto'), new Option('None', 'none'));
+    for (const item of state.avatarExpressionCatalog) select.add(new Option(item.label, item.name));
+    if (!['auto', 'none'].includes(selected) && ![...select.options].some((option) => option.value === selected)) {
+      select.add(new Option(`${selected} (waiting for avatar)`, selected));
+    }
+    select.value = [...select.options].some((option) => option.value === selected) ? selected : 'auto';
+  }
+
+  function speechExpressionDescription(text, selector) {
+    if (selector === 'none') return 'No expression will be added to this line.';
+    const resolved = resolveExplicitSpeechExpression(selector);
+    if (selector === 'auto') return text.trim()
+      ? 'Automatic model: emotion is classified when this line is queued.'
+      : 'Automatic model: enter a line to classify its emotion.';
+    return resolved ? `Explicit expression: ${resolved.label}` : 'The selected expression is not available on this avatar.';
+  }
+
+  function drawExpressionCurve(canvas, curve) {
+    const values = normalizeExpressionCurve(curve);
+    const context = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    context.clearRect(0, 0, width, height);
+    context.strokeStyle = '#1d2935'; context.lineWidth = 1;
+    for (let index = 1; index < 4; index += 1) {
+      const x = width * index / 4; context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke();
+    }
+    context.beginPath();
+    values.forEach((value, index) => {
+      const x = 2 + index / (values.length - 1) * (width - 4);
+      const y = height - 3 - value * (height - 7);
+      if (index) context.lineTo(x, y); else context.moveTo(x, y);
+    });
+    context.lineTo(width - 2, height - 2); context.lineTo(2, height - 2); context.closePath();
+    context.fillStyle = '#67e3b522'; context.fill();
+    context.beginPath();
+    values.forEach((value, index) => {
+      const x = 2 + index / (values.length - 1) * (width - 4);
+      const y = height - 3 - value * (height - 7);
+      if (index) context.lineTo(x, y); else context.moveTo(x, y);
+    });
+    context.strokeStyle = '#67e3b5'; context.lineWidth = 2; context.lineJoin = 'round'; context.stroke();
+  }
+
+  function installExpressionCurveEditor(canvas, readCurve, writeCurve) {
+    let drawing = false;
+    let lastIndex = -1;
+    const paint = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const values = normalizeExpressionCurve(readCurve());
+      const index = Math.max(0, Math.min(values.length - 1, Math.round((event.clientX - rect.left) / Math.max(1, rect.width) * (values.length - 1))));
+      const value = Math.max(0, Math.min(1, 1 - (event.clientY - rect.top) / Math.max(1, rect.height)));
+      if (lastIndex >= 0 && lastIndex !== index) {
+        const start = Math.min(lastIndex, index), end = Math.max(lastIndex, index);
+        const from = values[lastIndex];
+        for (let current = start; current <= end; current += 1) {
+          const alpha = (current - lastIndex) / (index - lastIndex);
+          values[current] = from + (value - from) * alpha;
+        }
+      } else values[index] = value;
+      lastIndex = index;
+      writeCurve(values, false);
+      drawExpressionCurve(canvas, values);
+    };
+    canvas.addEventListener('pointerdown', (event) => { drawing = true; lastIndex = -1; canvas.setPointerCapture(event.pointerId); paint(event); });
+    canvas.addEventListener('pointermove', (event) => { if (drawing) paint(event); });
+    const finish = () => { if (!drawing) return; drawing = false; lastIndex = -1; writeCurve(normalizeExpressionCurve(readCurve()), true); };
+    canvas.addEventListener('pointerup', finish);
+    canvas.addEventListener('pointercancel', finish);
+    drawExpressionCurve(canvas, readCurve());
+  }
+
+  function installCollapsiblePanels() {
+    document.querySelectorAll('.live-console > .live-section[data-panel-key]').forEach((panel) => {
+      const key = panel.dataset.panelKey;
+      const heading = panel.querySelector(':scope > .live-section-head');
+      if (!key || !heading || heading.querySelector('.panel-collapse')) return;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'panel-collapse'; button.setAttribute('aria-label', `Collapse ${heading.querySelector('strong')?.textContent || key}`);
+      const apply = () => {
+        const collapsed = state.collapsedPanels.has(key);
+        panel.classList.toggle('collapsed', collapsed);
+        button.textContent = collapsed ? '+' : '−';
+        button.title = collapsed ? 'Expand panel' : 'Collapse panel';
+        button.setAttribute('aria-expanded', String(!collapsed));
+      };
+      button.addEventListener('click', () => {
+        if (state.collapsedPanels.has(key)) state.collapsedPanels.delete(key); else state.collapsedPanels.add(key);
+        apply(); saveWorkspace();
+      });
+      heading.append(button); apply();
+    });
+  }
+
+  function expandPanel(key) {
+    state.collapsedPanels.delete(key);
+    document.querySelector(`.live-section[data-panel-key="${key}"]`)?.classList.remove('collapsed');
+    const button = document.querySelector(`.live-section[data-panel-key="${key}"] .panel-collapse`);
+    if (button) { button.textContent = '−'; button.title = 'Collapse panel'; button.setAttribute('aria-expanded', 'true'); }
+  }
 
   function setManagerStatus(message, error = false) {
     const element = $('#embedding-manager-status');
@@ -86,7 +283,7 @@
   function saveWorkspace() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 10,
+        version: 13,
         stack: state.stack,
         idleKey: state.idleKey,
         secondaryIdleKey: state.secondaryIdleKey,
@@ -94,7 +291,9 @@
         activeKey: state.activeKey,
         highlighted: state.highlighted,
         speed: Number($('#live-speed').value),
-        speechSchedule: state.speechSchedule.map(({ id, time, text }) => ({ id, time, text })),
+        speechSchedule: state.speechSchedule.map(({ id, time, text, expression, curve }) => ({ id, time, text, expression, curve })),
+        manualSpeechExpression: state.manualSpeechExpression,
+        manualSpeechCurve: [...state.manualSpeechCurve],
         embeddingSchedule: state.embeddingSchedule.map(({ id, time, cacheKey }) => ({ id, time, cacheKey })),
         pathSchedule: state.pathSchedule.map(({ id, time, x, z }) => ({ id, time, x, z })),
         speechLoop: state.speechLoop,
@@ -103,33 +302,263 @@
         pathCurved: $('#live-path-curved').checked,
         pathCurveStrength: Number($('#live-path-curve-strength').value),
         motionSettings: liveMotionSettings(),
+        avatarExpressionValues: { ...state.avatarExpressionValues },
+        expressionSchedule: state.expressionSchedule.map(({ id, name, start, end, curve }) => ({ id, name, start, end, curve })),
+        collapsedPanels: [...state.collapsedPanels],
         camera: state.camera,
       }));
     } catch {}
   }
 
+  function performanceSnapshot(name = '') {
+    const embeddingRefs = Object.fromEntries(state.entries.map((entry) => [entry.key, {
+      text: entry.text,
+      nickname: entry.nickname || '',
+    }]));
+    return {
+      format: 'neural-avatar-performance',
+      version: 1,
+      name: String(name || '').trim(),
+      savedAt: new Date().toISOString(),
+      embeddingRefs,
+      controls: {
+        stack: [...state.stack],
+        idleKey: state.idleKey,
+        secondaryIdleKey: state.secondaryIdleKey,
+        idleSwapSeconds: state.idleSwapSeconds,
+        speed: finite($('#live-speed').value, 0.8),
+        motionSettings: liveMotionSettings(),
+      },
+      speech: {
+        loop: state.speechLoop,
+        cues: state.speechSchedule.map(({ time, text, expression, curve }) => ({ time, text, expression, curve: normalizeExpressionCurve(curve) })),
+      },
+      embeddings: {
+        loop: state.embeddingLoop,
+        cues: state.embeddingSchedule.map(({ time, cacheKey }) => ({ time, cacheKey })),
+      },
+      path: {
+        loop: state.pathLoop,
+        curved: $('#live-path-curved').checked,
+        curveStrength: finite($('#live-path-curve-strength').value, 0.65),
+        endpoints: state.pathSchedule.map(({ time, x, z }) => ({ time, x, z })),
+      },
+      avatarExpressions: {
+        manual: { ...state.avatarExpressionValues },
+        cues: state.expressionSchedule.map(({ name: expression, start, end, curve }) => ({ name: expression, start, end, curve: normalizeExpressionCurve(curve) })),
+      },
+      camera: { ...state.camera },
+    };
+  }
+
+  function normalizePerformance(source) {
+    const performance = source?.format === 'neural-avatar-performance' ? source : source?.performance;
+    if (!performance || performance.format !== 'neural-avatar-performance' || Number(performance.version) !== 1) {
+      throw new Error('This is not a Neural Avatar Pipeline performance JSON file.');
+    }
+    const limit = (value) => Array.isArray(value) ? value.slice(0, 500) : [];
+    const controls = performance.controls && typeof performance.controls === 'object' ? performance.controls : {};
+    const speech = performance.speech && typeof performance.speech === 'object' ? performance.speech : {};
+    const embeddings = performance.embeddings && typeof performance.embeddings === 'object' ? performance.embeddings : {};
+    const path = performance.path && typeof performance.path === 'object' ? performance.path : {};
+    const expressions = performance.avatarExpressions && typeof performance.avatarExpressions === 'object' ? performance.avatarExpressions : {};
+    return {
+      ...performance,
+      name: String(performance.name || '').trim().slice(0, 80),
+      controls: {
+        ...controls,
+        stack: limit(controls.stack).map(migrateEmbeddingKey),
+        idleKey: migrateEmbeddingKey(controls.idleKey),
+        secondaryIdleKey: migrateEmbeddingKey(controls.secondaryIdleKey),
+        idleSwapSeconds: Math.max(1, Math.min(300, finite(controls.idleSwapSeconds, 12))),
+      },
+      speech: {
+        loop: Boolean(speech.loop),
+        cues: limit(speech.cues).map((cue) => ({
+          time: Math.max(0, finite(cue?.time)), text: String(cue?.text || '').slice(0, 800),
+          expression: String(cue?.expression || 'auto'), curve: normalizeExpressionCurve(cue?.curve),
+        })),
+      },
+      embeddings: {
+        loop: Boolean(embeddings.loop),
+        cues: limit(embeddings.cues).map((cue) => ({ time: Math.max(0, finite(cue?.time)), cacheKey: cue?.cacheKey === '__idle__' ? '__idle__' : migrateEmbeddingKey(cue?.cacheKey) })),
+      },
+      path: {
+        loop: Boolean(path.loop), curved: Boolean(path.curved),
+        curveStrength: Math.max(0.1, Math.min(1, finite(path.curveStrength, 0.65))),
+        endpoints: limit(path.endpoints).map((cue) => ({ time: Math.max(0, finite(cue?.time)), x: finite(cue?.x), z: finite(cue?.z) })),
+      },
+      avatarExpressions: {
+        manual: expressions.manual && typeof expressions.manual === 'object' ? expressions.manual : {},
+        cues: limit(expressions.cues).map((cue) => ({
+          name: String(cue?.name || ''), start: Math.max(0, finite(cue?.start)),
+          end: Math.max(0.1, finite(cue?.end, 1)), curve: normalizeExpressionCurve(cue?.curve),
+        })).filter((cue) => cue.name),
+      },
+      camera: performance.camera && typeof performance.camera === 'object' ? performance.camera : {},
+    };
+  }
+
+  function readPerformanceLibrary() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PERFORMANCE_STORAGE_KEY) || 'null');
+      return saved?.version === 1 && Array.isArray(saved.items) ? saved.items : [];
+    } catch { return []; }
+  }
+
+  function writePerformanceLibrary(items) {
+    localStorage.setItem(PERFORMANCE_STORAGE_KEY, JSON.stringify({ version: 1, items: items.slice(0, 100) }));
+  }
+
+  function setPerformanceStatus(message, error = false) {
+    const element = $('#live-performance-status');
+    element.textContent = message;
+    element.style.color = error ? '#ff9c9c' : '';
+  }
+
+  function renderPerformanceLibrary(selectedId = '') {
+    const select = $('#live-performance-select');
+    const items = readPerformanceLibrary().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    select.replaceChildren(new Option('Choose saved performance…', ''));
+    for (const item of items) select.add(new Option(item.name, item.id));
+    select.value = items.some((item) => item.id === selectedId) ? selectedId : '';
+    $('#live-performance-load').disabled = !select.value;
+    $('#live-performance-download').disabled = !select.value;
+    $('#live-performance-delete').disabled = !select.value;
+  }
+
+  function applyMotionSettings(settings = {}) {
+    const values = {
+      'live-speed': settings.speed,
+      'live-steering-blend': settings.steeringBlend,
+      'live-denoising-steps': settings.denoisingSteps,
+      'live-constraint-guidance': settings.constraintGuidance,
+      'live-text-guidance': settings.textGuidance,
+      'live-history-frames': settings.historyFrames,
+      'live-seam-blend-frames': settings.seamBlendFrames,
+      'live-replan-buffer-frames': settings.replanBufferFrames,
+    };
+    for (const [id, value] of Object.entries(values)) if (Number.isFinite(Number(value))) $(`#${id}`).value = String(value);
+    if (typeof settings.adaptiveReplanBuffer === 'boolean') $('#live-adaptive-replan-buffer').checked = settings.adaptiveReplanBuffer;
+    if (typeof settings.headingEnabled === 'boolean') $('#live-heading-enabled').checked = settings.headingEnabled;
+  }
+
+  function applyPerformance(source) {
+    if (state.sessionActive || state.exporting) throw new Error('Stop the live session before loading or clearing a performance.');
+    const performance = normalizePerformance(source);
+    const validKeys = new Set(state.entries.map((entry) => entry.key));
+    state.stack = [...new Set(performance.controls.stack.filter((key) => validKeys.has(key)))];
+    state.idleKey = validKeys.has(performance.controls.idleKey) ? performance.controls.idleKey : '';
+    state.secondaryIdleKey = validKeys.has(performance.controls.secondaryIdleKey) && performance.controls.secondaryIdleKey !== state.idleKey
+      ? performance.controls.secondaryIdleKey : '';
+    state.idleSwapSeconds = performance.controls.idleSwapSeconds;
+    $('#live-idle-swap-seconds').value = String(state.idleSwapSeconds);
+    state.activeKey = '';
+    state.highlighted = 0;
+    applyMotionSettings({ ...performance.controls.motionSettings, speed: performance.controls.speed });
+    state.speechSchedule = performance.speech.cues.map((cue) => ({ id: cueId(), ...cue }));
+    state.embeddingSchedule = performance.embeddings.cues.map((cue) => ({ id: cueId(), ...cue, cacheKey: cue.cacheKey === '__idle__' || validKeys.has(cue.cacheKey) ? cue.cacheKey : '' }));
+    state.pathSchedule = performance.path.endpoints.map((cue) => ({ id: cueId(), ...cue }));
+    state.speechLoop = performance.speech.loop;
+    state.embeddingLoop = performance.embeddings.loop;
+    state.pathLoop = performance.path.loop;
+    $('#live-speech-loop').checked = state.speechLoop;
+    $('#live-embedding-loop').checked = state.embeddingLoop;
+    $('#live-path-loop').checked = state.pathLoop;
+    $('#live-path-curved').checked = performance.path.curved;
+    $('#live-path-curve-strength').value = String(performance.path.curveStrength);
+    const availableExpressions = new Set(state.avatarExpressionCatalog.map((item) => item.name));
+    state.avatarExpressionValues = Object.fromEntries(Object.entries(performance.avatarExpressions.manual)
+      .filter(([name, value]) => availableExpressions.has(name) && Number(value) > 0)
+      .map(([name, value]) => [name, Math.max(0, Math.min(1, finite(value)))]));
+    state.expressionSchedule = performance.avatarExpressions.cues
+      .filter((cue) => availableExpressions.has(cue.name))
+      .map((cue) => ({ id: cueId(), ...cue, end: Math.max(cue.start + 0.1, cue.end) }));
+    setCamera(performance.camera, false);
+    state.pathRevision += 1;
+    resetIdleAlternation();
+    renderMotionSettings();
+    renderPathCurveControls();
+    renderEmbeddingControls();
+    renderSpeechSchedule();
+    renderEmbeddingSchedule();
+    renderPathSchedule();
+    renderAvatarExpressions();
+    drawPathPlanner();
+    playerPost({ type: 'live-flow:avatar-expression-clear' });
+    for (const [name, value] of Object.entries(state.avatarExpressionValues)) playerPost({ type: 'live-flow:avatar-expression', name, value });
+    saveWorkspace();
+    const referencedKeys = new Set([
+      ...performance.controls.stack, performance.controls.idleKey, performance.controls.secondaryIdleKey,
+      ...performance.embeddings.cues.map((cue) => cue.cacheKey),
+    ].filter((key) => key && key !== '__idle__'));
+    const missing = [...referencedKeys].filter((key) => !validKeys.has(key)).length;
+    return { performance, missing };
+  }
+
+  function clearCurrentPerformance() {
+    if (state.sessionActive || state.exporting) throw new Error('Stop the live session before clearing the performance.');
+    state.speechSchedule = [{ id: cueId(), time: 0, text: '', expression: 'auto', curve: [...DEFAULT_EXPRESSION_CURVE] }];
+    state.embeddingSchedule = [{ id: cueId(), time: 0, cacheKey: '' }];
+    state.pathSchedule = [];
+    state.expressionSchedule = [];
+    state.avatarExpressionValues = {};
+    state.speechLoop = false; state.embeddingLoop = false; state.pathLoop = false;
+    $('#live-speech-loop').checked = false; $('#live-embedding-loop').checked = false; $('#live-path-loop').checked = false;
+    state.pathRevision += 1;
+    renderSpeechSchedule(); renderEmbeddingSchedule(); renderPathSchedule(); renderAvatarExpressions(); drawPathPlanner();
+    playerPost({ type: 'live-flow:avatar-expression-clear' });
+    playerPost({ type: 'live-flow:avatar-expression-schedule', values: {} });
+    saveWorkspace();
+  }
+
   function restoreWorkspace() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(saved.version)) {
-        state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
+      if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(saved.version)) {
+        state.speechSchedule.push({ id: cueId(), time: 0, text: '', expression: 'auto', curve: [...DEFAULT_EXPRESSION_CURVE] });
         state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
         state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
         return;
       }
-      state.stack = Array.isArray(saved.stack) ? saved.stack.map(String) : [];
-      state.idleKey = String(saved.idleKey || '');
+      state.stack = Array.isArray(saved.stack) ? saved.stack.map(migrateEmbeddingKey) : [];
+      state.idleKey = migrateEmbeddingKey(saved.idleKey);
       if (saved.version >= 10) {
-        state.secondaryIdleKey = String(saved.secondaryIdleKey || '');
+        state.secondaryIdleKey = migrateEmbeddingKey(saved.secondaryIdleKey);
         state.idleSwapSeconds = Math.max(1, Math.min(300, finite(saved.idleSwapSeconds, 12)));
         $('#live-idle-swap-seconds').value = String(state.idleSwapSeconds);
       }
-      state.activeKey = String(saved.activeKey || '');
+      if (saved.version >= 11 && saved.avatarExpressionValues && typeof saved.avatarExpressionValues === 'object') {
+        state.avatarExpressionValues = Object.fromEntries(Object.entries(saved.avatarExpressionValues)
+          .map(([name, value]) => [String(name), Math.max(0, Math.min(1, finite(value)))])
+          .filter(([, value]) => value > 0));
+      }
+      if (saved.version >= 12) {
+        state.manualSpeechExpression = String(saved.manualSpeechExpression || 'auto');
+        state.manualSpeechCurve = normalizeExpressionCurve(saved.manualSpeechCurve);
+        state.collapsedPanels = new Set(Array.isArray(saved.collapsedPanels) ? saved.collapsedPanels.map(String) : []);
+      }
+      if (saved.version >= 13 && Array.isArray(saved.expressionSchedule)) {
+        state.expressionSchedule = saved.expressionSchedule.map((cue) => ({
+          id: String(cue.id || cueId()),
+          name: String(cue.name || ''),
+          start: Math.max(0, finite(cue.start)),
+          end: Math.max(0, finite(cue.end, 1)),
+          curve: normalizeExpressionCurve(cue.curve),
+        })).filter((cue) => cue.name);
+      }
+      state.activeKey = migrateEmbeddingKey(saved.activeKey);
       state.highlighted = Math.max(0, Number(saved.highlighted) || 0);
       if (Number.isFinite(Number(saved.speed))) $('#live-speed').value = String(saved.speed);
       if (saved.version >= 2) {
-        state.speechSchedule = Array.isArray(saved.speechSchedule) ? saved.speechSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), text: String(cue.text || '') })) : [];
-        state.embeddingSchedule = Array.isArray(saved.embeddingSchedule) ? saved.embeddingSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), cacheKey: String(cue.cacheKey || '') })) : [];
+        state.speechSchedule = Array.isArray(saved.speechSchedule) ? saved.speechSchedule.map((cue) => ({
+          id: String(cue.id || cueId()),
+          time: Math.max(0, finite(cue.time)),
+          text: String(cue.text || ''),
+          expression: saved.version >= 12 ? String(cue.expression || 'auto') : 'auto',
+          curve: saved.version >= 12 ? normalizeExpressionCurve(cue.curve) : [...DEFAULT_EXPRESSION_CURVE],
+        })) : [];
+        state.embeddingSchedule = Array.isArray(saved.embeddingSchedule) ? saved.embeddingSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), cacheKey: cue.cacheKey === '__idle__' ? '__idle__' : migrateEmbeddingKey(cue.cacheKey) })) : [];
         state.pathSchedule = Array.isArray(saved.pathSchedule) ? saved.pathSchedule.map((cue) => ({ id: String(cue.id || cueId()), time: Math.max(0, finite(cue.time)), x: finite(cue.x), z: finite(cue.z) })) : [];
       }
       if (saved.version >= 3) state.pathLoop = Boolean(saved.pathLoop);
@@ -156,7 +585,7 @@
         if (typeof motion.headingEnabled === 'boolean') $('#live-heading-enabled').checked = motion.headingEnabled;
       }
     } catch {}
-    if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '' });
+    if (!state.speechSchedule.length) state.speechSchedule.push({ id: cueId(), time: 0, text: '', expression: 'auto', curve: [...DEFAULT_EXPRESSION_CURVE] });
     if (!state.embeddingSchedule.length) state.embeddingSchedule.push({ id: cueId(), time: 0, cacheKey: '' });
     if (!state.pathSchedule.length) state.pathSchedule.push({ id: cueId(), time: 0, x: 0, z: 0 });
   }
@@ -282,19 +711,56 @@
     return remove;
   }
 
+  function renderManualSpeechExpression() {
+    const select = $('#live-speech-expression');
+    fillSpeechExpressionSelect(select, state.manualSpeechExpression);
+    state.manualSpeechExpression = select.value;
+    $('#live-speech-expression-status').innerHTML = speechExpressionDescription($('#live-speech-text').value, state.manualSpeechExpression)
+      .replace(/^([^:]+:)/, '<strong>$1</strong>');
+    drawExpressionCurve($('#live-speech-expression-curve'), state.manualSpeechCurve);
+  }
+
   function renderSpeechSchedule() {
     const container = $('#live-speech-schedule');
     container.replaceChildren();
     for (const cue of state.speechSchedule) {
       const row = document.createElement('div');
       row.className = `cue-row speech-cue${state.firedSpeech.has(cue.id) ? ' fired' : ''}`;
+      const main = document.createElement('div');
+      main.className = 'speech-cue-main';
       const text = document.createElement('input');
       text.type = 'text'; text.maxLength = 800; text.value = cue.text; text.placeholder = 'Line to synthesize live';
       text.dataset.cueId = cue.id;
       text.setAttribute('aria-label', 'Scheduled spoken line');
-      text.addEventListener('input', () => { cue.text = text.value; saveWorkspace(); });
+      const expressionRow = document.createElement('div');
+      expressionRow.className = 'speech-expression-row';
+      const expression = document.createElement('select');
+      fillSpeechExpressionSelect(expression, cue.expression || 'auto');
+      cue.expression = expression.value;
+      expression.setAttribute('aria-label', 'Scheduled spoken-line expression');
+      const curveHost = document.createElement('div');
+      curveHost.className = 'expression-curve';
+      const canvas = document.createElement('canvas');
+      canvas.width = 240; canvas.height = 46;
+      canvas.setAttribute('aria-label', 'Scheduled expression intensity curve');
+      const curveHint = document.createElement('small'); curveHint.textContent = 'drag curve';
+      curveHost.append(canvas, curveHint);
+      const expressionStatus = document.createElement('div');
+      expressionStatus.className = 'speech-expression-status';
+      const updateStatus = () => { expressionStatus.textContent = speechExpressionDescription(cue.text, cue.expression); };
+      text.addEventListener('input', () => { cue.text = text.value; updateStatus(); saveWorkspace(); });
       text.addEventListener('change', () => { state.firedSpeech.delete(cue.id); renderSpeechSchedule(); });
-      row.append(cueTimeInput(cue, renderSpeechSchedule), text, cueRemoveButton(state.speechSchedule, cue, renderSpeechSchedule));
+      expression.addEventListener('change', () => { cue.expression = expression.value; state.firedSpeech.delete(cue.id); updateStatus(); saveWorkspace(); });
+      cue.curve = normalizeExpressionCurve(cue.curve);
+      installExpressionCurveEditor(canvas, () => cue.curve, (values, finished) => {
+        cue.curve = normalizeExpressionCurve(values);
+        state.firedSpeech.delete(cue.id);
+        if (finished) saveWorkspace();
+      });
+      updateStatus();
+      main.append(cueTimeInput(cue, renderSpeechSchedule), text, cueRemoveButton(state.speechSchedule, cue, renderSpeechSchedule));
+      expressionRow.append(expression, curveHost, expressionStatus);
+      row.append(main, expressionRow);
       container.appendChild(row);
     }
     $('#live-speech-loop-detail').textContent = state.speechLoop
@@ -664,8 +1130,166 @@
       : `${settings.replanBufferFrames} frames`;
   }
 
+  function renderLiveLatency() {
+    if (!Number.isFinite(state.lastReplanSeconds)) return;
+    const underruns = state.underruns;
+    const continuity = underruns.active
+      ? 'buffer waiting'
+      : underruns.count
+        ? `${underruns.count} underrun${underruns.count === 1 ? '' : 's'} · ${Math.round(underruns.lastMs)} ms last`
+        : 'continuous';
+    $('#live-latency').textContent = `${state.lastReplanSeconds.toFixed(2)}s replan · ${Number(state.lastReplanRealtimeFactor || 0).toFixed(1)}× realtime · buffer ${state.actualReplanBufferFrames}f · ${continuity}`;
+  }
+
   function sendMotionSettings() {
     playerPost({ type: 'live-flow:settings', settings: liveMotionSettings() });
+  }
+
+  function renderAvatarExpressions() {
+    const host = $('#live-avatar-expression-list');
+    host.replaceChildren();
+    const available = state.avatarExpressionCatalog;
+    const activeCount = Object.values(state.avatarExpressionValues).filter((value) => Number(value) > 0).length;
+    $('#live-avatar-expression-status').textContent = available.length
+      ? `${activeCount} manual · ${state.expressionSchedule.length} scheduled · ${available.length} available`
+      : 'No manual groups reported';
+    if (!available.length) {
+      const empty = document.createElement('div');
+      empty.className = 'avatar-expression-empty';
+      empty.textContent = 'The loaded avatar did not report any additional expression groups.';
+      host.append(empty);
+      return;
+    }
+    for (const item of available) {
+      const value = Math.max(0, Math.min(1, finite(state.avatarExpressionValues[item.name])));
+      const group = document.createElement('div');
+      group.className = 'avatar-expression-group';
+      const row = document.createElement('div');
+      row.className = 'avatar-expression-row';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.textContent = item.label || item.name;
+      toggle.classList.toggle('active', value > 0);
+      toggle.addEventListener('click', () => setAvatarExpression(item.name, value > 0 ? 0 : 1));
+      const slider = document.createElement('input');
+      slider.type = 'range'; slider.min = '0'; slider.max = '1'; slider.step = '0.05'; slider.value = String(value);
+      slider.setAttribute('aria-label', `${item.label || item.name} expression weight`);
+      const output = document.createElement('output');
+      output.textContent = value.toFixed(2);
+      slider.addEventListener('input', () => {
+        const weight = Math.max(0, Math.min(1, Number(slider.value)));
+        if (weight > 0) state.avatarExpressionValues[item.name] = weight;
+        else delete state.avatarExpressionValues[item.name];
+        toggle.classList.toggle('active', weight > 0);
+        output.textContent = weight.toFixed(2);
+        playerPost({ type: 'live-flow:avatar-expression', name: item.name, value: weight });
+      });
+      slider.addEventListener('change', () => { renderAvatarExpressions(); saveWorkspace(); });
+      row.append(toggle, slider, output);
+      const schedules = document.createElement('div');
+      schedules.className = 'expression-schedule-list';
+      for (const cue of state.expressionSchedule.filter((entry) => entry.name === item.name)) {
+        const scheduleRow = document.createElement('div');
+        scheduleRow.className = 'expression-schedule-cue';
+        const start = document.createElement('input');
+        start.type = 'number'; start.min = '0'; start.step = '0.1'; start.value = String(cue.start);
+        start.title = 'Start time'; start.setAttribute('aria-label', `${item.label} expression start time`);
+        const curveHost = document.createElement('div'); curveHost.className = 'expression-curve';
+        const canvas = document.createElement('canvas'); canvas.width = 180; canvas.height = 34;
+        canvas.setAttribute('aria-label', `${item.label} scheduled intensity curve`);
+        curveHost.append(canvas);
+        const end = document.createElement('input');
+        end.type = 'number'; end.min = '0'; end.step = '0.1'; end.value = String(cue.end);
+        end.title = 'End time'; end.setAttribute('aria-label', `${item.label} expression end time`);
+        const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.title = 'Remove expression cue';
+        const saveTimes = () => {
+          cue.start = Math.max(0, finite(start.value));
+          cue.end = Math.max(cue.start + 0.1, finite(end.value, cue.start + 0.1));
+          start.value = String(cue.start); end.value = String(cue.end); saveWorkspace();
+        };
+        start.addEventListener('change', saveTimes); end.addEventListener('change', saveTimes);
+        cue.curve = normalizeExpressionCurve(cue.curve);
+        installExpressionCurveEditor(canvas, () => cue.curve, (values, finished) => { cue.curve = normalizeExpressionCurve(values); if (finished) saveWorkspace(); });
+        remove.addEventListener('click', () => {
+          state.expressionSchedule = state.expressionSchedule.filter((entry) => entry.id !== cue.id);
+          renderAvatarExpressions(); saveWorkspace(); updateScheduledExpressions();
+        });
+        scheduleRow.append(start, curveHost, end, remove);
+        schedules.append(scheduleRow);
+      }
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'expression-schedule-add'; add.textContent = '+'; add.title = `Schedule ${item.label}`;
+      add.setAttribute('aria-label', `Add ${item.label} expression schedule`);
+      add.addEventListener('click', () => {
+        const previousEnd = Math.max(0, ...state.expressionSchedule.filter((entry) => entry.name === item.name).map((entry) => entry.end));
+        const start = Math.max(previousEnd, state.sessionActive ? Number(state.elapsed.toFixed(1)) : 0);
+        state.expressionSchedule.push({ id: cueId(), name: item.name, start, end: start + 2, curve: [...DEFAULT_EXPRESSION_CURVE] });
+        renderAvatarExpressions(); saveWorkspace();
+      });
+      group.append(row, add, schedules);
+      host.append(group);
+    }
+  }
+
+  function setAvatarExpression(name, value, persist = true) {
+    const available = state.avatarExpressionCatalog.find((item) => item.name === name);
+    if (!available) return;
+    const weight = Math.max(0, Math.min(1, finite(value)));
+    if (weight > 0) state.avatarExpressionValues[name] = weight;
+    else delete state.avatarExpressionValues[name];
+    playerPost({ type: 'live-flow:avatar-expression', name, value: weight });
+    renderAvatarExpressions();
+    if (persist) saveWorkspace();
+  }
+
+  function installAvatarExpressionCatalog(payload) {
+    const nextCatalog = Array.isArray(payload.expressions)
+      ? payload.expressions
+        .map((item) => ({ name: String(item?.name || ''), label: String(item?.label || item?.name || '') }))
+        .filter((item) => item.name)
+      : [];
+    const catalogChanged = JSON.stringify(nextCatalog) !== JSON.stringify(state.avatarExpressionCatalog);
+    state.avatarExpressionCatalog = nextCatalog;
+    const available = new Set(state.avatarExpressionCatalog.map((item) => item.name));
+    state.avatarExpressionValues = Object.fromEntries(Object.entries(state.avatarExpressionValues)
+      .filter(([name, value]) => available.has(name) && Number(value) > 0));
+    state.expressionSchedule = state.expressionSchedule.filter((cue) => available.has(cue.name));
+    for (const [name, value] of Object.entries(state.avatarExpressionValues)) {
+      playerPost({ type: 'live-flow:avatar-expression', name, value });
+    }
+    if (catalogChanged) {
+      renderAvatarExpressions();
+      renderManualSpeechExpression();
+      renderSpeechSchedule();
+      saveWorkspace();
+    }
+  }
+
+  function clearAvatarExpressions() {
+    state.avatarExpressionValues = {};
+    playerPost({ type: 'live-flow:avatar-expression-clear' });
+    renderAvatarExpressions();
+    saveWorkspace();
+  }
+
+  function updateScheduledExpressions() {
+    const values = {};
+    if (state.sessionActive) {
+      for (const cue of state.expressionSchedule) {
+        if (state.elapsed < cue.start || state.elapsed > cue.end) continue;
+        const duration = Math.max(0.1, cue.end - cue.start);
+        const progress = Math.max(0, Math.min(1, (state.elapsed - cue.start) / duration));
+        const curve = normalizeExpressionCurve(cue.curve);
+        const position = progress * (curve.length - 1);
+        const left = Math.floor(position), right = Math.min(curve.length - 1, left + 1), alpha = position - left;
+        const weight = curve[left] * (1 - alpha) + curve[right] * alpha;
+        values[cue.name] = Math.max(finite(values[cue.name]), weight);
+      }
+    }
+    const signature = JSON.stringify(Object.fromEntries(Object.entries(values).map(([name, value]) => [name, Number(value.toFixed(3))])));
+    if (signature === JSON.stringify(state.scheduledExpressionValues)) return;
+    state.scheduledExpressionValues = JSON.parse(signature);
+    playerPost({ type: 'live-flow:avatar-expression-schedule', values: state.scheduledExpressionValues });
   }
 
   function handleArrow(key) {
@@ -760,6 +1384,8 @@
     playerPost({ type: 'live-flow:velocity', velocity: null });
     state.pathRevision += 1;
     playerPost({ type: 'live-flow:path', points: [], elapsed: 0, revision: state.pathRevision });
+    state.scheduledExpressionValues = {};
+    playerPost({ type: 'live-flow:avatar-expression-schedule', values: {} });
     if (resetClock) {
       state.elapsed = 0;
       state.speechElapsed = 0;
@@ -837,7 +1463,7 @@
       if (!state.firedSpeech.has(cue.id) && cue.time <= state.speechElapsed && cue.text.trim() && document.activeElement?.dataset?.cueId !== cue.id) {
         state.firedSpeech.add(cue.id);
         speechChanged = true;
-        enqueueSpeech(cue.text, 'schedule');
+        enqueueSpeech(cue.text, 'schedule', { expression: cue.expression, curve: cue.curve });
       }
     }
     for (const cue of [...state.embeddingSchedule].sort((a, b) => a.time - b.time)) {
@@ -851,6 +1477,7 @@
       }
     }
     updateIdleAlternation(now);
+    updateScheduledExpressions();
     steerScheduledPath();
     if (speechChanged) renderSpeechSchedule();
     if (embeddingChanged) renderEmbeddingSchedule();
@@ -900,9 +1527,10 @@
   function singlePassDuration() {
     const speechEnd = Math.max(0, ...state.speechSchedule.filter((cue) => cue.text.trim()).map((cue) => cue.time));
     const embeddingEnd = Math.max(0, ...state.embeddingSchedule.filter((cue) => cue.cacheKey).map((cue) => cue.time));
+    const expressionEnd = Math.max(0, ...state.expressionSchedule.map((cue) => cue.end));
     const endpoints = rawPathEndpoints();
     const pathEnd = endpoints.length ? (state.pathLoop ? pathLoopDuration() : endpoints.at(-1).time) : 0;
-    return Math.max(1, speechEnd, embeddingEnd, pathEnd);
+    return Math.max(1, speechEnd, embeddingEnd, expressionEnd, pathEnd);
   }
 
   async function beginSinglePassExport() {
@@ -931,6 +1559,8 @@
     state.speechElapsed = 0;
     state.embeddingElapsed = 0;
     state.pathElapsed = 0;
+    state.scheduledExpressionValues = {};
+    playerPost({ type: 'live-flow:avatar-expression-schedule', values: {} });
     if (!preservePosition) state.livePosition = { x: 0, z: 0 };
     state.sessionStartedAt = performance.now();
     state.speechCycleStartedAt = state.sessionStartedAt;
@@ -950,7 +1580,7 @@
 
   async function setSession(active) {
     if (active) {
-      if (!state.idleKey) { setManagerStatus('Choose an idle fallback embedding before starting.', true); $('#embedding-manager').open = true; return; }
+      if (!state.idleKey) { setManagerStatus('Choose an idle fallback embedding before starting.', true); expandPanel('embedding-manager'); return; }
       state.audioContext ||= new AudioContext();
       await state.audioContext.resume().catch(() => {});
       state.sessionActive = true;
@@ -989,6 +1619,8 @@
     }
     state.speaking = false;
     state.currentSpeechId = null;
+    state.scheduledExpressionValues = {};
+    playerPost({ type: 'live-flow:avatar-expression-schedule', values: {} });
     clearCompletedSpeech();
     updateSessionUi('Session stopped.');
   }
@@ -1014,21 +1646,40 @@
     for (const item of state.speech.slice(-5)) {
       const row = document.createElement('div'); row.className = 'live-queue-item';
       const text = document.createElement('span'); text.textContent = item.text;
-      const status = document.createElement('span'); status.textContent = item.status;
+      const status = document.createElement('span'); status.textContent = `${item.expressionLabel || 'none'} · ${item.status}`;
       row.append(text, status); container.appendChild(row);
     }
   }
 
-  async function enqueueSpeech(textOverride = '', source = 'manual') {
+  function estimateSpeechDuration(text) {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+    const punctuationPauses = (String(text || '').match(/[,.!?;:]/g) || []).length;
+    return Math.max(0.9, words * 0.37 + punctuationPauses * 0.11);
+  }
+
+  async function enqueueSpeech(textOverride = '', source = 'manual', expressionConfig = null) {
     const scheduled = typeof textOverride === 'string' && textOverride.trim();
     const text = (scheduled ? textOverride : $('#live-speech-text').value).trim();
     if (!text) return;
     if (!scheduled) $('#live-speech-text').value = '';
-    state.speech.push({
+    const expressionSelector = String(expressionConfig?.expression || (source === 'manual' ? state.manualSpeechExpression : 'auto'));
+    const expressionCurve = normalizeExpressionCurve(expressionConfig?.curve || (source === 'manual' ? state.manualSpeechCurve : DEFAULT_EXPRESSION_CURVE));
+    const resolvedExpression = resolveExplicitSpeechExpression(expressionSelector);
+    const item = {
       id: ++state.sequence, text, source, status: 'queued', segments: [], scheduledSegments: 0,
       streamDone: false, pendingSources: 0, playbackStartTime: 0, playbackOffset: 0,
       ttsMs: 0, lamMs: 0,
-    });
+      expressionSelector,
+      expressionName: resolvedExpression?.name || '',
+      expressionLabel: expressionSelector === 'auto' ? 'model pending' : (resolvedExpression?.label || 'none'),
+      expressionCurve,
+      expressionDuration: estimateSpeechDuration(text),
+      emotion: null,
+    };
+    if (expressionSelector === 'auto') item.expressionPromise = classifySpeechEmotion(text)
+      .catch((error) => ({ error: error.message || String(error) }));
+    state.speech.push(item);
+    renderManualSpeechExpression();
     renderSpeechQueue();
     prepareSpeech();
   }
@@ -1061,9 +1712,10 @@
     if (!response.ok || !inference.ok) throw new Error(inference.error || 'LAM streaming facial animation failed.');
     item.lamMs += performance.now() - lamStarted;
     const duration = samples.length / sampleRate;
+    const offset = item.segments.reduce((total, value) => total + value.duration, 0);
     const segment = {
       index: segmentIndex,
-      offset: item.segments.reduce((total, value) => total + value.duration, 0),
+      offset,
       samples,
       sampleRate,
       duration,
@@ -1073,6 +1725,13 @@
         driver: 'lam', driverName: 'LAM Audio2Expression', fps: inference.fps,
         duration: inference.duration || duration, names: inference.names, frames: inference.frames,
         naturalMotion: true, scales: { eyes: 1.55, head: 1, mouth: 0.7 },
+        expressionEnvelope: item.expressionName ? {
+          name: item.expressionName,
+          curve: [...item.expressionCurve],
+          speechId: item.id,
+          speechOffset: offset,
+          speechDuration: item.expressionDuration,
+        } : null,
       },
     };
     item.segments.push(segment);
@@ -1090,6 +1749,22 @@
     state.preparing = true;
     let sessionId = '';
     try {
+      if (item.expressionSelector === 'auto' && item.expressionPromise) {
+        item.status = 'emotion model'; renderSpeechQueue();
+        try {
+          const emotion = await item.expressionPromise;
+          if (epoch !== state.speechEpoch || item.cancelled) return;
+          if (emotion.error) throw new Error(emotion.error);
+          item.expressionName = emotion.name || '';
+          item.expressionLabel = emotion.name ? `${emotion.label} ${(emotion.confidence * 100).toFixed(0)}%` : `${emotion.emotion} · none`;
+          item.emotion = emotion;
+        } catch (error) {
+          item.expressionName = '';
+          item.expressionLabel = 'model unavailable · none';
+          item.emotion = { error: error.message || String(error) };
+        }
+        renderSpeechQueue();
+      }
       item.status = 'PocketTTS'; renderSpeechQueue(); $('#live-speech-hud').textContent = 'streaming Anna';
       const totalStarted = performance.now();
       const ttsStarted = performance.now();
@@ -1125,6 +1800,8 @@
       if (pendingSamples.length) await prepareSpeechSegment(item, pendingSamples, sampleRate, sessionId, segmentIndex++);
       item.streamDone = true;
       if (!item.segments.length) throw new Error('PocketTTS returned no streamed audio.');
+      item.expressionDuration = item.segments.reduce((total, segment) => total + segment.duration, 0);
+      if (item.expressionName) playerPost({ type: 'live-flow:speech-expression-duration', speechId: item.id, duration: item.expressionDuration });
       if (item.status !== 'speaking') item.status = 'ready';
       item.totalMs = performance.now() - totalStarted;
       $('#live-speech-hud').textContent = state.currentSpeechId === item.id ? 'Anna speaking' : `ready ${(item.totalMs / 1000).toFixed(2)}s`;
@@ -1242,13 +1919,13 @@
 
   function controlSnapshot() {
     return {
-      uiVersion: 19,
+      uiVersion: 23,
       timestamp: new Date().toISOString(),
       view: state.view,
       session: { active: state.sessionActive, motionReady: state.motionReady, elapsed: Number(state.elapsed.toFixed(2)) },
       speech: {
-        queue: state.speech.map(({ id, text, source, status }) => ({ id, text, source, status })),
-        schedule: state.speechSchedule.map(({ time, text }) => ({ time, text })),
+        queue: state.speech.map(({ id, text, source, status, expressionSelector, expressionName, expressionLabel, emotion }) => ({ id, text, source, status, expressionSelector, expressionName, expressionLabel, emotion })),
+        schedule: state.speechSchedule.map(({ time, text, expression, curve }) => ({ time, text, expression, curve })),
         loop: state.speechLoop,
       },
       embeddings: {
@@ -1273,8 +1950,24 @@
         manualKeys: [...state.keys],
       },
       camera: { ...state.camera },
-      motion: { ...liveMotionSettings(), lastSeam: state.lastSeam, playerVersion: state.playerVersion },
-      face: { mouthGain: 0.7 },
+      motion: {
+        ...liveMotionSettings(),
+        actualReplanBufferFrames: state.actualReplanBufferFrames,
+        lastReplanSeconds: state.lastReplanSeconds,
+        lastReplanRealtimeFactor: state.lastReplanRealtimeFactor,
+        underruns: { ...state.underruns },
+        lastSeam: state.lastSeam,
+        playerVersion: state.playerVersion,
+      },
+      face: {
+        mouthGain: 0.7,
+        avatarExpressions: {
+          available: state.avatarExpressionCatalog.map(({ name, label }) => ({ name, label })),
+          active: { ...state.avatarExpressionValues },
+          scheduledActive: { ...state.scheduledExpressionValues },
+          schedule: state.expressionSchedule.map(({ name, start, end, curve }) => ({ name, start, end, curve })),
+        },
+      },
     };
   }
 
@@ -1292,14 +1985,21 @@
       case 'speech.say': {
         const speechText = String(args.text || '').trim();
         if (!speechText) throw new Error('speech.say requires non-empty args.text.');
-        enqueueSpeech(speechText, 'api');
+        const expression = String(args.expression ?? args.sentiment ?? 'auto');
+        if (expression !== 'auto' && expression !== 'none' && !catalogExpression(expression)) throw new Error(`Speech expression “${expression}” is unavailable.`);
+        enqueueSpeech(speechText, 'api', { expression, curve: args.curve });
         return { queued: speechText };
       }
       case 'speech.queue.clear':
         clearSpeechQueue(); return { cleared: true };
       case 'speech.schedule.set': {
         if (!Array.isArray(args.cues) || args.cues.length > 200) throw new Error('speech.schedule.set requires args.cues with at most 200 entries.');
-        state.speechSchedule = args.cues.map((cue) => ({ id: cueId(), time: Math.max(0, finite(cue.time)), text: String(cue.text || '').trim().slice(0, 800) }));
+        const nextSpeechSchedule = args.cues.map((cue) => ({
+          id: cueId(), time: Math.max(0, finite(cue.time)), text: String(cue.text || '').trim().slice(0, 800),
+          expression: String(cue.expression ?? cue.sentiment ?? 'auto'), curve: normalizeExpressionCurve(cue.curve),
+        }));
+        for (const cue of nextSpeechSchedule) if (cue.expression !== 'auto' && cue.expression !== 'none' && !catalogExpression(cue.expression)) throw new Error(`Speech expression “${cue.expression}” is unavailable.`);
+        state.speechSchedule = nextSpeechSchedule;
         if (typeof args.loop === 'boolean') state.speechLoop = args.loop;
         state.firedSpeech.clear(); state.speechCycleStartedAt = performance.now(); state.speechElapsed = 0;
         $('#live-speech-loop').checked = state.speechLoop; renderSpeechSchedule(); saveWorkspace();
@@ -1404,6 +2104,27 @@
         renderMotionSettings(); saveWorkspace(); sendMotionSettings();
         return { motion: liveMotionSettings() };
       }
+      case 'avatar.expression.set': {
+        const selector = String(args.name ?? args.expression ?? '').trim();
+        const lower = selector.toLowerCase();
+        const item = state.avatarExpressionCatalog.find((entry) => entry.name.toLowerCase() === lower || entry.label.toLowerCase() === lower);
+        if (!item) throw new Error(`Avatar expression “${selector}” is unavailable. Inspect face.avatarExpressions.available in /api/control/state.`);
+        setAvatarExpression(item.name, Math.max(0, Math.min(1, finite(args.weight ?? args.value, 1))));
+        return { name: item.name, weight: state.avatarExpressionValues[item.name] || 0, active: { ...state.avatarExpressionValues } };
+      }
+      case 'avatar.expressions.clear':
+        clearAvatarExpressions(); return { active: {} };
+      case 'avatar.expression.schedule.set': {
+        if (!Array.isArray(args.cues) || args.cues.length > 500) throw new Error('avatar.expression.schedule.set requires args.cues with at most 500 entries.');
+        state.expressionSchedule = args.cues.map((cue) => {
+          const expression = catalogExpression(cue.name ?? cue.expression);
+          if (!expression) throw new Error(`Avatar expression “${cue.name ?? cue.expression}” is unavailable.`);
+          const start = Math.max(0, finite(cue.start ?? cue.time));
+          return { id: cueId(), name: expression.name, start, end: Math.max(start + 0.1, finite(cue.end, start + 1)), curve: normalizeExpressionCurve(cue.curve) };
+        });
+        renderAvatarExpressions(); saveWorkspace(); updateScheduledExpressions();
+        return { cues: state.expressionSchedule.map(({ name, start, end, curve }) => ({ name, start, end, curve })) };
+      }
       case 'export.single-pass':
         await beginSinglePassExport(); return { started: state.exporting };
       case 'camera.set':
@@ -1464,6 +2185,76 @@
     fetch('/api/control/state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(controlSnapshot()) }).catch(() => {});
   }
 
+  $('#live-performance-save').addEventListener('click', () => {
+    try {
+      if (state.sessionActive || state.exporting) throw new Error('Stop the live session before saving a performance.');
+      const name = $('#live-performance-name').value.trim();
+      if (!name) throw new Error('Enter a performance name first.');
+      const items = readPerformanceLibrary();
+      const existing = items.find((item) => String(item.name).toLocaleLowerCase() === name.toLocaleLowerCase());
+      const id = existing?.id || `performance-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const saved = { id, name, savedAt: new Date().toISOString(), performance: performanceSnapshot(name) };
+      const next = existing ? items.map((item) => item.id === existing.id ? saved : item) : [...items, saved];
+      writePerformanceLibrary(next);
+      renderPerformanceLibrary(id);
+      setPerformanceStatus(`${existing ? 'Updated' : 'Saved'} “${name}”.`);
+    } catch (error) { setPerformanceStatus(error.message || String(error), true); }
+  });
+  $('#live-performance-select').addEventListener('change', (event) => {
+    renderPerformanceLibrary(event.target.value);
+    const selected = readPerformanceLibrary().find((item) => item.id === event.target.value);
+    setPerformanceStatus(selected ? `Ready to load “${selected.name}”.` : 'No saved performance selected.');
+  });
+  $('#live-performance-load').addEventListener('click', () => {
+    try {
+      const selected = readPerformanceLibrary().find((item) => item.id === $('#live-performance-select').value);
+      if (!selected) throw new Error('Choose a saved performance first.');
+      const { performance, missing } = applyPerformance(selected.performance);
+      $('#live-performance-name').value = performance.name || selected.name;
+      setPerformanceStatus(`Loaded “${performance.name || selected.name}”${missing ? ` · ${missing} missing embedding reference${missing === 1 ? '' : 's'}` : ''}.`, missing > 0);
+    } catch (error) { setPerformanceStatus(error.message || String(error), true); }
+  });
+  $('#live-performance-download').addEventListener('click', () => {
+    try {
+      const selected = readPerformanceLibrary().find((item) => item.id === $('#live-performance-select').value);
+      if (!selected) throw new Error('Choose a saved performance first.');
+      const payload = JSON.stringify(selected.performance, null, 2) + '\n';
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${String(selected.name).trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'performance'}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setPerformanceStatus(`Downloaded “${selected.name}” as JSON.`);
+    } catch (error) { setPerformanceStatus(error.message || String(error), true); }
+  });
+  $('#live-performance-delete').addEventListener('click', () => {
+    const id = $('#live-performance-select').value;
+    const items = readPerformanceLibrary();
+    const selected = items.find((item) => item.id === id);
+    if (!selected || !window.confirm(`Delete the saved performance “${selected.name}”?`)) return;
+    writePerformanceLibrary(items.filter((item) => item.id !== id));
+    renderPerformanceLibrary();
+    setPerformanceStatus(`Deleted “${selected.name}”.`);
+  });
+  $('#live-performance-clear').addEventListener('click', () => {
+    try { clearCurrentPerformance(); setPerformanceStatus('Cleared the current timelines and expression layers. Saved performances were not changed.'); }
+    catch (error) { setPerformanceStatus(error.message || String(error), true); }
+  });
+  $('#live-performance-file').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('Performance JSON files must be smaller than 2 MB.');
+      const source = JSON.parse(await file.text());
+      const { performance, missing } = applyPerformance(source);
+      $('#live-performance-name').value = performance.name || file.name.replace(/\.json$/i, '');
+      setPerformanceStatus(`Imported “${performance.name || file.name}”${missing ? ` · ${missing} missing embedding reference${missing === 1 ? '' : 's'}` : ''}. Save it to add it to the dropdown.`, missing > 0);
+    } catch (error) { setPerformanceStatus(error.message || String(error), true); }
+  });
+
   $('#create-embedding').addEventListener('click', createEmbedding);
   $('#live-stack-add').addEventListener('click', () => {
     const key = $('#live-stack-source').value;
@@ -1490,10 +2281,14 @@
   $('#live-export-mp4').addEventListener('click', beginSinglePassExport);
   $('#live-speak').addEventListener('click', () => enqueueSpeech());
   $('#live-clear-speech').addEventListener('click', clearSpeechQueue);
+  $('#live-speech-expression').addEventListener('change', (event) => {
+    state.manualSpeechExpression = event.target.value; renderManualSpeechExpression(); saveWorkspace();
+  });
+  $('#live-speech-text').addEventListener('input', renderManualSpeechExpression);
   $('#live-speech-text').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enqueueSpeech(); } });
   $('#add-live-speech-cue').addEventListener('click', () => {
     const last = state.speechSchedule[state.speechSchedule.length - 1];
-    state.speechSchedule.push({ id: cueId(), time: last ? last.time + 1 : 0, text: '' });
+    state.speechSchedule.push({ id: cueId(), time: last ? last.time + 1 : 0, text: '', expression: 'auto', curve: [...DEFAULT_EXPRESSION_CURVE] });
     saveWorkspace(); renderSpeechSchedule();
   });
   $('#add-live-embedding-cue').addEventListener('click', () => {
@@ -1568,6 +2363,10 @@
     });
   }
   $('#live-camera-reset').addEventListener('click', resetCamera);
+  $('#live-avatar-expression-clear').addEventListener('click', clearAvatarExpressions);
+  $('#live-avatar-expression-schedule-clear').addEventListener('click', () => {
+    state.expressionSchedule = []; renderAvatarExpressions(); saveWorkspace(); updateScheduledExpressions();
+  });
   $('#live-speed').addEventListener('input', (event) => {
     renderMotionSettings(); saveWorkspace();
     drawPathPlanner();
@@ -1614,6 +2413,7 @@
   window.addEventListener('message', (event) => {
     if (event.source !== player.contentWindow || event.origin !== MOTION_API || !event.data?.type) return;
     if (event.data.type === 'live-flow:arrow') handleArrow(event.data.key);
+    if (event.data.type === 'live-flow:avatar-expression-catalog') installAvatarExpressionCatalog(event.data);
     if (event.data.type === 'live-flow:player-status') {
       if (event.data.position && Number.isFinite(Number(event.data.position.x)) && Number.isFinite(Number(event.data.position.z))) {
         state.livePosition = { x: Number(event.data.position.x), z: Number(event.data.position.z) };
@@ -1646,19 +2446,36 @@
         state.actualReplanBufferFrames = Math.max(0, Math.round(Number(event.data.replanBufferFrames)));
         if ($('#live-adaptive-replan-buffer').checked) renderMotionSettings();
       }
+      let latencyStatusChanged = false;
+      if (event.data.underruns && typeof event.data.underruns === 'object') {
+        const nextUnderruns = {
+          active: Boolean(event.data.underruns.active),
+          count: Math.max(0, Math.round(finite(event.data.underruns.count))),
+          totalMs: Math.max(0, finite(event.data.underruns.totalMs)),
+          longestMs: Math.max(0, finite(event.data.underruns.longestMs)),
+          lastMs: Math.max(0, finite(event.data.underruns.lastMs)),
+        };
+        latencyStatusChanged = nextUnderruns.active !== state.underruns.active
+          || nextUnderruns.count !== state.underruns.count
+          || nextUnderruns.lastMs !== state.underruns.lastMs;
+        state.underruns = nextUnderruns;
+      }
       if (event.data.seam && typeof event.data.seam === 'object') state.lastSeam = { ...event.data.seam };
       if (Number.isFinite(Number(event.data.playerVersion))) state.playerVersion = Number(event.data.playerVersion);
       if (state.sessionActive && Number.isFinite(Number(event.data.generationSeconds))) {
         const firstReady = !state.motionReady;
         state.motionReady = true;
-        $('#live-latency').textContent = `${Number(event.data.generationSeconds).toFixed(2)}s replan · ${Number(event.data.realtimeFactor || 0).toFixed(1)}× realtime`;
+        state.lastReplanSeconds = Number(event.data.generationSeconds);
+        state.lastReplanRealtimeFactor = Number(event.data.realtimeFactor || 0);
+        renderLiveLatency();
         if (firstReady) startTimeline();
         pumpSpeech();
-      }
+      } else if (latencyStatusChanged) renderLiveLatency();
       document.querySelectorAll('[data-live-key]').forEach((button) => button.classList.toggle('down', (event.data.keys || []).includes(button.dataset.liveKey)));
     }
     if (event.data.type === 'unified:player-ready') {
       sendCameraSettings();
+      playerPost({ type: 'live-flow:avatar-expression-query' });
       if (state.sessionActive) playerPost({ type: 'live-flow:start', cacheKey: effectiveKey(), settings: liveMotionSettings(), keys: [...state.keys] });
     }
     if (event.data.type === 'live-flow:record-ended') {
@@ -1675,6 +2492,12 @@
   });
 
   restoreWorkspace();
+  renderPerformanceLibrary();
+  installCollapsiblePanels();
+  installExpressionCurveEditor($('#live-speech-expression-curve'), () => state.manualSpeechCurve, (values, finished) => {
+    state.manualSpeechCurve = normalizeExpressionCurve(values);
+    if (finished) saveWorkspace();
+  });
   $('#live-speech-loop').checked = state.speechLoop;
   $('#live-embedding-loop').checked = state.embeddingLoop;
   $('#live-path-loop').checked = state.pathLoop;
@@ -1682,6 +2505,8 @@
   setCamera(state.camera, false);
   $('#live-speed').dispatchEvent(new Event('input'));
   renderMotionSettings();
+  renderAvatarExpressions();
+  renderManualSpeechExpression();
   renderEmbeddingControls();
   renderSpeechQueue();
   renderSpeechSchedule();

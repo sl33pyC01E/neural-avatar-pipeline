@@ -23,6 +23,7 @@ included in the Git repository.
 | Stage | Component | Role |
 | --- | --- | --- |
 | Voice | PocketTTS 2.1.0, `anna` preset | CPU streaming speech synthesis |
+| Speech emotion | Emotion English DistilRoBERTa-base, ONNX INT8 | CPU automatic expression selection |
 | Face | LAM Audio2Expression | Audio-to-ARKit facial animation |
 | Body, batch | ARDY Core-8 | Complete prompted motion clips |
 | Body, live | ARDY Core-40 | Longer-horizon interactive motion |
@@ -191,6 +192,14 @@ Open **Live Full Flow** and use the embedding manager before starting a session:
 4. Optionally add timed speech, embedding, and walk-path cues.
 5. Start the live session, then use WASD to control locomotion.
 
+The **Performances** panel saves the complete current arrangement under a name:
+speech, embedding and expression cues, the timed walk trajectory, independent
+loop flags, idle/stack choices, motion controls, and camera framing. Select a
+saved performance from the dropdown to restore it, download it as portable JSON,
+or import a JSON performance created on another copy of the project. **Clear
+current** removes the active timelines and expression layers without deleting
+saved performances or cached embeddings.
+
 Use **Export one pass MP4** to restart the live timeline from zero and record
 the complete rendered viewport, including Anna's generated speech, LAM facial
 animation, ARDY body motion, VRM rendering, and live camera changes. During an
@@ -214,9 +223,11 @@ active; scheduled expressions and arrow-key selections override it immediately,
 and returning to idle restarts the pair from the primary pose. This provides a
 gentle recurring conditioning reset without inserting a large pose change.
 
-The three cue lists share a clock that begins when Core-40's first motion
-horizon is ready—not while the model is warming up. A speech row has a start
-time and spoken line. An embedding row has a start time and cached selection,
+The cue lists share a clock that begins when Core-40's first motion horizon is
+ready—not while the model is warming up. A speech row has a start time, spoken
+line, expression selector, and a compact editable intensity curve. Select the
+local sentiment model, no expression, or one declared VRM expression. An
+embedding row has a start time and cached selection,
 including an explicit return to idle. A walk-path row gives an arrival time and
 an X/Z endpoint in metres relative to the session origin. Add as many rows as
 needed with the plus buttons. Live routes use the same frame-indexed ARDY root
@@ -224,6 +235,11 @@ constraints as the ARDY planner. WASD temporarily switches to target-velocity
 control; releasing it restores the scheduled constraint track. Manual
 arrow-key embedding changes remain available between
 scheduled cues.
+
+The Avatar Expressions panel also supports independent envelopes. The `+`
+beneath any expression adds a compact start-time, curve, and end-time row. These
+manual schedules blend with persistent expression sliders and speech-linked
+emotion without disabling LAM mouth, blink, or gaze animation.
 
 The walk-path grid mirrors the ARDY route planner: click to add snapped
 endpoints, or focus the grid and use WASD for 0.25-metre steps. Edit generated
@@ -239,8 +255,10 @@ reached; holding WASD postpones that path restart until manual control is
 released. None of these loops resets the main session clock or either of the
 other schedules.
 
-Enter speech and press Enter or **Speak**. CPU PocketTTS streams Anna's audio in
-one-second windows, context-preserving GPU LAM prepares each matching facial
+Enter speech and press Enter or **Speak**. When the sentiment model is selected,
+the local CPU INT8 DistilRoBERTa classifier first chooses an emotion and maps it
+to an expression exposed by the loaded VRM. CPU PocketTTS then streams Anna's
+audio in one-second windows, context-preserving GPU LAM prepares each matching facial
 segment, and playback begins as soon as the first synchronized window is ready
 without stopping the live body-motion stream. Multiple submitted lines are
 prepared in order and play sequentially. Scheduled lines enter this same
@@ -248,10 +266,24 @@ live queue at their cue times; they are not prerendered when the session starts.
 New embeddings are intentionally created while the live session is stopped so
 loading the text encoder cannot interrupt Core-40 replanning.
 
+The tracked `embedding-bank/ardy-motion-bank.json` provides 106 production-
+oriented specific prompts and 34 deliberately broad prompts for ablation. Every
+prompt begins with `A person`; nicknames are stored separately from the exact
+embedded text. `scripts/cache_embedding_bank.py` migrates the original `The
+person` entries and builds the full bank with one encoder load and one release,
+so a large cache update does not repeatedly churn GPU residency.
+
 Core-40 produces rolling 40-frame horizons. **Horizon seam blend** smooths the
 visual pose, root, and rotation handoff across a selectable number of frames
 when a new horizon replaces the old one. It does not modify the generated
 history or relax scheduled route constraints.
+
+Live VRM playback transfers only the generated joints and rotations; the much
+larger skinned-mesh preview is produced only when the ARDY skin viewer actually
+needs it. An adaptive playback buffer tracks recent end-to-end horizon latency
+with additional scheduling headroom. If a horizon is nevertheless late, the
+visual playhead waits without skipping forward when data arrives. The Live Full
+Flow latency readout and control-state JSON report underrun count and duration.
 
 The live camera separates framing from facing. **Target** selects the point kept
 in frame, while **Direction anchor** selects whether camera yaw stays fixed in
@@ -279,7 +311,7 @@ complete agent workflow and examples.
 | 8793 | ARDY motion UI and API |
 | 8794 | Face API and MP4 export |
 | 8795 | Facial Animation UI |
-| 8796 | PocketTTS CPU streaming worker |
+| 8796 | PocketTTS CPU streaming and emotion-classification worker |
 | 8797 | LAM Audio2Expression worker |
 
 The launcher binds these ports on the host's network interfaces. The included

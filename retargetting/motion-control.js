@@ -26,10 +26,17 @@ const state = {
   liveKeys: new Set(),
   liveSegments: [],
   liveStartedAt: 0,
+  livePlayheadFrame: 0,
+  liveLastPlaybackAt: 0,
   livePlaybackFrame: 0,
   liveMaxFrame: -1,
-  liveReplanBufferFrames: 3,
+  liveReplanBufferFrames: 6,
   liveLatencyFrames: [],
+  liveUnderrunStartedAt: 0,
+  liveUnderrunCount: 0,
+  liveUnderrunTotalMs: 0,
+  liveUnderrunLongestMs: 0,
+  liveUnderrunLastMs: 0,
   liveCommandDirty: false,
   liveFetching: false,
   liveExternalMode: false,
@@ -78,6 +85,11 @@ const state = {
   bowSpringsDisabled: false,
   hairSpringJoints: [],
   springSettings: new Map(),
+  avatarExpressionCatalog: [],
+  avatarExpressions: new Map(),
+  scheduledAvatarExpressions: new Map(),
+  avatarExpressionsDirty: false,
+  liveSpeechExpressionDurations: new Map(),
   unifiedFaceTrack: null,
   unifiedFaceMorphs: [],
   unifiedPlayback: null,
@@ -380,7 +392,63 @@ function clearUnifiedFace() {
   const expression = state.vrm?.expressionManager;
   expression?.resetValues();
   for (const { mesh } of state.unifiedFaceMorphs) if (mesh.morphTargetInfluences) mesh.morphTargetInfluences.fill(0);
-  expression?.update();
+  applyAvatarExpressionOverlay();
+  state.avatarExpressionsDirty = false;
+}
+
+function avatarExpressionLabel(name) {
+  const labels = { happy: "Joy", sad: "Sorrow", relaxed: "Fun" };
+  return labels[name] || String(name).replace(/([a-z])([A-Z0-9])/g, "$1 $2");
+}
+
+function publishAvatarExpressionCatalog() {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: "live-flow:avatar-expression-catalog",
+    avatar: state.avatarAlignment?.avatar || state.avatarFile || "VRM",
+    expressions: state.avatarExpressionCatalog.map((name) => ({ name, label: avatarExpressionLabel(name) })),
+    values: Object.fromEntries(state.avatarExpressions),
+  }, "*");
+}
+
+function applyAvatarExpressionOverlay(update = true, combine = false) {
+  const manager = state.vrm?.expressionManager;
+  if (!manager) return;
+  const names = new Set([...state.avatarExpressions.keys(), ...state.scheduledAvatarExpressions.keys()]);
+  for (const name of names) {
+    if (manager.getExpression(name)) {
+      const value = Math.max(Number(state.avatarExpressions.get(name)) || 0, Number(state.scheduledAvatarExpressions.get(name)) || 0);
+      const current = combine ? Number(manager.getValue(name)) || 0 : 0;
+      manager.setValue(name, Math.max(0, Math.min(1, Math.max(current, value))));
+    }
+  }
+  if (update) manager.update();
+}
+
+function setAvatarExpression(name, value) {
+  const cleanName = String(name || "");
+  if (!state.avatarExpressionCatalog.includes(cleanName)) throw new Error(`Avatar expression is not available: ${cleanName}`);
+  const weight = Math.max(0, Math.min(1, Number(value) || 0));
+  if (weight > 0) state.avatarExpressions.set(cleanName, weight);
+  else state.avatarExpressions.delete(cleanName);
+  state.avatarExpressionsDirty = true;
+  publishAvatarExpressionCatalog();
+  publishLiveFlowStatus();
+}
+
+function clearAvatarExpressions() {
+  state.avatarExpressions.clear();
+  state.avatarExpressionsDirty = true;
+  publishAvatarExpressionCatalog();
+  publishLiveFlowStatus();
+}
+
+function setScheduledAvatarExpressions(values) {
+  state.scheduledAvatarExpressions = new Map(Object.entries(values || {})
+    .filter(([name, value]) => state.avatarExpressionCatalog.includes(name) && Number(value) > 0)
+    .map(([name, value]) => [name, Math.max(0, Math.min(1, Number(value) || 0))]));
+  state.avatarExpressionsDirty = true;
+  publishLiveFlowStatus();
 }
 
 function applyUnifiedFaceFrame(track, values, time) {
@@ -447,7 +515,21 @@ function applyUnifiedFaceFrame(track, values, time) {
   }
   setExpression('blinkLeft', eyes(Math.max(blinkLeft, proceduralBlink)));
   setExpression('blinkRight', eyes(Math.max(blinkRight, proceduralBlink)));
+  for (const [name, weight] of Object.entries(track.avatarExpressions || {})) setExpression(name, weight);
+  const envelope = track.expressionEnvelope;
+  if (envelope?.name && expression?.getExpression(envelope.name)) {
+    const curve = Array.isArray(envelope.curve) && envelope.curve.length >= 2 ? envelope.curve : [0, 1, 1, 0];
+    const duration = Math.max(0.001, Number(state.liveSpeechExpressionDurations.get(String(envelope.speechId))) || Number(envelope.speechDuration) || track.duration || 1);
+    const progress = Math.max(0, Math.min(1, ((Number(envelope.speechOffset) || 0) + time) / duration));
+    const position = progress * (curve.length - 1);
+    const left = Math.floor(position);
+    const right = Math.min(curve.length - 1, left + 1);
+    const alpha = position - left;
+    setExpression(envelope.name, (Number(curve[left]) || 0) * (1 - alpha) + (Number(curve[right]) || 0) * alpha);
+  }
+  applyAvatarExpressionOverlay(false, true);
   expression?.update();
+  state.avatarExpressionsDirty = false;
 }
 
 function setViewerMode(mode) {
@@ -557,11 +639,27 @@ async function loadDirectVrm(file) {
       : [],
   );
   state.bowSpringsDisabled = false;
+  const automaticExpressions = new Set([
+    "neutral", "aa", "ee", "ih", "oh", "ou", "blink", "blinkLeft", "blinkRight",
+    "lookUp", "lookDown", "lookLeft", "lookRight",
+  ]);
+  state.avatarExpressionCatalog = (vrm.expressionManager?.expressions || [])
+    .map((item) => String(item.expressionName || ""))
+    .filter((name) => name && !automaticExpressions.has(name));
+  const availableExpressions = new Set(state.avatarExpressionCatalog);
+  for (const name of [...state.avatarExpressions.keys()]) {
+    if (!availableExpressions.has(name)) state.avatarExpressions.delete(name);
+  }
+  for (const name of [...state.scheduledAvatarExpressions.keys()]) {
+    if (!availableExpressions.has(name)) state.scheduledAvatarExpressions.delete(name);
+  }
   scene.add(vrm.scene);
   state.vrmRig = captureVrmRig(vrm);
   setDressPhysicsSafe($("dress-safe").checked);
   setAccessoryPhysicsSafe($("accessory-safe").checked);
   resetVrmPose();
+  publishAvatarExpressionCatalog();
+  applyAvatarExpressionOverlay();
   setViewerMode("vrm");
   return vrm;
 }
@@ -885,6 +983,32 @@ function liveFrameAt(frame) {
   return null;
 }
 
+function liveUnderrunState() {
+  const activeMs = state.liveUnderrunStartedAt ? Math.max(0, performance.now() - state.liveUnderrunStartedAt) : 0;
+  return {
+    active: Boolean(state.liveUnderrunStartedAt),
+    count: state.liveUnderrunCount,
+    totalMs: Math.round(state.liveUnderrunTotalMs + activeMs),
+    longestMs: Math.round(Math.max(state.liveUnderrunLongestMs, activeMs)),
+    lastMs: Math.round(state.liveUnderrunLastMs),
+  };
+}
+
+function beginLiveUnderrun(now) {
+  if (!state.liveUnderrunStartedAt) state.liveUnderrunStartedAt = now;
+}
+
+function endLiveUnderrun(now) {
+  if (!state.liveUnderrunStartedAt) return;
+  const duration = Math.max(0, now - state.liveUnderrunStartedAt);
+  state.liveUnderrunStartedAt = 0;
+  state.liveUnderrunCount += 1;
+  state.liveUnderrunTotalMs += duration;
+  state.liveUnderrunLongestMs = Math.max(state.liveUnderrunLongestMs, duration);
+  state.liveUnderrunLastMs = duration;
+  publishLiveFlowStatus({ underrunEnded: true });
+}
+
 function interpolateJoints(first, second, alpha) {
   if (!Array.isArray(second) || alpha <= 0) return first;
   return first.map((joint, jointIndex) => joint.map((value, axis) => (
@@ -960,7 +1084,20 @@ function animate(now) {
     }
   } else if (state.liveActive && (bodyMesh || state.vrm)) {
     if (state.liveStartedAt && state.liveSegments.length) {
-      const exactFrame = Math.min(((now - state.liveStartedAt) / 1000) * configs.ardy.fps, state.liveMaxFrame);
+      const fps = configs.ardy.fps;
+      const elapsedSeconds = state.liveLastPlaybackAt
+        ? Math.max(0, (now - state.liveLastPlaybackAt) / 1000)
+        : 0;
+      state.liveLastPlaybackAt = now;
+      // Advance by at most one source frame per render. A delayed animation
+      // callback must not catch up by visibly skipping poses.
+      const requestedAdvance = Math.min(1, elapsedSeconds * fps);
+      const availableAdvance = Math.max(0, state.liveMaxFrame - state.livePlayheadFrame);
+      const appliedAdvance = Math.min(requestedAdvance, availableAdvance);
+      state.livePlayheadFrame += appliedAdvance;
+      if (requestedAdvance > availableAdvance + 1e-4) beginLiveUnderrun(now);
+      else if (availableAdvance > 1e-4) endLiveUnderrun(now);
+      const exactFrame = Math.min(state.livePlayheadFrame, state.liveMaxFrame);
       const frame = Math.floor(exactFrame);
       const alpha = exactFrame - frame;
       state.livePlaybackFrame = Math.max(0, frame);
@@ -1012,7 +1149,7 @@ function animate(now) {
           ));
         }
       }
-      const triggerFrames = Math.max(4, state.liveReplanBufferFrames);
+      const triggerFrames = Math.max(6, state.liveReplanBufferFrames + 2);
       if (state.liveMaxFrame - state.livePlaybackFrame <= triggerFrames) requestLiveSegment(false);
     }
   } else if (state.playing && state.motion && (bodyMesh || state.vrm)) {
@@ -1032,6 +1169,9 @@ function animate(now) {
     }
   }
   updateLiveFace(now);
+  if (state.avatarExpressionsDirty && !state.liveFacePlayback && !state.unifiedPlayback) {
+    clearUnifiedFace();
+  }
   if (state.vrm) {
     if (state.efficiencyMode) {
       springUpdateAccumulator = Math.min(0.1, springUpdateAccumulator + deltaSeconds);
@@ -1764,7 +1904,7 @@ function publishLiveFlowStatus(extra = {}) {
   const velocity = liveVelocity();
   window.parent.postMessage({
     type: "live-flow:player-status",
-    playerVersion: 51,
+    playerVersion: 55,
     active: state.liveActive,
     fetching: state.liveFetching,
     cacheKey: state.liveExternalCacheKey,
@@ -1772,9 +1912,15 @@ function publishLiveFlowStatus(extra = {}) {
     velocity,
     playbackFrame: state.livePlaybackFrame,
     maxFrame: state.liveMaxFrame,
+    underruns: liveUnderrunState(),
     position: { ...state.liveRoot },
     motionSettings: { ...state.liveExternalSettings },
     camera: liveCameraState(),
+    avatarExpressions: {
+      available: state.avatarExpressionCatalog.map((name) => ({ name, label: avatarExpressionLabel(name) })),
+      active: Object.fromEntries(state.avatarExpressions),
+      scheduled: Object.fromEntries(state.scheduledAvatarExpressions),
+    },
     ...extra,
   }, "*");
 }
@@ -1808,6 +1954,8 @@ function updateLiveFace(now) {
     return;
   }
   clearUnifiedFace();
+  const speechId = track.expressionEnvelope?.speechId;
+  if (speechId != null) state.liveSpeechExpressionDurations.delete(String(speechId));
   state.liveFacePlayback = null;
   if (!state.liveFaceQueue.length) publishLiveFlowStatus({ speechEnded: true });
 }
@@ -1852,19 +2000,24 @@ async function requestLiveSegment(start = false) {
         routeElapsed: state.liveExternalRoute.elapsed,
         routeCurve: state.liveExternalRoute.curved,
         routeCurveStrength: state.liveExternalRoute.curveStrength,
+        includeMesh: state.viewerMode !== "vrm",
       }),
     });
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || "Live ARDY step failed.");
     state.runtimeReady.ardy = true;
-    const binary = await fetch(result.motion.meshFramesUrl, { cache: "no-store" });
-    if (!binary.ok) throw new Error("Live mesh segment was not available.");
-    const vertices = new Float32Array(await binary.arrayBuffer());
+    let vertices = new Float32Array(0);
+    if (result.motion.meshFramesUrl) {
+      const binary = await fetch(result.motion.meshFramesUrl, { cache: "no-store" });
+      if (!binary.ok) throw new Error("Live mesh segment was not available.");
+      vertices = new Float32Array(await binary.arrayBuffer());
+    }
     if (!start && generation.adaptiveReplanBuffer) {
-      const latencyFrames = Math.min(6, Math.max(1, Math.ceil((performance.now() - requestStartedAt) / 1000 * result.motion.fps)));
+      const latencyFrames = Math.max(1, Math.ceil((performance.now() - requestStartedAt) / 1000 * result.motion.fps));
       state.liveLatencyFrames.push(latencyFrames);
-      if (state.liveLatencyFrames.length > 5) state.liveLatencyFrames.shift();
-      state.liveReplanBufferFrames = Math.max(...state.liveLatencyFrames);
+      if (state.liveLatencyFrames.length > 8) state.liveLatencyFrames.shift();
+      // Two frames of headroom absorb normal browser/GPU scheduling variance.
+      state.liveReplanBufferFrames = Math.min(12, Math.max(4, Math.max(...state.liveLatencyFrames) + 2));
     }
     const replaceFrom = Number(result.motion.replaceFromFrame || 0);
     const nextSegment = {
@@ -1884,6 +2037,8 @@ async function requestLiveSegment(start = false) {
     state.liveMaxFrame = replaceFrom + result.motion.frames - 1;
     if (!state.liveStartedAt) {
       state.liveStartedAt = performance.now();
+      state.livePlayheadFrame = 0;
+      state.liveLastPlaybackAt = state.liveStartedAt;
       state.livePlaybackFrame = 0;
       state.currentFrame = -1;
     }
@@ -1895,7 +2050,7 @@ async function requestLiveSegment(start = false) {
       generationSeconds: result.motion.generationSeconds,
       realtimeFactor: result.motion.realtimeFactor,
       historyFrames: result.motion.historyFrames,
-      replanBufferFrames: result.motion.replanBufferFrames,
+      replanBufferFrames: state.liveReplanBufferFrames,
       seam: {
         rootStepM: Number(result.motion.seamRootStepM) || 0,
         jointStepMaxM: Number(result.motion.seamJointStepMaxM) || 0,
@@ -1934,10 +2089,17 @@ function startLive() {
   state.liveActive = true;
   state.liveSegments = [];
   state.liveStartedAt = 0;
+  state.livePlayheadFrame = 0;
+  state.liveLastPlaybackAt = 0;
+  state.liveUnderrunStartedAt = 0;
   state.livePlaybackFrame = 0;
   state.liveMaxFrame = -1;
-  state.liveReplanBufferFrames = 3;
+  state.liveReplanBufferFrames = 6;
   state.liveLatencyFrames = [];
+  state.liveUnderrunCount = 0;
+  state.liveUnderrunTotalMs = 0;
+  state.liveUnderrunLongestMs = 0;
+  state.liveUnderrunLastMs = 0;
   state.liveCommandDirty = false;
   state.liveKeys.clear();
   state.liveRoot = { x: 0, z: 0 };
@@ -1973,6 +2135,9 @@ function stopLive() {
   state.liveExternalGoal = null;
   state.liveSegments = [];
   state.liveStartedAt = 0;
+  state.livePlayheadFrame = 0;
+  state.liveLastPlaybackAt = 0;
+  state.liveUnderrunStartedAt = 0;
   state.livePlaybackFrame = 0;
   state.liveMaxFrame = -1;
   state.liveLatencyFrames = [];
@@ -2533,6 +2698,21 @@ window.addEventListener('message', (event) => {
     resetLiveCamera();
     return;
   }
+  if (event.data.type === 'live-flow:avatar-expression') {
+    state.liveExternalMode = true;
+    setAvatarExpression(event.data.name, event.data.value);
+    return;
+  }
+  if (event.data.type === 'live-flow:avatar-expression-clear') {
+    state.liveExternalMode = true;
+    clearAvatarExpressions();
+    return;
+  }
+  if (event.data.type === 'live-flow:avatar-expression-schedule') {
+    state.liveExternalMode = true;
+    setScheduledAvatarExpressions(event.data.values);
+    return;
+  }
   if (event.data.type === 'live-flow:speak') {
     addLiveRecordingAudio(event.data.recordingAudio, event.data.delay);
     const track = event.data.track;
@@ -2553,6 +2733,12 @@ window.addEventListener('message', (event) => {
     }
     return;
   }
+  if (event.data.type === 'live-flow:speech-expression-duration') {
+    const speechId = String(event.data.speechId ?? '');
+    const duration = Math.max(0, Number(event.data.duration) || 0);
+    if (speechId && duration) state.liveSpeechExpressionDurations.set(speechId, duration);
+    return;
+  }
   if (event.data.type === 'live-flow:record-start') {
     startLiveMp4Recording();
     return;
@@ -2571,6 +2757,8 @@ window.addEventListener('message', (event) => {
     state.liveExternalVelocity = null;
     state.liveExternalGoal = null;
     state.liveExternalRoute = { points: [], elapsed: 0, revision: 0, curved: false, curveStrength: 0.65, signature: '' };
+    state.liveSpeechExpressionDurations.clear();
+    setScheduledAvatarExpressions({});
     state.liveExternalMode = true;
     publishLiveFlowStatus();
     return;
@@ -2578,6 +2766,11 @@ window.addEventListener('message', (event) => {
   if (event.data.type === 'live-flow:status-query') {
     state.liveExternalMode = true;
     publishLiveFlowStatus();
+    return;
+  }
+  if (event.data.type === 'live-flow:avatar-expression-query') {
+    state.liveExternalMode = true;
+    publishAvatarExpressionCatalog();
     return;
   }
   if (event.data.type === 'unified:preview-mode') {

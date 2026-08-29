@@ -56,6 +56,24 @@
       ]
     },
     {
+      "id": "emotion-english-distilroberta-int8",
+      "kind": "derived-model",
+      "repository": "j-hartmann/emotion-english-distilroberta-base",
+      "sourceRevision": "0e1cd914e3d46199ed785853e12b57304e04178b",
+      "format": "ONNX dynamic INT8",
+      "license": "No license metadata declared by the upstream model card; obtain and use under the upstream author's terms.",
+      "files": [
+        { "path": "models/sentiment/emotion-english-distilroberta-base/config.json", "bytes": 1005, "sha256": "ab16b3e561e9c9bda68a97a668bd3aa59978dcdc20b6257fdcae1bb0682b625c" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/merges.txt", "bytes": 456356, "sha256": "fe36cab26d4f4421ed725e10a2e9ddb7f799449c603a96e7f29b5a3c82a95862" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/MODEL_INFO.json", "bytes": 323, "sha256": "416861496699bd8b7979ccecda80a7402836152a77b1692137a7d4a4a13d5f82" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/model.int8.onnx", "bytes": 82757968, "sha256": "5c92831b69915cad7623d6c4409e9b6a782ab4faeb34121f0d0fe7a88510e496" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/special_tokens_map.json", "bytes": 239, "sha256": "378eb3bf733eb16e65792d7e3fda5b8a4631387ca04d2015199c4d4f22ae554d" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/tokenizer_config.json", "bytes": 294, "sha256": "44e6cbab3bc89d7b04cc614a5a8d6ef6483e3de53e5a423be82e799de3deb2ca" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/tokenizer.json", "bytes": 1356047, "sha256": "a65474d70a34ab230f809b83412ee547a1d91803f742086977028b13dc6d5b70" },
+        { "path": "models/sentiment/emotion-english-distilroberta-base/vocab.json", "bytes": 798293, "sha256": "ed19656ea1707df69134c4af35c8ceda2cc9860bf2c3495026153a133670ab5e" }
+      ]
+    },
+    {
       "id": "lam-audio2expression-streaming",
       "kind": "model",
       "repository": "3DAIGC/LAM_audio2exp",

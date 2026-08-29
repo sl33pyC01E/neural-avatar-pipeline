@@ -21,6 +21,7 @@ without independently confirming the applicable terms.
 | ARDY | Core-8 batch and Core-40 live body-motion generation | NVIDIA Toronto AI Lab, [`nv-tlabs/ardy`](https://github.com/nv-tlabs/ardy) | Code: [Apache-2.0](ardy/LICENSE). Checkpoints: [Horizon 8](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon8) and [Horizon 40](https://huggingface.co/nvidia/ARDY-Core-RP-20FPS-Horizon40), under the [NVIDIA Open Model Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/). |
 | LLM2Vec | Quantized ARDY text conditioning and permanent prompt embeddings | Parishad BehnamGhader, Vaibhav Adlakha, Marius Mosbach, Dzmitry Bahdanau, Nicolas Chapados, and Siva Reddy; [`McGill-NLP/llm2vec`](https://github.com/McGill-NLP/llm2vec) | Upstream portions: MIT. Vendored and transitive notices, including the Unitree asset notice, are preserved in [`ardy/ATTRIBUTIONS.MD`](ardy/ATTRIBUTIONS.MD). The underlying gated Meta Llama model has separate Meta terms. |
 | PocketTTS 2.1.0 | CUDA speech synthesis with the `anna` preset | Kyutai, [`kyutai-labs/pocket-tts`](https://github.com/kyutai-labs/pocket-tts) | Code: MIT. Local no-cloning model: [CC BY 4.0 model card](https://huggingface.co/kyutai/pocket-tts-without-voice-cloning). The Anna preset is linked from Kyutai's [voice catalog](https://huggingface.co/kyutai/tts-voices/blob/main/vctk/p228_023_enhanced.wav); voice assets and generated uses remain subject to their source terms. |
+| Emotion English DistilRoBERTa-base | CPU emotion classification for automatic speech-linked VRM expressions | Jochen Hartmann, [`j-hartmann/emotion-english-distilroberta-base`](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base), source revision `0e1cd914`; locally converted to dynamic INT8 ONNX | The upstream model card declares no license metadata. The model payload is excluded from Git; obtain and use it only after independently confirming the author's applicable terms. Attribution requested by the model card is preserved below. |
 | LAM Audio2Expression | Streaming audio-to-ARKit facial-expression inference | 3D AIGC / `aigc3d`, [`aigc3d/LAM_Audio2Expression`](https://github.com/aigc3d/LAM_Audio2Expression), pinned local revision `02a703c` | Code and [model card](https://huggingface.co/3DAIGC/LAM_audio2exp): Apache-2.0. |
 | three.js | WebGL character rendering | Copyright © 2010–2026 three.js authors, [`mrdoob/three.js`](https://github.com/mrdoob/three.js) | [MIT](https://github.com/mrdoob/three.js/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
 | `@pixiv/three-vrm` | VRM loading, expressions, humanoid bones, and spring-bone playback | pixiv Inc., [`pixiv/three-vrm`](https://github.com/pixiv/three-vrm) | [MIT](https://github.com/pixiv/three-vrm/blob/dev/LICENSE). Exact installed versions are recorded in the package lockfiles. |
@@ -64,6 +65,17 @@ model. The entries below follow the authors' project or model pages.
   number    = {4},
   articleno = {86},
   doi       = {10.1145/3811284}
+}
+```
+
+### Emotion English DistilRoBERTa-base
+
+```bibtex
+@misc{hartmann2022emotionenglish,
+  author       = {Hartmann, Jochen},
+  title        = {Emotion English DistilRoBERTa-base},
+  year         = {2022},
+  howpublished = {https://huggingface.co/j-hartmann/emotion-english-distilroberta-base/}
 }
 ```
 

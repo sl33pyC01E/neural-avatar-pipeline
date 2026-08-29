@@ -17,7 +17,7 @@ No active service reads the original Face, Voice, or Retargetting projects.
 | --- | --- | --- | --- |
 | Shared CUDA base | `runtime/python312` | 3.12.10 | PyTorch 2.6.0+cu124 and common ARDY/PocketTTS dependencies |
 | ARDY overlay | `ardy/.venv` | 3.12.10 | ARDY-specific Transformers 5.8.1, bitsandbytes, Triton 3.2 for Windows, and model packages |
-| PocketTTS overlay | `voice/pocket_tts` | 3.12.10 | PocketTTS 2.1.0, Anna support, and NumPy 2.5.1 |
+| PocketTTS overlay | `voice/pocket_tts` | 3.12.10 | PocketTTS 2.1.0, Anna support, NumPy 2.5.1, and the shared CPU ONNX emotion classifier runtime |
 | LAM environment | `face_animation/LAM-Audio2Expression/.venv` | 3.10.11 | Isolated PyTorch 2.1.2+cu121 and Transformers 4.36.2 stack |
 
 The two Python 3.12 overlays use `include-system-site-packages = true` so they
@@ -71,12 +71,13 @@ The active source revisions are recorded in `dependency-manifest.json`:
 - ARDY: `693f74d13b3d04a0a22ce127ee79c929dd89756b`
 - LAM Audio2Expression: `02a703c3ea7d8e360eb43098eca85ee98a083529`
 - PocketTTS: package version `2.1.0`
+- Emotion English DistilRoBERTa-base: source revision `0e1cd914e3d46199ed785853e12b57304e04178b`, locally exported as dynamic INT8 ONNX
 - Quantized LLM2Vec: exact base, MNTP, and supervised-adapter revisions
 
 [`payload-manifest.json`](payload-manifest.json) records expected paths, byte
 sizes, revisions, and SHA-256 hashes for the two ARDY models, the quantized text
-encoder, PocketTTS English model and Anna embedding, and the LAM streaming
-checkpoint. The avatar is explicitly excluded.
+encoder, PocketTTS English model and Anna embedding, the local emotion
+classifier, and the LAM streaming checkpoint. The avatar is explicitly excluded.
 
 Run `verify.bat` for a fast inventory and exact package-version comparison. Run
 `verify.bat --deep` to additionally hash every recorded model payload. Neither
@@ -96,6 +97,8 @@ not by themselves grant download or redistribution rights. A rebuild must:
    without re-resolving dependencies and creates the isolated LAM environment.
 5. Acquire each model at the recorded revision after accepting its applicable
    terms, then compare it with `payload-manifest.json`.
+   `face_animation/webui/backend/build_emotion_model.py` downloads the pinned
+   emotion checkpoint and produces the recorded CPU INT8 ONNX payload.
 6. Supply Node.js, npm, FFmpeg, CUDA user-mode libraries, and a local VRM.
 
 Some payloads are gated or separately licensed. Authentication tokens must be

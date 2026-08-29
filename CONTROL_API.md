@@ -67,9 +67,17 @@ Queue live speech:
 {
   "requestId": "director-turn-004-line-1",
   "action": "speech.say",
-  "args": { "text": "Welcome back. I have been expecting you." }
+  "args": {
+    "text": "Welcome back. I have been expecting you.",
+    "expression": "auto",
+    "curve": [0, 0.5, 0.9, 1, 1, 0.8, 0.5, 0.2, 0]
+  }
 }
 ```
+
+`expression` accepts `auto` for the local INT8 DistilRoBERTa emotion model,
+`none`, or any name/label reported by `face.avatarExpressions.available`.
+The normalized curve spans the generated line's actual playback duration.
 
 Activate an embedding by nickname after inspecting state:
 
@@ -142,6 +150,48 @@ Set Live Full Flow motion generation controls independently of the ARDY tab:
 }
 ```
 
+The `motion` object returned by `GET /api/control/state` includes the effective
+adaptive buffer, most recent replan latency, and `underruns` diagnostics. An
+underrun pauses the visual playhead until another Core-40 horizon is available;
+the player does not catch up by skipping poses.
+
+Blend one expression group declared by the loaded VRM over the live LAM face:
+
+```json
+{
+  "requestId": "director-turn-004-expression",
+  "action": "avatar.expression.set",
+  "args": { "name": "Wink", "weight": 0.8 }
+}
+```
+
+Read `face.avatarExpressions.available` from `/api/control/state` rather than
+assuming every avatar exposes the same names. Set a weight to zero to clear one
+expression, or use `avatar.expressions.clear` to clear all manual layers.
+
+Replace independently timed expression envelopes:
+
+```json
+{
+  "requestId": "director-expression-schedule-001",
+  "action": "avatar.expression.schedule.set",
+  "args": {
+    "cues": [
+      {
+        "name": "angry",
+        "start": 4.5,
+        "end": 7.2,
+        "curve": [0, 0.35, 0.8, 1, 0.9, 0.65, 0.3, 0.1, 0]
+      }
+    ]
+  }
+}
+```
+
+Curves may be arrays of normalized weights or arrays of `{ "time", "value" }`
+points. The WebUI resamples them into the same compact nine-point editor used
+under each expression slider.
+
 Restart the live timeline and export exactly one pass as a compatible MP4:
 
 ```json
@@ -174,6 +224,9 @@ records one complete route including its final return to origin.
   releasing it returns to the native scheduled constraint track.
 - Scheduled speech remains live: CPU PocketTTS streams one-second audio windows
   through context-preserving GPU LAM when each cue is due.
+- Manual avatar expressions are discovered from the loaded VRM and layered over
+  LAM mouth, blink, and gaze animation. They persist until cleared and are
+  included in viewport recording.
 - Camera position targets and direction anchors are independent. `target`
   chooses what remains in frame; `directionAnchor` chooses which rotation the
   shot follows (`world`, `face`, `torso`, or `feet`).
