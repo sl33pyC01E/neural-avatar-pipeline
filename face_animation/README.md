@@ -9,7 +9,7 @@ track with its audio as MP4.
 
 - `webui/app/` — browser interface and VRM preview
 - `webui/backend/server.py` — status, local avatar delivery, and MP4 export
-- `webui/backend/pocket_tts_server.py` — PocketTTS `anna` CUDA service
+- `webui/backend/pocket_tts_server.py` — PocketTTS `anna` CPU streaming service
 - `webui/backend/lam_server.py` — persistent LAM inference service
 - `LAM-Audio2Expression/` — local upstream code, environment, and checkpoint;
   excluded from Git

@@ -1,7 +1,8 @@
 (() => {
-  const MOTION_API = 'http://127.0.0.1:8793';
-  const TTS_API = 'http://127.0.0.1:8796';
-  const LAM_API = 'http://127.0.0.1:8797';
+  const serviceOrigin = (port) => `${window.location.protocol}//${window.location.hostname}:${port}`;
+  const MOTION_API = serviceOrigin(8793);
+  const TTS_API = serviceOrigin(8796);
+  const LAM_API = serviceOrigin(8797);
   const STORAGE_KEY = 'neural-avatar-pipeline:live-flow:v1';
   const player = document.querySelector('#unified-player');
   const state = {
@@ -21,8 +22,10 @@
     speech: [],
     preparing: false,
     speaking: false,
+    speechPumping: false,
     currentSpeechId: null,
     currentSource: null,
+    speechSources: new Set(),
     audioContext: null,
     speechEpoch: 0,
     sequence: 0,
@@ -977,10 +980,12 @@
     state.keys.clear();
     updateKeyUi();
     playerPost({ type: 'live-flow:stop' });
-    if (state.currentSource) { try { state.currentSource.stop(); } catch {} state.currentSource = null; }
+    for (const source of state.speechSources) { try { source.stop(); } catch {} }
+    state.speechSources.clear();
+    state.currentSource = null;
     if (state.currentSpeechId != null) {
       const current = state.speech.find((item) => item.id === state.currentSpeechId);
-      if (current) current.status = 'stopped';
+      if (current) { current.status = 'stopped'; current.cancelled = true; }
     }
     state.speaking = false;
     state.currentSpeechId = null;
@@ -1019,9 +1024,62 @@
     const text = (scheduled ? textOverride : $('#live-speech-text').value).trim();
     if (!text) return;
     if (!scheduled) $('#live-speech-text').value = '';
-    state.speech.push({ id: ++state.sequence, text, source, status: 'queued', track: null, audio: null, ttsMs: 0, lamMs: 0 });
+    state.speech.push({
+      id: ++state.sequence, text, source, status: 'queued', segments: [], scheduledSegments: 0,
+      streamDone: false, pendingSources: 0, playbackStartTime: 0, playbackOffset: 0,
+      ttsMs: 0, lamMs: 0,
+    });
     renderSpeechQueue();
     prepareSpeech();
+  }
+
+  function appendFloat32(first, second) {
+    if (!first.length) return second.slice();
+    const joined = new Float32Array(first.length + second.length);
+    joined.set(first, 0); joined.set(second, first.length);
+    return joined;
+  }
+
+  function decodePcm16(bytes) {
+    const samples = new Float32Array(Math.floor(bytes.byteLength / 2));
+    const view = new DataView(bytes.buffer, bytes.byteOffset, samples.length * 2);
+    for (let index = 0; index < samples.length; index += 1) samples[index] = view.getInt16(index * 2, true) / 32768;
+    return samples;
+  }
+
+  async function prepareSpeechSegment(item, samples, sampleRate, sessionId, segmentIndex) {
+    if (item.cancelled) throw new Error('Speech was stopped.');
+    const wasSpeaking = state.currentSpeechId === item.id && state.speaking;
+    if (!wasSpeaking) item.status = 'LAM';
+    renderSpeechQueue(); $('#live-speech-hud').textContent = wasSpeaking ? 'Anna speaking' : 'streaming face';
+    const payload = samples.buffer.slice(samples.byteOffset, samples.byteOffset + samples.byteLength);
+    const lamStarted = performance.now();
+    const response = await fetch(`${LAM_API}/api/infer/lam/stream/chunk?session=${encodeURIComponent(sessionId)}`, {
+      method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-sample-rate': String(sampleRate) }, body: payload,
+    });
+    const inference = await response.json().catch(() => ({}));
+    if (!response.ok || !inference.ok) throw new Error(inference.error || 'LAM streaming facial animation failed.');
+    item.lamMs += performance.now() - lamStarted;
+    const duration = samples.length / sampleRate;
+    const segment = {
+      index: segmentIndex,
+      offset: item.segments.reduce((total, value) => total + value.duration, 0),
+      samples,
+      sampleRate,
+      duration,
+      track: {
+        id: `live-face-${item.id}-${segmentIndex}`,
+        name: `Anna live speech ${item.id} · segment ${segmentIndex + 1}`,
+        driver: 'lam', driverName: 'LAM Audio2Expression', fps: inference.fps,
+        duration: inference.duration || duration, names: inference.names, frames: inference.frames,
+        naturalMotion: true, scales: { eyes: 1.55, head: 1, mouth: 0.7 },
+      },
+    };
+    item.segments.push(segment);
+    item.status = wasSpeaking ? 'speaking' : 'ready';
+    renderSpeechQueue();
+    if (state.currentSpeechId === item.id && state.speaking) scheduleSpeechSegments(item);
+    else pumpSpeech();
   }
 
   async function prepareSpeech() {
@@ -1030,90 +1088,135 @@
     if (!item) return;
     const epoch = state.speechEpoch;
     state.preparing = true;
+    let sessionId = '';
     try {
-      item.status = 'PocketTTS'; renderSpeechQueue(); $('#live-speech-hud').textContent = 'synthesizing';
+      item.status = 'PocketTTS'; renderSpeechQueue(); $('#live-speech-hud').textContent = 'streaming Anna';
       const totalStarted = performance.now();
       const ttsStarted = performance.now();
-      const ttsResponse = await fetch(`${TTS_API}/api/tts`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: item.text }) });
+      const sessionResponse = await fetch(`${LAM_API}/api/infer/lam/stream/start`, { method: 'POST' });
+      const session = await sessionResponse.json().catch(() => ({}));
+      if (!sessionResponse.ok || !session.ok || !session.sessionId) throw new Error(session.error || 'LAM stream could not start.');
+      sessionId = session.sessionId;
+      const ttsResponse = await fetch(`${TTS_API}/api/tts/stream`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: item.text }) });
       if (epoch !== state.speechEpoch) return;
       if (!ttsResponse.ok) { const error = await ttsResponse.json().catch(() => ({})); throw new Error(error.error || 'PocketTTS failed.'); }
-      item.ttsMs = Number(ttsResponse.headers.get('x-tts-latency-ms')) || performance.now() - ttsStarted;
-      const wav = await ttsResponse.arrayBuffer();
-      state.audioContext ||= new AudioContext();
-      const decoded = await state.audioContext.decodeAudioData(wav.slice(0));
-      item.status = 'LAM'; renderSpeechQueue(); $('#live-speech-hud').textContent = 'animating face';
-      const mono = decoded.getChannelData(0);
-      const payload = mono.buffer.slice(mono.byteOffset, mono.byteOffset + mono.byteLength);
-      const lamStarted = performance.now();
-      const lamResponse = await fetch(`${LAM_API}/api/infer/lam`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-sample-rate': String(decoded.sampleRate) }, body: payload });
-      const inference = await lamResponse.json();
-      if (epoch !== state.speechEpoch) return;
-      if (!lamResponse.ok || !inference.ok) throw new Error(inference.error || 'LAM facial animation failed.');
-      item.lamMs = performance.now() - lamStarted;
-      item.audio = decoded;
-      item.track = {
-        id: `live-face-${item.id}`,
-        name: `Anna live speech ${item.id}`,
-        driver: 'lam',
-        driverName: 'LAM Audio2Expression',
-        fps: inference.fps,
-        duration: inference.duration || decoded.duration,
-        names: inference.names,
-        frames: inference.frames,
-        naturalMotion: true,
-        scales: { eyes: 1.55, head: 1, mouth: 0.7 },
-      };
-      item.status = 'ready';
+      const sampleRate = Math.round(Number(ttsResponse.headers.get('x-sample-rate')) || 24000);
+      const reader = ttsResponse.body?.getReader();
+      if (!reader) throw new Error('This browser does not expose streaming PocketTTS audio.');
+      let carryBytes = new Uint8Array(0);
+      let pendingSamples = new Float32Array(0);
+      let segmentIndex = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (epoch !== state.speechEpoch || item.cancelled) { await reader.cancel().catch(() => {}); return; }
+        if (done) break;
+        const combined = new Uint8Array(carryBytes.length + value.length);
+        combined.set(carryBytes); combined.set(value, carryBytes.length);
+        const evenLength = combined.length - combined.length % 2;
+        pendingSamples = appendFloat32(pendingSamples, decodePcm16(combined.subarray(0, evenLength)));
+        carryBytes = combined.slice(evenLength);
+        while (pendingSamples.length >= sampleRate) {
+          const segmentSamples = pendingSamples.slice(0, sampleRate);
+          pendingSamples = pendingSamples.slice(sampleRate);
+          await prepareSpeechSegment(item, segmentSamples, sampleRate, sessionId, segmentIndex++);
+        }
+      }
+      item.ttsMs = performance.now() - ttsStarted;
+      if (pendingSamples.length) await prepareSpeechSegment(item, pendingSamples, sampleRate, sessionId, segmentIndex++);
+      item.streamDone = true;
+      if (!item.segments.length) throw new Error('PocketTTS returned no streamed audio.');
+      if (item.status !== 'speaking') item.status = 'ready';
       item.totalMs = performance.now() - totalStarted;
-      $('#live-speech-hud').textContent = `ready ${(item.totalMs / 1000).toFixed(2)}s`;
+      $('#live-speech-hud').textContent = state.currentSpeechId === item.id ? 'Anna speaking' : `ready ${(item.totalMs / 1000).toFixed(2)}s`;
       renderSpeechQueue();
+      finishSpeechIfComplete(item);
       pumpSpeech();
     } catch (error) {
       if (epoch !== state.speechEpoch) return;
-      item.status = `error · ${error.message || String(error)}`;
+      item.streamDone = true;
+      if (state.currentSpeechId === item.id && state.speaking && item.segments.length) {
+        item.status = 'speaking';
+        finishSpeechIfComplete(item);
+      } else if (!item.cancelled) item.status = `error · ${error.message || String(error)}`;
       $('#live-speech-hud').textContent = 'speech error';
       renderSpeechQueue();
     } finally {
+      if (sessionId) await fetch(`${LAM_API}/api/infer/lam/stream/finish?session=${encodeURIComponent(sessionId)}`, { method: 'POST' }).catch(() => {});
       state.preparing = false;
       prepareSpeech();
     }
   }
 
-  async function pumpSpeech() {
-    if (!state.sessionActive || !state.motionReady || state.speaking) return;
-    const item = state.speech.find((candidate) => candidate.status === 'ready');
-    if (!item?.audio || !item.track) return;
+  function finishSpeechIfComplete(item) {
+    if (!item.streamDone || item.scheduledSegments < item.segments.length || item.pendingSources > 0) return;
+    if (state.currentSpeechId !== item.id) return;
+    item.status = 'done';
+    state.currentSource = null;
+    state.currentSpeechId = null;
+    state.speaking = false;
+    $('#live-speech-hud').textContent = 'speech ready';
+    clearCompletedSpeech();
+    pumpSpeech();
+  }
+
+  function scheduleSpeechSegments(item) {
     state.audioContext ||= new AudioContext();
-    await state.audioContext.resume().catch(() => {});
-    const delay = 0.08;
-    const source = state.audioContext.createBufferSource();
-    source.buffer = item.audio;
-    source.connect(state.audioContext.destination);
-    state.currentSource = source;
-    state.currentSpeechId = item.id;
-    state.speaking = true;
-    item.status = 'speaking';
-    renderSpeechQueue();
-    $('#live-speech-hud').textContent = 'Anna speaking';
-    const recordingAudio = state.exporting ? {
-      sampleRate: item.audio.sampleRate,
-      channels: Array.from({ length: item.audio.numberOfChannels }, (_, channel) => {
-        const values = item.audio.getChannelData(channel);
-        return values.buffer.slice(values.byteOffset, values.byteOffset + values.byteLength);
-      }),
-    } : null;
-    playerPost({ type: 'live-flow:speak', track: item.track, delay, recordingAudio });
-    source.onended = () => {
-      if (state.currentSpeechId !== item.id) return;
-      item.status = 'done';
-      state.currentSource = null;
-      state.currentSpeechId = null;
-      state.speaking = false;
-      $('#live-speech-hud').textContent = 'speech ready';
-      clearCompletedSpeech();
-      pumpSpeech();
-    };
-    source.start(state.audioContext.currentTime + delay);
+    while (item.scheduledSegments < item.segments.length) {
+      const segment = item.segments[item.scheduledSegments++];
+      const buffer = state.audioContext.createBuffer(1, segment.samples.length, segment.sampleRate);
+      buffer.copyToChannel(segment.samples, 0);
+      const source = state.audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(state.audioContext.destination);
+      let startAt = item.playbackStartTime + segment.offset;
+      const safeStart = state.audioContext.currentTime + 0.03;
+      if (startAt < safeStart) {
+        const correction = safeStart - startAt;
+        item.playbackStartTime += correction;
+        startAt = safeStart;
+      }
+      const delay = Math.max(0, startAt - state.audioContext.currentTime);
+      item.pendingSources += 1;
+      state.speechSources.add(source);
+      state.currentSource = source;
+      const recordingAudio = state.exporting ? {
+        sampleRate: segment.sampleRate,
+        channels: [segment.samples.buffer.slice(segment.samples.byteOffset, segment.samples.byteOffset + segment.samples.byteLength)],
+      } : null;
+      playerPost({
+        type: 'live-flow:speak', track: { ...segment.track, streamSegment: true, speechId: item.id },
+        delay, recordingAudio, streamSegment: true,
+      });
+      source.addEventListener('ended', () => {
+        state.speechSources.delete(source);
+        item.pendingSources = Math.max(0, item.pendingSources - 1);
+        finishSpeechIfComplete(item);
+      }, { once: true });
+      source.start(startAt);
+    }
+  }
+
+  async function pumpSpeech() {
+    if (!state.sessionActive || !state.motionReady || state.speaking || state.speechPumping) return;
+    state.speechPumping = true;
+    try {
+      const item = state.speech.find((candidate) => candidate.status === 'ready');
+      if (!item?.segments?.length) return;
+      state.audioContext ||= new AudioContext();
+      await state.audioContext.resume().catch(() => {});
+      if (!state.sessionActive || !state.motionReady || state.speaking || item.cancelled) return;
+      const delay = 0.08;
+      state.currentSpeechId = item.id;
+      state.speaking = true;
+      item.status = 'speaking';
+      item.playbackStartTime = state.audioContext.currentTime + delay;
+      renderSpeechQueue();
+      $('#live-speech-hud').textContent = 'Anna speaking';
+      scheduleSpeechSegments(item);
+      finishSpeechIfComplete(item);
+    } finally {
+      state.speechPumping = false;
+    }
   }
 
   function clearCompletedSpeech() {

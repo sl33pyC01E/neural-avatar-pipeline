@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +15,7 @@ const ffmpegBin = path.join(runtime, 'ffmpeg', 'bin');
 const cudaBin = path.join(runtime, 'cuda', 'v12.9', 'bin');
 const logsRoot = path.join(root, 'logs');
 const outputsRoot = path.join(root, 'motion-models', 'outputs', 'webui');
+const lanBindHost = '0.0.0.0';
 
 const ports = [
   [8788, 'Unified WebUI'],
@@ -166,9 +168,12 @@ const environment = {
   PYTHONNOUSERSITE: '1',
   PYTHONPATH: [root, path.join(root, 'ardy'), path.join(root, 'ardy', 'MotionCorrection', 'python')].join(path.delimiter),
   UNIFIED_LAUNCHER_PID: String(process.pid),
-  POCKET_TTS_DEVICE: 'cuda',
+  FACE_LAB_TTS_DEVICE: 'cpu',
   UNIFIED_LAB_ROOT: root,
   UNIFIED_CUDA_BIN: cudaBin,
+  UNIFIED_WEBUI_HOST: lanBindHost,
+  MOTION_CONTROL_HOST: lanBindHost,
+  FACE_LAB_HOST: lanBindHost,
 };
 
 const faceWeb = path.join(root, 'face_animation', 'webui');
@@ -183,12 +188,19 @@ startChild('ARDY Motion Lab', node, [path.join(root, 'retargetting', 'motion-con
 startChild('Face backend', lamPython, [path.join(faceWeb, 'backend', 'server.py')], faceWeb, environment);
 startChild('PocketTTS', pocketPython, [path.join(faceWeb, 'backend', 'pocket_tts_server.py')], faceWeb, environment);
 startChild('LAM Audio2Expression', lamPython, [path.join(faceWeb, 'backend', 'lam_server.py')], faceWeb, environment);
-startChild('Face Animation Lab', node, [npmCli, 'run', 'dev', '--', '--host', '127.0.0.1', '--port', '8795'], faceWeb, environment);
+startChild('Face Animation Lab', node, [npmCli, 'run', 'dev', '--', '--host', lanBindHost, '--port', '8795'], faceWeb, environment);
 
 await Promise.all(ports.map(([port, label]) => waitFor(port, label)));
 
 const url = 'http://127.0.0.1:8788/';
 console.log(`\nUnified Lab is ready: ${url}`);
+const lanInterfaces = Object.entries(os.networkInterfaces()).flatMap(([name, addresses]) =>
+  (addresses || [])
+    .filter((address) => address.family === 'IPv4' && !address.internal && !address.address.startsWith('169.254.') && !/^vEthernet/i.test(name))
+    .map((address) => ({ name, address: address.address })),
+);
+for (const entry of lanInterfaces) console.log(`LAN WebUI (${entry.name}): http://${entry.address}:8788/`);
+if (lanInterfaces.length) console.log('If another device cannot connect, run enable-lan-access.bat once as administrator.');
 console.log('Close this window or press Ctrl+C to stop every service.');
 if (process.env.UNIFIED_NO_BROWSER !== '1') {
   spawn('cmd.exe', ['/d', '/s', '/c', 'start', '', url], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();

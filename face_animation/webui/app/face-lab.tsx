@@ -5,9 +5,12 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 
-const API = 'http://127.0.0.1:8794';
-const TTS_API = 'http://127.0.0.1:8796';
-const LAM_API = 'http://127.0.0.1:8797';
+const serviceOrigin = (port: number) => typeof window === 'undefined'
+  ? `http://127.0.0.1:${port}`
+  : `${window.location.protocol}//${window.location.hostname}:${port}`;
+const API = serviceOrigin(8794);
+const TTS_API = serviceOrigin(8796);
+const LAM_API = serviceOrigin(8797);
 const VISEMES = ['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'ih', 'oh', 'ou'];
 
 type Driver = { id: string; name: string; detail: string; state: string; runnable: boolean; note: string };

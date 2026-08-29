@@ -19,11 +19,11 @@ from runtime_watchdog import start_parent_watchdog
 start_parent_watchdog()
 
 
-HOST = "127.0.0.1"
+HOST = os.environ.get("FACE_LAB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("FACE_LAB_TTS_PORT", "8796"))
 VOICE = "anna"
 MAX_TEXT_LENGTH = 800
-DEVICE = "cuda" if torch.cuda.is_available() and os.environ.get("FACE_LAB_TTS_DEVICE", "cuda").lower() != "cpu" else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() and os.environ.get("FACE_LAB_TTS_DEVICE", "cpu").lower() == "cuda" else "cpu"
 
 _model = None
 _voice_state = None
@@ -78,6 +78,12 @@ def encode_wav(audio, sample_rate: int) -> bytes:
     return output.getvalue()
 
 
+def encode_pcm16(audio) -> bytes:
+    samples = np.asarray(audio.detach().cpu(), dtype=np.float32).reshape(-1)
+    samples = np.nan_to_num(samples, nan=0.0, posinf=1.0, neginf=-1.0)
+    return np.round(np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
+
+
 class PocketTTSHandler(BaseHTTPRequestHandler):
     server_version = "FaceLabPocketTTS/0.1"
 
@@ -87,7 +93,7 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "content-type")
-        self.send_header("Access-Control-Expose-Headers", "x-tts-voice, x-tts-device, x-tts-latency-ms")
+        self.send_header("Access-Control-Expose-Headers", "x-tts-voice, x-tts-device, x-tts-latency-ms, x-sample-rate, x-pcm-format")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -123,7 +129,8 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/tts":
+        request_path = urlparse(self.path).path
+        if request_path not in {"/api/tts", "/api/tts/stream"}:
             self.send_json(404, {"ok": False, "error": "Not found."})
             return
         started = time.perf_counter()
@@ -138,6 +145,21 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
             if len(text) > MAX_TEXT_LENGTH:
                 raise ValueError(f"Text is limited to {MAX_TEXT_LENGTH} characters per test.")
             model, voice_state = load_engine()
+            if request_path == "/api/tts/stream":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("X-TTS-Voice", VOICE)
+                self.send_header("X-TTS-Device", DEVICE)
+                self.send_header("X-Sample-Rate", str(int(model.sample_rate)))
+                self.send_header("X-PCM-Format", "s16le")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.close_connection = True
+                with _model_lock:
+                    for chunk in model.generate_audio_stream(voice_state, text, copy_state=True):
+                        self.wfile.write(encode_pcm16(chunk))
+                        self.wfile.flush()
+                return
             with _model_lock:
                 audio = model.generate_audio(voice_state, text, copy_state=True)
                 if DEVICE == "cuda":
@@ -152,6 +174,8 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
             self.send_header("X-TTS-Latency-Ms", str(elapsed_ms))
             self.end_headers()
             self.wfile.write(wav_data)
+        except (BrokenPipeError, ConnectionResetError):
+            return
         except ValueError as error:
             self.send_json(400, {"ok": False, "error": str(error)})
         except Exception as error:

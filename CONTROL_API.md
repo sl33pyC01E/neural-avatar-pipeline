@@ -1,6 +1,8 @@
 # Local LLM Control API
 
-Unified Lab exposes a loopback-only JSON API at `http://127.0.0.1:8788/api/control`.
+Unified Lab exposes a JSON API at `http://<lab-host>:8788/api/control`. Use
+`127.0.0.1` on the host machine or the LAN address printed by `launch.bat` from
+another device on the same private network.
 It controls the open **Live Full Flow** workspace without unloading resident
 models. The WebUI must remain open because it owns audio playback, the VRM
 renderer, keyboard state, and browser audio permissions.
@@ -157,7 +159,8 @@ records one complete route including its final return to origin.
 
 ## Control boundaries
 
-- The server binds only to `127.0.0.1`; it is not a remote-control service.
+- The API is available from the host and its private LAN. It intentionally has
+  no account or token layer, so it should not be forwarded to the public internet.
 - Commands are validated and executed by the WebUI, not evaluated as code.
 - Locomotion duration is capped at 60 seconds. Use `locomotion.stop` when a
   held command is no longer wanted.
@@ -169,7 +172,8 @@ records one complete route including its final return to origin.
 - Scheduled Live Full Flow paths are sent to ARDY as dense, frame-indexed
   `root2d` constraints. WASD temporarily switches to target-velocity control;
   releasing it returns to the native scheduled constraint track.
-- Scheduled speech remains live: PocketTTS and LAM run when each cue is due.
+- Scheduled speech remains live: CPU PocketTTS streams one-second audio windows
+  through context-preserving GPU LAM when each cue is due.
 - Camera position targets and direction anchors are independent. `target`
   chooses what remains in frame; `directionAnchor` chooses which rotation the
   shot follows (`world`, `face`, `torso`, or `feet`).

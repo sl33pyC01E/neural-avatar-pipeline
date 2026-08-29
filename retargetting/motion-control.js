@@ -2,6 +2,9 @@ import * as THREE from "/vendor/three.module.js";
 import { GLTFLoader } from "/vendor/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "/vendor/three-vrm.module.js";
 
+const serviceOrigin = (port) => `${window.location.protocol}//${window.location.hostname}:${port}`;
+const FACE_API = serviceOrigin(8794);
+const UNIFIED_ORIGIN = serviceOrigin(8788);
 const $ = (id) => document.getElementById(id);
 const routeCanvas = $("route");
 const ctx = routeCanvas.getContext("2d");
@@ -45,6 +48,7 @@ const state = {
     headingEnabled: true,
   },
   liveFacePlayback: null,
+  liveFaceQueue: [],
   liveRoot: { x: 0, z: 0 },
   liveGoal: { x: 0, z: 0 },
   liveCamera: {
@@ -1758,8 +1762,12 @@ function publishLiveFlowStatus(extra = {}) {
 }
 
 function updateLiveFace(now) {
-  const playback = state.liveFacePlayback;
-  if (!playback || !state.liveActive) return;
+  if (!state.liveActive) return;
+  if (!state.liveFacePlayback && state.liveFaceQueue.length && now >= state.liveFaceQueue[0].startedAt) {
+    state.liveFacePlayback = state.liveFaceQueue.shift();
+  }
+  let playback = state.liveFacePlayback;
+  if (!playback) return;
   const time = (now - playback.startedAt) / 1000;
   if (time < 0) return;
   const track = playback.track;
@@ -1771,9 +1779,19 @@ function updateLiveFace(now) {
     }
     return;
   }
+  const next = state.liveFaceQueue[0];
+  if (next && next.startedAt <= now + 34) {
+    state.liveFacePlayback = state.liveFaceQueue.shift();
+    playback = state.liveFacePlayback;
+    const nextTime = Math.max(0, (now - playback.startedAt) / 1000);
+    const frame = Math.min(playback.track.frames.length - 1, Math.floor(nextTime * playback.track.fps));
+    playback.frame = frame;
+    applyUnifiedFaceFrame(playback.track, playback.track.frames[frame], nextTime);
+    return;
+  }
   clearUnifiedFace();
   state.liveFacePlayback = null;
-  publishLiveFlowStatus({ speechEnded: true });
+  if (!state.liveFaceQueue.length) publishLiveFlowStatus({ speechEnded: true });
 }
 
 async function requestLiveSegment(start = false) {
@@ -1942,6 +1960,7 @@ function stopLive() {
   state.liveLatencyFrames = [];
   state.liveCommandDirty = false;
   state.liveFacePlayback = null;
+  state.liveFaceQueue = [];
   clearUnifiedFace();
   $("live-toggle").textContent = "Start Live ARDY";
   $("live-toggle").style.borderColor = "";
@@ -2045,7 +2064,7 @@ async function exportViewportVideo(sequenceKind) {
     stream.getTracks().forEach((track) => track.stop());
     const capture = new Blob(chunks, { type: mimeType || "video/webm" });
     $("status").textContent = "Encoding a compatible H.264 MP4…";
-    const response = await fetch("http://127.0.0.1:8794/api/export/mp4", {
+    const response = await fetch(`${FACE_API}/api/export/mp4`, {
       method: "POST",
       headers: {
         "content-type": capture.type || "video/webm",
@@ -2241,7 +2260,7 @@ async function exportUnifiedSequence(options) {
     await stopped;
     const capture = new Blob(chunks, { type: mimeType || 'video/webm' });
     report('Encoding unified recording as MP4…');
-    const response = await fetch('http://127.0.0.1:8794/api/export/mp4', {
+    const response = await fetch(`${FACE_API}/api/export/mp4`, {
       method: 'POST',
       headers: {
         'content-type': capture.type || 'video/webm',
@@ -2363,7 +2382,7 @@ async function stopLiveMp4Recording(expectedDuration) {
     const capture = new Blob(recording.chunks, { type: recording.mimeType || 'video/webm' });
     if (!capture.size) throw new Error('The browser returned an empty Live Full Flow recording.');
     window.parent.postMessage({ type: 'live-flow:record-status', recording: false, encoding: true }, '*');
-    const response = await fetch('http://127.0.0.1:8794/api/export/mp4', {
+    const response = await fetch(`${FACE_API}/api/export/mp4`, {
       method: 'POST',
       headers: {
         'content-type': capture.type || 'video/webm',
@@ -2413,7 +2432,7 @@ async function abortLiveMp4Recording(reason = 'Live Full Flow stopped before the
 }
 
 window.addEventListener('message', (event) => {
-  if (!['http://127.0.0.1:8788', 'http://localhost:8788'].includes(event.origin) || !event.data?.type) return;
+  if (event.origin !== UNIFIED_ORIGIN || !event.data?.type) return;
   if (event.data.type === 'live-flow:start') {
     state.liveExternalMode = true;
     state.liveExternalCacheKey = String(event.data.cacheKey || '');
@@ -2500,11 +2519,18 @@ window.addEventListener('message', (event) => {
     addLiveRecordingAudio(event.data.recordingAudio, event.data.delay);
     const track = event.data.track;
     if (track?.frames?.length) {
-      state.liveFacePlayback = {
+      const playback = {
         track,
         frame: -1,
         startedAt: performance.now() + Math.max(0, Number(event.data.delay) || 0) * 1000,
       };
+      if (event.data.streamSegment) {
+        state.liveFaceQueue.push(playback);
+        state.liveFaceQueue.sort((first, second) => first.startedAt - second.startedAt);
+      } else {
+        state.liveFaceQueue = [];
+        state.liveFacePlayback = playback;
+      }
       publishLiveFlowStatus({ speechStarted: true, speechDuration: track.duration });
     }
     return;

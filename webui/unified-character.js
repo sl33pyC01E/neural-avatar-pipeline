@@ -10,11 +10,12 @@
   const liveStage = document.querySelector('#live-stage');
   const audio = document.querySelector('#unified-audio');
   const state = { view: 'face', face: null, motion: null, audioContext: null, audioDecode: null, audioSource: null, timer: 0, stopTimer: 0, startedAt: 0, total: 0, exporting: false };
+  const motionOrigin = `${window.location.protocol}//${window.location.hostname}:8793`;
 
   const clampOffset = (value) => Math.max(0, Number(value) || 0);
   const seconds = (value) => `${Math.max(0, Number(value) || 0).toFixed(1)}s`;
-  const postMotion = (message) => motionFrame.contentWindow?.postMessage(message, 'http://127.0.0.1:8793');
-  const postPlayer = (message) => unifiedPlayer.contentWindow?.postMessage(message, 'http://127.0.0.1:8793');
+  const postMotion = (message) => motionFrame.contentWindow?.postMessage(message, motionOrigin);
+  const postPlayer = (message) => unifiedPlayer.contentWindow?.postMessage(message, motionOrigin);
 
   function setView(name) {
     state.view = name;

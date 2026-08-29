@@ -10,6 +10,7 @@ import math
 import os
 import threading
 import time
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -375,6 +376,8 @@ class MotionRuntime:
         self.live_motion = None
         self.live_arrays: dict[str, np.ndarray] | None = None
         self.live_step_index = 0
+        self.live_session_token = ""
+        self.live_mesh_segments: OrderedDict[str, bytes] = OrderedDict()
         self.loaded_at = 0.0
         self.keep_text_encoder_loaded = os.environ.get("TEXT_ENCODER_RESIDENCY", "ephemeral").strip().lower() == "resident"
         self.lock = threading.Lock()
@@ -726,6 +729,8 @@ class MotionRuntime:
             self.live_motion = None
             self.live_arrays = None
             self.live_step_index = 0
+            self.live_session_token = f"{time.time_ns():x}"
+            self.live_mesh_segments.clear()
             seed = int(body.get("seed", 42))
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
@@ -970,10 +975,12 @@ class MotionRuntime:
                 key: np.concatenate([self.live_arrays[key][:replace_from], np.asarray(value)], axis=0)
                 for key, value in new_arrays.items()
             }
-        stamp = f"ardy-live-{time.strftime('%Y%m%d-%H%M%S')}-{self.live_step_index:06d}.meshframes"
-        mesh_path = OUTPUT_ROOT / stamp
-        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-        vertex_count = self._save_skinned_mesh_frames(new_arrays, mesh_path)[1]
+        mesh_data, vertex_count = self._skinned_mesh_frames(new_arrays)
+        mesh_token = f"ardy-live-memory-{self.live_session_token}-{self.live_step_index:06d}.meshframes"
+        self.live_mesh_segments[mesh_token] = mesh_data
+        self.live_mesh_segments.move_to_end(mesh_token)
+        while len(self.live_mesh_segments) > 6:
+            self.live_mesh_segments.popitem(last=False)
         live_joints = np.asarray(new_arrays["posed_joints"], dtype=np.float32)
         live_centered = live_joints - live_joints[:, [0]]
         live_local_rotations = np.asarray(new_arrays["local_rot_mats"], dtype=np.float32)
@@ -984,7 +991,7 @@ class MotionRuntime:
             "fps": fps,
             "generationSeconds": elapsed,
             "realtimeFactor": (horizon / fps) / elapsed,
-            "meshFrameFile": mesh_path.name,
+            "meshFrameToken": mesh_token,
             "meshVertexCount": vertex_count,
             "stepIndex": self.live_step_index - 1,
             "replaceFromFrame": replace_from,
@@ -1050,6 +1057,18 @@ class MotionRuntime:
                 "centeredJoints": centered_joints.round(5).tolist(),
                 "localRotations": local_rotations.round(6).tolist(),
             }
+
+    def live_mesh_segment(self, token: str) -> bytes:
+        if self.engine != "ardy":
+            raise ValueError("Live mesh segments are available for ARDY only.")
+        clean_token = Path(str(token)).name
+        if clean_token != token or not clean_token.startswith("ardy-live-memory-") or not clean_token.endswith(".meshframes"):
+            raise ValueError("Invalid live mesh segment token.")
+        with self.lock:
+            payload = self.live_mesh_segments.get(clean_token)
+            if payload is None:
+                raise ValueError("That live mesh segment has expired.")
+            return payload
 
     def _generate_motion(
         self,
@@ -1230,7 +1249,7 @@ class MotionRuntime:
             "meshVertexCount": vertex_count,
         }
 
-    def _save_skinned_mesh_frames(self, arrays: dict[str, np.ndarray], path: Path) -> tuple[Path, int]:
+    def _skinned_mesh_frames(self, arrays: dict[str, np.ndarray]) -> tuple[bytes, int]:
         rotations = torch.as_tensor(arrays["global_rot_mats"], device=self.device, dtype=torch.float32)
         joints = torch.as_tensor(arrays["posed_joints"], device=self.device, dtype=torch.float32)
         if self.skin is None:
@@ -1248,8 +1267,12 @@ class MotionRuntime:
                 stop = min(start + 12, joints.shape[0])
                 chunks.append(self.skin.skin(rotations[start:stop], joints[start:stop], rot_is_global=True).cpu())
         vertices = torch.cat(chunks).numpy().astype("<f4", copy=False)
-        path.write_bytes(np.ascontiguousarray(vertices).tobytes())
-        return path, int(vertices.shape[1])
+        return np.ascontiguousarray(vertices).tobytes(), int(vertices.shape[1])
+
+    def _save_skinned_mesh_frames(self, arrays: dict[str, np.ndarray], path: Path) -> tuple[Path, int]:
+        payload, vertex_count = self._skinned_mesh_frames(arrays)
+        path.write_bytes(payload)
+        return path, vertex_count
 
 
 def make_handler(runtime: MotionRuntime):
@@ -1264,6 +1287,14 @@ def make_handler(runtime: MotionRuntime):
             self.end_headers()
             self.wfile.write(payload)
 
+        def _send_bytes(self, status: int, payload: bytes, content_type: str = "application/octet-stream") -> None:
+            self.send_response(status)
+            self.send_header("content-type", content_type)
+            self.send_header("content-length", str(len(payload)))
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            self.wfile.write(payload)
+
         def do_OPTIONS(self) -> None:
             self._send(204, {})
 
@@ -1273,6 +1304,11 @@ def make_handler(runtime: MotionRuntime):
             elif self.path == "/text-cache":
                 cache = runtime.text_encoder or CachedTextEncoder(runtime.engine, runtime.device)
                 self._send(200, {"ok": True, "entries": cache.entries(), **runtime.state()})
+            elif self.path.startswith("/live/mesh/"):
+                try:
+                    self._send_bytes(200, runtime.live_mesh_segment(self.path.removeprefix("/live/mesh/")))
+                except Exception as error:
+                    self._send(404, {"ok": False, "error": str(error), **runtime.state()})
             else:
                 self._send(404, {"ok": False, "error": "Not found"})
 

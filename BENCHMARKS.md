@@ -1,6 +1,34 @@
 # Resource and latency benchmarks
 
-Measured August 28, 2026 on the complete local portable bundle. Each workload has three runs unless explicitly noted. Tables show median and range. The browser remained open because it owns the renderer, audio context, and Live Full Flow controller.
+The published full-flow benchmark was measured August 28, 2026 on the complete
+local portable bundle. Each workload has three runs unless explicitly noted.
+Tables show median and range. The browser remained open because it owns the
+renderer, audio context, and Live Full Flow controller.
+
+## August 29 streaming-baseline validation
+
+The baseline now runs PocketTTS on CPU and streams one-second PCM windows through
+context-preserving GPU LAM while ARDY remains live. These measurements validated
+the component pipeline and concurrent resource behavior before integration; a
+new browser-observed TTFA and full resource pass is still required.
+
+| Workload | Tested result |
+| --- | ---: |
+| Warm CPU PocketTTS first 80 ms PCM chunk | 89–105 ms typical |
+| First synchronized one-second speech/face window | 345–351 ms at normal ARDY cadence |
+| CPU PocketTTS throughput | 4.1–4.3× realtime |
+| Streaming LAM window | approximately 30–50 ms median |
+| Concurrent ARDY Core-40, 4 steps | 137 ms median HTTP replan; 230 ms observed maximum |
+| Concurrent ARDY Core-40, 10 steps | 275 ms median HTTP replan; 341 ms observed maximum |
+| Combined GPU allocation during isolated ARDY + LAM test | approximately 3,800 MiB whole-device |
+
+Twenty back-to-back 10-step ARDY replans increased synchronized speech startup
+by about 20 ms and reduced CPU TTS throughput by about 7%; LAM was not starved.
+The production baseline also performs a discarded LAM inference during startup
+to remove the first-request CUDA kernel penalty.
+
+The August 28 results below describe the previous CUDA PocketTTS/full-buffer
+speech path and are retained for historical comparison.
 
 ## Test system
 
@@ -8,7 +36,7 @@ Measured August 28, 2026 on the complete local portable bundle. Each workload ha
 - CPU: 13th Gen Intel(R) Core(TM) i9-13900KF, 24 cores / 32 logical processors
 - RAM: 63.84 GiB
 - OS: Microsoft Windows 11 Pro, build 26200
-- Pipeline: PocketTTS Anna CUDA, LAM Audio2Expression, ARDY Core-8 and Core-40, quantized cached text embeddings
+- Historical pipeline: PocketTTS Anna CUDA, LAM Audio2Expression, ARDY Core-8 and Core-40, quantized cached text embeddings
 
 ## Runtime latency and throughput
 

@@ -22,7 +22,7 @@ included in the Git repository.
 
 | Stage | Component | Role |
 | --- | --- | --- |
-| Voice | PocketTTS 2.1.0, `anna` preset | CUDA speech synthesis |
+| Voice | PocketTTS 2.1.0, `anna` preset | CPU streaming speech synthesis |
 | Face | LAM Audio2Expression | Audio-to-ARKit facial animation |
 | Body, batch | ARDY Core-8 | Complete prompted motion clips |
 | Body, live | ARDY Core-40 | Longer-horizon interactive motion |
@@ -39,15 +39,15 @@ The interface has four persistent workspaces:
   independent start times, previews them on one character, and exports the
   combined result as MP4.
 - **Live Full Flow** keeps ARDY Core-40 running under WASD control while queued
-  PocketTTS speech is passed through LAM and played with synchronized facial
-  animation on the same character. It includes independent cue loops,
+  PocketTTS PCM streams through context-preserving GPU LAM windows and plays
+  with synchronized facial animation on the same character. It includes independent cue loops,
   anatomical position and direction anchors, follow/orbit shots, and a local
   LLM control API.
 
 ## Hardware guidance and measured performance
 
 The complete pipeline was tested on Windows 11 with an RTX 4090 (24 GB VRAM),
-an i9-13900KF, and 64 GB system RAM. With PocketTTS, LAM, both ARDY runtimes,
+an i9-13900KF, and 64 GB system RAM. With the original CUDA PocketTTS baseline, LAM, both ARDY runtimes,
 the browser renderer, and their models loaded, peak observed whole-device GPU
 memory was **8,238 MiB**. The increase above the stopped desktop baseline was
 **4,761 MiB**, and the project's loaded system-memory working set was
@@ -61,16 +61,17 @@ alongside the browser and development tools.
 
 | Steady-state workload | Tested result |
 | --- | ---: |
-| Live speech time to first audible playback (TTFA) | 2.788 s median |
-| PocketTTS synthesis | 2.186 s median |
-| LAM facial inference | 171.5 ms median |
+| Warm CPU speech + first synchronized LAM second | ~0.35 s component pipeline |
+| CPU PocketTTS synthesis | 4.1–4.3× realtime |
+| Streaming LAM window | ~30–50 ms median |
 | ARDY Core-40, 7 denoising steps | 170 ms median; 11.94× realtime |
 | Live session start to motion ready | 483.8 ms median |
 | Export 32.49-second introduction | 37.01 s median |
 
-TTFA begins when `speech.say` is submitted with an empty queue and ends when
-the UI reports the line as `speaking`. It is a software-observed playback-start
-measurement, not an acoustic microphone measurement. See
+The current speech figures are component/concurrency measurements for the new
+CPU-streaming baseline; end-to-end browser TTFA will be remeasured with the next
+full benchmark pass. The older published full-flow TTFA remains documented as a
+historical baseline in [`BENCHMARKS.md`](BENCHMARKS.md). See
 [`BENCHMARKS.md`](BENCHMARKS.md) for ranges, methodology, resource sampling,
 additional ARDY configurations, and machine-readable results.
 
@@ -83,7 +84,16 @@ additional ARDY configurations, and machine-readable results.
 2. Double-click `launch.bat`.
 3. Keep the launcher window open while using the application at
    <http://127.0.0.1:8788/>.
-4. Close the launcher window or press `Ctrl+C` to stop every service it owns.
+4. To use the WebUI from another device on the same private network, run
+   `enable-lan-access.bat` once and accept the administrator prompt. Restart the
+   lab and open one of the `LAN WebUI` addresses printed by the launcher.
+5. Close the launcher window or press `Ctrl+C` to stop every service it owns.
+
+The LAN page provides the same four workspaces, live controls, audio playback,
+exports, and control API as the host machine. All browser-facing service URLs
+follow the hostname or IP address used to open the main WebUI, so another
+machine does not accidentally call its own loopback interface. No account,
+password, or access token is required; use it on a trusted private LAN.
 
 The supplied launcher resolves paths relative to its own folder. A complete
 local bundle can therefore be copied to another Windows location without
@@ -205,10 +215,11 @@ reached; holding WASD postpones that path restart until manual control is
 released. None of these loops resets the main session clock or either of the
 other schedules.
 
-Enter speech and press Enter or **Speak**. PocketTTS generates Anna's audio,
-LAM computes its face track, and the prepared result is queued for synchronized
-playback without stopping the live body-motion stream. Multiple submitted lines
-are prepared in order and play sequentially. Scheduled lines enter this same
+Enter speech and press Enter or **Speak**. CPU PocketTTS streams Anna's audio in
+one-second windows, context-preserving GPU LAM prepares each matching facial
+segment, and playback begins as soon as the first synchronized window is ready
+without stopping the live body-motion stream. Multiple submitted lines are
+prepared in order and play sequentially. Scheduled lines enter this same
 live queue at their cue times; they are not prerendered when the session starts.
 New embeddings are intentionally created while the live session is stopped so
 loading the text encoder cannot interrupt Core-40 replanning.
@@ -227,8 +238,8 @@ manual drag and auto orbit adjust the same relative offset.
 
 ### Local LLM control
 
-The open Live Full Flow workspace can be directed through a loopback-only JSON
-API. Start with `GET http://127.0.0.1:8788/api/control/schema`, inspect
+The open Live Full Flow workspace can be directed through its JSON API from the
+host or another LAN machine. Start with `GET http://<lab-host>:8788/api/control/schema`, inspect
 `/api/control/state`, submit retry-safe commands to `/api/control`, and poll the
 returned command ID for completion. The API covers sessions, speech, cached
 embeddings, all three schedules and loop flags, bounded locomotion, and camera
@@ -240,15 +251,18 @@ complete agent workflow and examples.
 
 | Port | Service |
 | --- | --- |
-| 8788 | Unified application shell |
+| 8788 | Unified application shell and control API |
 | 8793 | ARDY motion UI and API |
 | 8794 | Face API and MP4 export |
 | 8795 | Facial Animation UI |
-| 8796 | PocketTTS CUDA worker |
+| 8796 | PocketTTS CPU streaming worker |
 | 8797 | LAM Audio2Expression worker |
 
+The launcher binds these ports on the host's network interfaces. The included
+firewall helper allows them only on Windows networks marked **Private**.
+
 The launcher refuses to adopt an unrelated or stale process already occupying
-a required port. CUDA workers also watch the launcher that owns them so an
+a required port. Model workers also watch the launcher that owns them so an
 abnormal shutdown does not intentionally leave a model service behind.
 
 ## Repository layout

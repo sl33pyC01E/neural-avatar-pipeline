@@ -158,8 +158,8 @@
   </header>
   <main>
     <div class="loading"><div>Starting the portable lab…</div></div>
-    <section id="face-view" class="view active"><iframe id="face" title="Facial Animation Lab" src="http://localhost:8795/"></iframe></section>
-    <section id="motion-view" class="view"><iframe id="motion" title="ARDY VRM Motion Lab" src="http://127.0.0.1:8793/"></iframe></section>
+    <section id="face-view" class="view active"><iframe id="face" title="Facial Animation Lab" src="about:blank"></iframe></section>
+    <section id="motion-view" class="view"><iframe id="motion" title="ARDY VRM Motion Lab" src="about:blank"></iframe></section>
     <section id="unified-view" class="view unified-view">
       <aside class="scheduler">
         <h2>Unified Character</h2>
@@ -185,7 +185,7 @@
         <div class="play-status" id="unified-status">Waiting for a face track and an ARDY track.</div>
         <audio id="unified-audio" preload="auto"></audio>
       </aside>
-      <div class="unified-stage" id="unified-stage"><iframe id="unified-player" title="Unified Zome playback" src="http://127.0.0.1:8793/"></iframe><div class="time-chip" id="unified-clock">0.0s</div></div>
+      <div class="unified-stage" id="unified-stage"><iframe id="unified-player" title="Unified Zome playback" src="about:blank"></iframe><div class="time-chip" id="unified-clock">0.0s</div></div>
     </section>
     <section id="live-view" class="view live-view">
       <aside class="live-console">
@@ -287,11 +287,15 @@
   <script>
     let statusFailures = 0;
     let resourcesReleased = false;
+    const serviceOrigin = (port) => `${window.location.protocol}//${window.location.hostname}:${port}`;
+    const motionOrigin = serviceOrigin(8793);
+    document.querySelector('#face').src = `${serviceOrigin(8795)}/`;
+    document.querySelector('#motion').src = `${motionOrigin}/`;
+    document.querySelector('#unified-player').src = `${motionOrigin}/`;
 
     function releaseEmbeddedLabs() {
       if (resourcesReleased) return;
       resourcesReleased = true;
-      const motionOrigin = 'http://127.0.0.1:8793';
       for (const id of ['motion', 'unified-player']) document.querySelector(`#${id}`)?.contentWindow?.postMessage({ type: 'unified:dispose' }, motionOrigin);
       window.setTimeout(() => {
         for (const iframe of document.querySelectorAll('iframe')) iframe.src = 'about:blank';

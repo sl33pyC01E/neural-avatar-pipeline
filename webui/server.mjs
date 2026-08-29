@@ -5,14 +5,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const host = '127.0.0.1';
+const loopback = '127.0.0.1';
+const host = process.env.UNIFIED_WEBUI_HOST || loopback;
 const port = Number(process.env.UNIFIED_WEBUI_PORT || 8788);
 const services = [
-  { id: 'motion', name: 'ARDY Motion', port: 8793 },
-  { id: 'face-api', name: 'Face Backend', port: 8794 },
-  { id: 'face', name: 'Face Animation', host: 'localhost', port: 8795 },
-  { id: 'voice', name: 'PocketTTS CUDA', port: 8796 },
-  { id: 'lam', name: 'LAM A2E', port: 8797 },
+  { id: 'motion', name: 'ARDY Motion', host: loopback, port: 8793 },
+  { id: 'face-api', name: 'Face Backend', host: loopback, port: 8794 },
+  { id: 'face', name: 'Face Animation', host: loopback, port: 8795 },
+  { id: 'voice', name: 'PocketTTS CPU', host: loopback, port: 8796 },
+  { id: 'lam', name: 'LAM A2E', host: loopback, port: 8797 },
 ];
 const controlActions = {
   'session.start': { description: 'Open Live Full Flow and start the resident live session.', args: {} },
@@ -48,7 +49,7 @@ const controlRequestIds = new Map();
 let controlState = { session: { active: false }, note: 'Live UI has not reported state yet.' };
 let controlUiSeenAt = 0;
 
-function portOpen(servicePort, serviceHost = host) {
+function portOpen(servicePort, serviceHost = loopback) {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host: serviceHost, port: servicePort });
     const done = (online) => { socket.destroy(); resolve(online); };
@@ -91,11 +92,12 @@ function readJson(request, limit = 1024 * 1024) {
 
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://${host}:${port}`);
+  const requestOrigin = `http://${request.headers.host || `${loopback}:${port}`}`;
   if (request.method === 'GET' && url.pathname === '/api/control/schema') {
     json(response, 200, {
       ok: true,
       version: 1,
-      baseUrl: `http://${host}:${port}`,
+      baseUrl: requestOrigin,
       workflow: ['GET /api/control/state', 'POST /api/control with {action,args,requestId}', 'GET /api/control/result?id=<commandId> until completed or failed'],
       retrySafety: 'Use a unique stable requestId for each intended action. Retrying the same requestId returns the original command instead of executing twice.',
       endpoints: {
@@ -111,8 +113,8 @@ const server = http.createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/api/control/openapi.json') {
     json(response, 200, {
       openapi: '3.1.0',
-      info: { title: 'Neural Avatar Pipeline Local Control API', version: '1.0.0', description: 'Loopback command API for the open Live Full Flow WebUI.' },
-      servers: [{ url: `http://${host}:${port}` }],
+      info: { title: 'Neural Avatar Pipeline Control API', version: '1.0.0', description: 'Local-network command API for the open Live Full Flow WebUI.' },
+      servers: [{ url: requestOrigin }],
       paths: {
         '/api/control/schema': { get: { operationId: 'getControlSchema', summary: 'Read action catalog and safe workflow', responses: { 200: { description: 'Control schema' } } } },
         '/api/control/state': { get: { operationId: 'getControlState', summary: 'Read current live suite state', responses: { 200: { description: 'Current WebUI state' } } } },
@@ -219,7 +221,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
   if (url.pathname === '/api/status') {
-    const status = await Promise.all(services.map(async (service) => ({ ...service, online: await portOpen(service.port, service.host || host) })));
+    const status = await Promise.all(services.map(async (service) => ({ ...service, online: await portOpen(service.port, service.host) })));
     json(response, 200, { ok: true, root: process.env.UNIFIED_LAB_ROOT || path.dirname(root), services: status });
     return;
   }

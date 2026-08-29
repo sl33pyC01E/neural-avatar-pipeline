@@ -4,7 +4,7 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 const spatialRetarget = require("../vnyan/control-panel/spatial-retarget");
 
-const HOST = "127.0.0.1";
+const HOST = process.env.MOTION_CONTROL_HOST || "127.0.0.1";
 const PORT = Number(process.env.MOTION_CONTROL_PORT || 8793);
 const ROOT = __dirname;
 const FACE_ROOT = path.resolve(ROOT, "..");
@@ -144,6 +144,27 @@ function requestWorker(engine, method, pathname, body, timeoutMs = 180000) {
   });
 }
 
+function proxyWorkerBinary(engine, pathname, res, timeoutMs = 30000) {
+  const target = ENGINES[engine];
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: HOST, port: target.port, method: "GET", path: pathname, timeout: timeoutMs }, (upstream) => {
+      const headers = {
+        "content-type": upstream.headers["content-type"] || "application/octet-stream",
+        "cache-control": "no-store",
+        "access-control-allow-origin": "*",
+      };
+      if (upstream.headers["content-length"]) headers["content-length"] = upstream.headers["content-length"];
+      res.writeHead(upstream.statusCode || 502, headers);
+      upstream.pipe(res);
+      upstream.on("end", resolve);
+      upstream.on("error", reject);
+    });
+    req.on("timeout", () => req.destroy(new Error(`${engine} mesh segment timed out`)));
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 async function workerHealth(engine) {
   try { return await requestWorker(engine, "GET", "/health", null, 800); } catch { return null; }
 }
@@ -254,6 +275,13 @@ const server = http.createServer(async (req, res) => {
       if (path.dirname(file) !== path.resolve(GENERATED_ROOT) || !fs.existsSync(file)) throw new Error("Generated mesh not found.");
       sendFile(res, file, "application/octet-stream"); return;
     }
+    if (req.method === "GET" && /^\/live-mesh\/[a-z0-9-]+\.meshframes$/i.test(url.pathname)) {
+      const name = path.basename(url.pathname);
+      const state = await workerHealth("ardyLive");
+      if (!state?.ok) throw new Error("The live ARDY worker is not available.");
+      await proxyWorkerBinary("ardyLive", `/live/mesh/${name}`, res);
+      return;
+    }
     if (req.method === "GET" && /^\/generated\/[a-z0-9-]+\.npz$/i.test(url.pathname)) {
       const file = path.resolve(GENERATED_ROOT, path.basename(url.pathname));
       if (path.dirname(file) !== path.resolve(GENERATED_ROOT) || !fs.existsSync(file)) throw new Error("Motion export not found.");
@@ -316,7 +344,7 @@ const server = http.createServer(async (req, res) => {
       await ensureWorker("ardyLive");
       const workerPath = url.pathname === "/api/live/start" ? "/live/start" : "/live/step";
       const output = await requestWorker("ardyLive", "POST", workerPath, body);
-      if (output.ok && output.motion?.meshFrameFile) output.motion.meshFramesUrl = `/generated/${output.motion.meshFrameFile}`;
+      if (output.ok && output.motion?.meshFrameToken) output.motion.meshFramesUrl = `/live-mesh/${output.motion.meshFrameToken}`;
       sendJson(res, output.ok ? 200 : 400, output); return;
     }
     if (req.method === "POST" && url.pathname === "/api/live/export") {

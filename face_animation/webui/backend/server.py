@@ -16,7 +16,7 @@ from runtime_watchdog import start_parent_watchdog
 start_parent_watchdog()
 
 
-HOST = "127.0.0.1"
+HOST = os.environ.get("FACE_LAB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("FACE_LAB_BACKEND_PORT", "8794"))
 WEBUI_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = WEBUI_ROOT.parent
@@ -32,7 +32,7 @@ AVATAR = {
 
 def service_running(port: int) -> bool:
     try:
-        with socket.create_connection((HOST, port), timeout=0.08):
+        with socket.create_connection(("127.0.0.1", port), timeout=0.08):
             return True
     except OSError:
         return False
@@ -96,7 +96,7 @@ class FacePipelineHandler(BaseHTTPRequestHandler):
                         "detail": AVATAR["detail"],
                         "ready": avatar_path.exists(),
                         "sizeMb": round(avatar_path.stat().st_size / 1048576, 1) if avatar_path.exists() else 0,
-                        "url": f"http://{HOST}:{PORT}/avatar.vrm",
+                        "url": f"http://{self.headers.get('Host', f'127.0.0.1:{PORT}')}/avatar.vrm",
                     },
                 },
             )
