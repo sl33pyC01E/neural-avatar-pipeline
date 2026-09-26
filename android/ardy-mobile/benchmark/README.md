@@ -1,6 +1,6 @@
 # Gemma phone measurements
 
-The active model is **Gemma 4 E2B** on LiteRT CPU/GPU, alongside live Ardy,
+The comparison harness targets **Gemma 4 E2B** on LiteRT CPU/GPU, alongside live Ardy,
 Pocket/Anna, LAM and Cleopatra VRM. Qwen and separate Whisper/WhisperX transcription
 are retired. Historical reports/recipes remain as research records; the custom
 Spark export is cancelled and must not restart. `archive/models-before-gemma-only.json`
@@ -34,3 +34,8 @@ processes but may exclude shared GPU allocations. No NPU integration is claimed.
 provisions Gemma without launching the app. It no longer builds/copies native
 chat or ASR servers. The current full bundle is 2,588,147,712 bytes with SHA-256
 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
+
+The app also offers the full Gemma E4B bundle in tab 7 (3,659,530,240 bytes).
+Provisioning includes both pinned bundles; app selection also applies to tabs
+8–9. The command-line harness still targets E2B; use the app for E4B comparisons
+until that harness is extended. No E4B phone benchmark is claimed.

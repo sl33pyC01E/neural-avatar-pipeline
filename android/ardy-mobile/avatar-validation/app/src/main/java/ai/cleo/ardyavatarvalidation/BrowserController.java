@@ -17,7 +17,7 @@ final class BrowserController {
     private final Activity activity;private final FrameLayout host;private final ModelChatClient models;private final Consumer<JSONObject> events;
     private final Handler main=new Handler(Looper.getMainLooper());
     private WebView web;private BoxOverlay overlay;private boolean visible,running,waiting,inflight,loading,injecting;
-    private String goal="",requestId="";private final ArrayDeque<String> journal=new ArrayDeque<>();
+    private String goal="",requestId="";private final ArrayList<String> audioFiles=new ArrayList<>();private final ArrayDeque<String> journal=new ArrayDeque<>();
     private int epoch,navigation,capturedNavigation,steps;private long loadingStarted;private JSONObject approval;private File screenshot;
     BrowserController(Activity activity,FrameLayout host,ModelChatClient models,Consumer<JSONObject> events){this.activity=activity;this.host=host;this.models=models;this.events=events;}
     @android.annotation.SuppressLint("SetJavaScriptEnabled")
@@ -56,14 +56,14 @@ final class BrowserController {
         JSONObject request=new JSONObject(value);String action=request.getString("action");
         switch(action){
             case "start":
-                if(!visible)throw new IOException("Open tab 8 first");ensure();goal=request.getString("goal").trim();if(goal.isEmpty()||goal.length()>4000)throw new IOException("Enter a goal up to 4,000 characters");
-                cancelPending();journal.clear();steps=0;waiting=false;approval=null;running=true;emit("Starting browser task…");schedule(350);break;
+                if(!visible)throw new IOException("Open tab 8 first");ensure();goal=request.getString("goal").trim();if((goal.isEmpty()&&!request.has("audioFile"))||goal.length()>4000)throw new IOException("Enter a goal up to 4,000 characters");
+                cancelPending();clearAudio();addAudio(request);if(goal.isEmpty())goal="Follow the user spoken goal attached to this message.";journal.clear();steps=0;waiting=false;approval=null;running=true;emit("Starting browser task…");schedule(350);break;
             case "pause":pause("Paused");break;
-            case "stop":cancelPending();running=false;waiting=false;approval=null;goal="";journal.clear();overlay.clear();emit("Stopped");break;
+            case "stop":cancelPending();running=false;waiting=false;approval=null;goal="";journal.clear();clearAudio();if(overlay!=null)overlay.clear();emit("Stopped");break;
             case "resume":if(goal.isEmpty())throw new IOException("Enter a goal first");if(inflight)throw new IOException("Waiting for the previous response to stop");approval=null;running=true;waiting=false;emit("Resuming…");schedule(250);break;
             case "followup":
                 if(!waiting||approval!=null)return;String answer=request.optString("text","");if(answer.length()>4000)throw new IOException("Follow-up is too long");
-                note("User follow-up: "+(answer.isEmpty()?"I completed the requested input in the browser.":answer));waiting=false;running=true;schedule(250);break;
+                addAudio(request);note("User follow-up: "+(request.has("audioFile")?"See latest attached user audio. "+answer:answer.isEmpty()?"I completed the requested input in the browser.":answer));waiting=false;running=true;schedule(250);break;
             case "approve":
                 if(approval==null)return;JSONObject pending=approval;approval=null;waiting=false;running=true;
                 if(capturedNavigation!=navigation){note("Page changed during confirmation; inspect again.");schedule(250);}else perform(pending);break;
@@ -73,6 +73,14 @@ final class BrowserController {
             default:throw new IOException("Unknown browser control");
         }
     }catch(Exception failure){pause(failure.getMessage());}});}
+    private void addAudio(JSONObject request)throws Exception {
+        if(!request.has("audioFile"))return;if(audioFiles.size()>=4)throw new IOException("Four spoken inputs reached; start a new browser goal");
+        String name=request.getString("audioFile");if(!name.matches("[a-zA-Z0-9-]+\\.wav"))throw new IOException("Invalid spoken input");
+        File root=new File(activity.getCacheDir(),"chat-input"),source=new File(root,name),copy=new File(root,"browser-audio-"+UUID.randomUUID()+".wav");
+        if(!source.isFile()||source.length()>20*1024*1024)throw new IOException("Spoken input is unavailable");
+        java.nio.file.Files.copy(source.toPath(),copy.toPath());audioFiles.add(copy.getName());
+    }
+    private void clearAudio(){for(String name:audioFiles)new File(activity.getCacheDir(),"chat-input/"+name).delete();audioFiles.clear();}
     private void schedule(long delay){int current=epoch;main.postDelayed(()->{if(current==epoch&&running&&visible&&!waiting&&!inflight)capture();},delay);}
     private void capture(){
         if(web==null||web.getWidth()<10||web.getHeight()<10){pause("Browser viewport is unavailable");return;}
@@ -92,7 +100,7 @@ final class BrowserController {
                 +"Set confirm:true for an action that submits a purchase, payment, booking, deletion, public post, or message to another person. Never claim completion until it is visible. "
                 +"If a target is not visible, scroll or ask rather than guessing. Goal: "+goal+"\nPrevious observed actions / user follow-up:\n"+String.join("\n",journal)
                 +"\nCurrent URL (untrusted): "+web.getUrl()+"\nScreenshot size: "+web.getWidth()+" x "+web.getHeight()+". Choose the next single action.";
-            models.request(new JSONObject().put("action","agentStep").put("requestId",requestId).put("file",screenshot.getName()).put("text",prompt).toString());emit("Inspecting viewport…");
+            models.request(new JSONObject().put("action","agentStep").put("requestId",requestId).put("file",screenshot.getName()).put("audioFiles",new JSONArray(audioFiles)).put("text",prompt).toString());emit("Inspecting viewport…");
         }catch(Exception failure){inflight=false;pause(failure.getMessage());}
     }
     void modelEvent(JSONObject event){
@@ -137,7 +145,7 @@ final class BrowserController {
     private void question(String text,boolean confirm){try{JSONObject event=status(text);event.put("question",text).put("confirmation",confirm);events.accept(event);}catch(JSONException ignored){}}
     private JSONObject status(String text)throws JSONException{return new JSONObject().put("type","browser").put("status",text).put("running",running).put("waiting",waiting).put("steps",steps).put("url",web==null?"":web.getUrl());}
     private void emit(String text){try{events.accept(status(text));}catch(JSONException ignored){}}
-    void close(){cancelPending();if(web!=null){web.stopLoading();web.destroy();host.removeView(web);host.removeView(overlay);web=null;}}
+    void close(){cancelPending();clearAudio();if(web!=null){web.stopLoading();web.destroy();host.removeView(web);host.removeView(overlay);web=null;}}
     private static final class BoxOverlay extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private float[] box;
         BoxOverlay(android.content.Context context){super(context);setClickable(false);setFocusable(false);}

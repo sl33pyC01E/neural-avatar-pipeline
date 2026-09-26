@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "versionCode": 15,
+  "versionName": "0.7.0-gemma-controls",
+  "assembleDebug": true,
+  "lintDebug": true,
+  "lintErrors": 0,
+  "lintWarnings": 10,
+  "apkSignatureVerified": true,
+  "direction": {
+    "passed": true,
+    "phoneTest": false,
+    "shortestAngle": true,
+    "overlapContinuity": true,
+    "playbackStallHolds": true,
+    "manualCameraWins": true,
+    "stopKeepsPlacement": true
+  },
+  "phoneTest": false
+}

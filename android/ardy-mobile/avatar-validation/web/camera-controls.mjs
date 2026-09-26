@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export function createCameraControls(canvas,camera,invalidate) {
+export function createCameraControls(canvas,camera,invalidate,onManual=()=>{}) {
   const bodyDefault={yaw:.18,pitch:1.4,radius:3.4,height:.78,pan:[0,0,0]};
   let state=structuredClone(bodyDefault),body,face,faceDefault,isFace=false;
   const points=new Map(),target=new THREE.Vector3();
@@ -8,11 +8,11 @@ export function createCameraControls(canvas,camera,invalidate) {
   const release=event=>points.delete(event.pointerId);
   canvas.addEventListener('pointerdown',event=>{
     if(event.pointerType==='mouse'&&event.button!==0)return;
-    canvas.setPointerCapture(event.pointerId);points.set(event.pointerId,[event.clientX,event.clientY]);
+    onManual();canvas.setPointerCapture(event.pointerId);points.set(event.pointerId,[event.clientX,event.clientY]);
   });
   for(const name of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(name,release);
   window.addEventListener('blur',()=>points.clear());
-  const zoom=ratio=>{state.radius=THREE.MathUtils.clamp(state.radius*ratio,isFace ? .25 : 1,7);};
+  const zoom=ratio=>{state.radius=THREE.MathUtils.clamp(state.radius*ratio,.3,7);};
   canvas.addEventListener('pointermove',event=>{
     const old=points.get(event.pointerId);if(!old)return;
     const before=[...points.values()].slice(0,2);
@@ -36,10 +36,13 @@ export function createCameraControls(canvas,camera,invalidate) {
     }
     invalidate();
   });
-  canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(event.deltaY*.001));invalidate();},{passive:false});
+  canvas.addEventListener('wheel',event=>{event.preventDefault();onManual();zoom(Math.exp(event.deltaY*.001));invalidate();},{passive:false});
   return {
-    snapshot,clearPointers(){points.clear();},
-    reset(){state=structuredClone(isFace?faceDefault:bodyDefault);points.clear();invalidate();},
+    snapshot,
+    direction:()=>({yaw:THREE.MathUtils.radToDeg(state.yaw),elevation:90-THREE.MathUtils.radToDeg(state.pitch),distance:state.radius,height:state.height+state.pan[1],pan_x:state.pan[0],pan_z:state.pan[2]}),
+    applyDirection(value){if(!value)return;state={yaw:THREE.MathUtils.degToRad(value.yaw),pitch:THREE.MathUtils.degToRad(90-value.elevation),radius:value.distance,height:value.height,pan:[value.pan_x,0,value.pan_z]};},
+    clearPointers(){points.clear();},
+    reset(){onManual();state=structuredClone(isFace?faceDefault:bodyDefault);points.clear();invalidate();},
     setFaceView(value,height){
       if(isFace===value)return;
       points.clear();

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {AvatarDirection} from '../avatar-validation/web/avatar-direction.mjs';
+let camera={yaw:170,elevation:0,distance:.62,height:1.5,pan_x:0,pan_z:0};
+const root={position:{set(x,y,z){Object.assign(this,{x,y,z});}},rotation:{y:0}};
+const d=new AvatarDirection({direction:()=>({...camera}),applyDirection:value=>{camera={...value};}},root);
+d.stage({expression:'neutral',strength:0,camera:{yaw:-170},root:{x:1},schedule:[{at_seconds:1,transition_seconds:1,root:{x:2}},{at_seconds:1.5,transition_seconds:1,root:{x:3}}]});
+d.advance(-1);assert.equal(camera.yaw,170);assert.equal(d.state.root.x,0);
+d.advance(.175);assert.equal(camera.yaw,180,'Camera took the long rotation path');
+d.advance(.35);assert.equal(camera.yaw,-170);
+d.advance(1.5);assert.equal(d.state.root.x,1.5,'Overlap did not begin from the current position');
+const hold=d.snapshot();d.advance(1.5);d.advance(-1);assert.deepEqual(d.snapshot(),hold,'Stalled playback advanced cues');
+d.advance(2);assert.equal(d.state.root.x,2.25);d.advance(2.5);assert.equal(d.state.root.x,3);
+d.cameraEnabled=false;camera.distance=2;d.advance(3);assert.equal(camera.distance,2,'Manual view was overwritten');
+d.clear();d.advance(20);assert.equal(root.position.x,3);assert.deepEqual(d.state.face,{eyes:1,mouth:1,head:1});
+console.log(JSON.stringify({passed:true,phoneTest:false,shortestAngle:true,overlapContinuity:true,playbackStallHolds:true,manualCameraWins:true,stopKeepsPlacement:true}));

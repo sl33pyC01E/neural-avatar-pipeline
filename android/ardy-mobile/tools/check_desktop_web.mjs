@@ -55,7 +55,7 @@ try {
           emit({type:'chat',channel:'chat',requestId:r.requestId,result:{text,reasoning:'Model reasoning'}});
         }
         emit({type:'chat',channel:r.action.startsWith('avatar')?'avatar':'chat',requestId:r.requestId,state:true,loaded:modelLoaded,busy:false,selection:modelSelection,history:chatHistory,turns:chatHistory.length/2,metrics:{firstTokenMs:125,totalMs:500,prefixCache:'Retained',memory:{pssKb:1048576,peakPssKb:1050000,complete:true}}});
-      },browserBounds(raw){window.browserBounds=JSON.parse(raw);},browserCommand(raw){window.browserRequests.push(JSON.parse(raw));},chatAttach(kind){window.attachKind=kind;},chatRecord(start){emit({type:'chat',recording:start});},
+      },browserBounds(raw){window.browserBounds=JSON.parse(raw);},browserCommand(raw){window.browserRequests.push(JSON.parse(raw));},inputAttach(kind,scope){window.attachRequest={kind,scope};},inputRecord(start,scope){emit({type:'chat',recording:start,inputScope:scope});},chatAttach(kind){window.attachKind=kind;},chatRecord(start){emit({type:'chat',recording:start});},
       state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',nickname:'Relaxed speaking idle',text:'Small speaking gestures'},{id:'bank:wave',nickname:'Right hand wave',text:'Wave with the right hand'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
       startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.performanceEmbedding=embedding;window.Cleo.start(profile,embedding,stream);},
@@ -95,6 +95,13 @@ try {
   assert(/swiftshader/i.test(graphics),'CPU renderer not selected: '+graphics);
   const relaxed=await evaluate(`(()=>{const v=window.avatarValidation.vrm,n=name=>v.humanoid.getNormalizedBoneNode(name),y=name=>n(name).matrixWorld.elements[13];return ['left','right'].every(side=>y(side+'Hand')<y(side+'UpperArm')-.25&&y(side+'LowerArm')<y(side+'UpperArm')-.15)})()`);
   assert(relaxed,'Default avatar arms are not relaxed below the shoulders');
+  assert.equal(await evaluate('window.avatarValidation.cameraControls.snapshot().radius'),.62,'Avatar does not default to face distance');
+  const idleFrame=await evaluate('window.avatarValidation.renderer.info.render.frame');await sleep(180);
+  assert(await evaluate('window.avatarValidation.renderer.info.render.frame')>idleFrame,'Idle is not animating');
+  const idleCheck=await evaluate(`(()=>{const a=window.avatarValidation,head=a.vrm.humanoid.getNormalizedBoneNode('chest'),q=head.quaternion.clone();a.idle.restore();const base=head.quaternion.clone();a.idle.apply(4.25,.2,false,false);const blink=a.vrm.expressionManager.getValue('blink');a.idle.restore();return {blink,restored:head.quaternion.equals(base),changed:!q.equals(base)}})()`);
+  assert(idleCheck.blink>.8&&idleCheck.restored&&idleCheck.changed,'Idle animation is not reversible or does not blink');
+  await evaluate('document.querySelector("#idle-enabled").checked=false;document.querySelector("#idle-enabled").dispatchEvent(new Event("change"))');
+
 
   await evaluate("document.querySelector('#motion-controls').open=true;document.querySelector('#live').click()");await sleep(1800);
   assert(await evaluate('window.bridgeRequests')>0,'Motion requests missing');
@@ -261,22 +268,24 @@ try {
   assert.equal(await evaluate('document.querySelector("#vrm-contrast").value'),'1.21');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
   await evaluate('window.debugTabs.select("chat")');await sleep(100);
-  assert(await evaluate('document.querySelector("#chat-reasoning").checked'),'Browser reasoning should default on');
+  assert(await evaluate('!document.querySelector("#chat-reasoning").checked'),'Reasoning must default off');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:256});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
   assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'Retained · count unavailable');
   await evaluate('window.cleoEvent({type:"chat",attachment:{file:"test.png",kind:"image",label:"Test image"}});document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="send").at(-1).kind'),'image');
-  await evaluate('document.querySelector("#chat-reasoning").checked=false;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"))');
+  await evaluate('document.querySelector("#chat-model").value="gemma-e4b";document.querySelector("#chat-model").dispatchEvent(new Event("change"));document.querySelector("#image-budget").value="560";document.querySelector("#image-budget").dispatchEvent(new Event("change"))');
   assert(await evaluate('document.querySelector("#chat-send").disabled'),'Changed runtime settings were silently ignored');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),0);
-  assert(await evaluate('!document.querySelector("#chat-whisper")&&!document.querySelector("#chat-model")'),'Removed models still advertised');
-  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("fixes image allocation")'),'Unsupported image controls');
+  assert(await evaluate('!document.querySelector("#chat-whisper")&&[...document.querySelector("#chat-model").options].map(o=>o.value).join(",")==="gemma,gemma-e4b"'),'Removed models still advertised');
+  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("560 tokens/image")'),'Image budget not displayed');
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).visualTokens'),560);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).model'),'gemma-e4b');
   await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(100);
   await evaluate('document.querySelector("#chat-text").value="Stream test";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert(await evaluate('!document.querySelector("#chat-log .assistant .reasoning").open&&!document.querySelector("#chat-log .assistant .reasoning").hidden'),'Reasoning not available collapsed');
@@ -295,6 +304,11 @@ try {
   assert(await evaluate('!document.querySelector("#browser-confirm").hidden&&document.querySelector("#browser-followup-form").hidden'));
   await evaluate('document.querySelector("#browser-reject").click();window.cleoEvent({type:"browser",status:"Paused",running:false,waiting:false})');
   const browserImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'browser-tab.png'),Buffer.from(browserImage.data,'base64'));
+  await evaluate('window.cleoEvent({type:"chat",inputScope:"browser",attachment:{file:"goal.wav",kind:"audio",label:"Spoken goal"}});document.querySelector("#browser-goal").value="";document.querySelector("#browser-form").requestSubmit()');
+  assert.deepEqual(await evaluate('window.browserRequests.at(-1)'),{action:'start',goal:'',audioFile:'goal.wav'});
+  assert.equal(await evaluate('document.querySelector("#chat-attachment").textContent'),'','Browser audio leaked to chat');
+  await evaluate('window.cleoEvent({type:"browser",status:"Input needed",waiting:true,question:"Which one?",confirmation:false});window.cleoEvent({type:"chat",inputScope:"browser",attachment:{file:"answer.wav",kind:"audio",label:"Spoken answer"}});document.querySelector("#browser-followup-form").requestSubmit()');
+  assert.equal(await evaluate('window.browserRequests.at(-1).audioFile'),'answer.wav');
   // Tab 9 uses the real renderer/track, with model responses and native sessions stubbed.
   await evaluate('window.debugTabs.select("cleopatra")');await sleep(150);
   assert(await evaluate('document.querySelector("#cleopatra-send").disabled'),'Send enabled before all models load');
@@ -302,8 +316,9 @@ try {
   assert.equal(await evaluate('window.warmRequest.profile'),'core40');
   assert.equal(await evaluate('window.warmRequest.precision'),'mixed');
   assert(await evaluate('!document.querySelector("#cleopatra-send").disabled'),'Load all did not enable Send');
-  await evaluate('document.querySelector("#cleopatra-text").value="Hello Cleopatra";document.querySelector("#cleopatra-form").requestSubmit()');await sleep(60);
+  await evaluate('window.cleoEvent({type:"chat",inputScope:"cleopatra",attachment:{file:"hello.wav",kind:"audio",label:"Voice input"}});document.querySelector("#cleopatra-text").value="";document.querySelector("#cleopatra-form").requestSubmit()');await sleep(60);
   const avatarRequest=await evaluate('window.chatRequests.filter(r=>r.action==="avatarSend").at(-1)');
+  assert.equal(avatarRequest.kind,'audio');assert.equal(avatarRequest.file,'hello.wav');
   assert.equal(avatarRequest.motions.find(x=>x.key==='wave').id,'bank:wave');
   await evaluate(`window.avatarRequestId=${JSON.stringify(avatarRequest.requestId)};window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,partial:'Hello',reasoning:'Choose a friendly wave.'})`);
   assert.equal(await evaluate('document.querySelector("#cleopatra-log article:last-child>div").textContent'),'Hello');
@@ -313,7 +328,7 @@ try {
   const takeCount=await evaluate('window.performanceStarts');
   await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,avatarTool:{name:'avatar_stage',arguments:{motion:'wave'},result:{ok:true}}})`);
   assert.equal(await evaluate('window.performanceStarts'),takeCount,'Tool call started playback before the answer completed');
-  await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,result:{text:'Hello there!',reasoning:'Choose a friendly wave.',avatarPlan:{embeddingId:'bank:wave',expression:'happy',strength:.2,cue_seconds:.25,tail_seconds:.75}}})`);await sleep(150);
+  await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,result:{text:'Hello there!',reasoning:'Choose a friendly wave.',avatarPlan:{embeddingId:'bank:wave',expression:'happy',strength:.2,cue_seconds:.25,tail_seconds:.75,camera:{distance:1},root:{x:.5,heading:90},face:{head:.5},schedule:[{at_seconds:1,transition_seconds:.2,camera:{distance:1.5},root:{heading:45}}]}}})`);await sleep(150);
   assert.equal(await evaluate('window.performanceEmbedding'),'bank:wave','Live Ardy did not receive the tool-selected cached embedding');
   assert.equal(await evaluate('document.querySelector("#bank").value'),'bank:check','Tool overwrote manual Ardy selection');
   assert.equal(await evaluate('window.talkArguments[0]'),'Hello there!','Reasoning/tool syntax leaked into speech');
@@ -327,6 +342,13 @@ try {
   assert.equal(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")'),0);
   await evaluate('window.testClock=.6');await sleep(100);
   assert(Math.abs(await evaluate('window.validationState.performance.motionSeconds')-.6)<1e-5);
+  assert(Math.abs(await evaluate('window.avatarValidation.stageRoot.rotation.y')-Math.PI/2)<1e-5,'Scheduled body heading not applied');
+  assert.equal(await evaluate('window.avatarValidation.cameraControls.snapshot().radius'),1,'Initial camera control not applied');
+  const frozen=await evaluate('window.validationState.direction');await sleep(150);
+  assert.deepEqual(await evaluate('window.validationState.direction'),frozen,'Controls advanced while audio clock stalled');
+  await evaluate('window.testClock=1.3');await sleep(150);
+  assert.equal(await evaluate('window.avatarValidation.cameraControls.snapshot().radius'),1.5,'Timed camera cue did not run');
+  assert(Math.abs(await evaluate('window.avatarValidation.stageRoot.rotation.y')-Math.PI/4)<1e-5,'Timed heading cue did not run');
   const agentImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'cleopatra-tab.png'),Buffer.from(agentImage.data,'base64'));
   await evaluate(`document.querySelector('#cleopatra-stop').click();window.cleoEvent({type:'speechEnd',tab:'cleopatra',withFace:true,completed:false,message:'Stopped'});window.Cleo.chat(JSON.stringify({action:'status'}))`);await sleep(150);
   await evaluate('document.querySelector("#cleopatra-text").value="Cancel this";document.querySelector("#cleopatra-form").requestSubmit()');await sleep(80);
@@ -345,7 +367,7 @@ try {
   assert(await evaluate('document.querySelector("#chat-send").getBoundingClientRect().bottom<=520'),'Keyboard-sized chat hides Send');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
-    defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
+    faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};

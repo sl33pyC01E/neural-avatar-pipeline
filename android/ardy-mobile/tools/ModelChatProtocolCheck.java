@@ -30,6 +30,20 @@ public final class ModelChatProtocolCheck {
         rejects(()->new AvatarToolApi(new JSONArray().put(new JSONObject().put("key","a").put("id","../../file").put("label","bad")),new JSONArray()));
         api.reset();api.execute("avatar_stage",new JSONObject(valid.toString()).put("strength",0).put("cue_seconds",0).put("tail_seconds",.5));
         api.execute("avatar_stage",new JSONObject(valid.toString()).put("strength",.75).put("cue_seconds",3).put("tail_seconds",3));
+        JSONObject extended=new JSONObject(valid.toString()).put("camera",new JSONObject().put("distance",.62).put("yaw",25))
+            .put("root",new JSONObject().put("x",1).put("heading",90)).put("face",new JSONObject().put("head",.5))
+            .put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("transition_seconds",.5).put("camera",new JSONObject().put("distance",2)))
+                .put(new JSONObject().put("at_seconds",2).put("expression","happy").put("strength",.3)));
+        api.reset();check(api.execute("avatar_stage",extended).getJSONObject("plan").getJSONArray("schedule").length()==2,"Timed avatar controls preserved");
+        for(JSONObject bad:List.of(new JSONObject().put("root",new JSONObject().put("x",4)),new JSONObject().put("root",new JSONObject().put("y",1)),
+            new JSONObject().put("camera",new JSONObject().put("distance",0)),new JSONObject().put("camera",new JSONObject().put("yaw","20")),new JSONObject().put("face",new JSONObject().put("mouth",3)),
+            new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",2).put("root",new JSONObject().put("x",1))).put(new JSONObject().put("at_seconds",1).put("root",new JSONObject().put("x",2)))),
+            new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("expression","aa").put("strength",.1))),
+            new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1))),
+            new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",31).put("root",new JSONObject().put("x",1)))))) {
+            JSONObject call=new JSONObject(valid.toString());for(String key:bad.keySet())call.put(key,bad.get(key));api.reset();rejects(()->api.execute("avatar_stage",call));
+        }
+        ExperimentalFlags.INSTANCE.setVisualTokenBudget(560);check(ExperimentalFlags.INSTANCE.getVisualTokenBudget()==560,"Actual Android SDK visual budget setter");ExperimentalFlags.INSTANCE.setVisualTokenBudget(280);
         final String schema=api.description().toString();
         ToolManager manager=new ToolManager(List.of(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return schema;}public String execute(String args){throw new AssertionError("Automatic tool execution");}})));
         String adapted=manager.getToolsDescription().toString();
@@ -44,6 +58,6 @@ public final class ModelChatProtocolCheck {
         check(BrowserAction.parse("{\"action\":\"ask\",\"question\":\"Which tab?\"}").getString("action").equals("ask"),"Follow-up action");
         BrowserAction.parse("{\"action\":\"done\",\"summary\":\"Finished\"}");
 
-        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
+        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
     }
 }

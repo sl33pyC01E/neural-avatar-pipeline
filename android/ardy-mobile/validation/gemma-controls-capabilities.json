@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "model": "E2B",
+      "patchWidth": 16,
+      "patchHeight": 16,
+      "maxPatches": 2520,
+      "defaultVisualBudget": 280,
+      "runtimeContext": 4096,
+      "squareResolution": 768
+    },
+    {
+      "model": "E4B",
+      "patchWidth": 16,
+      "patchHeight": 16,
+      "maxPatches": 2520,
+      "defaultVisualBudget": 280,
+      "runtimeContext": 4096,
+      "squareResolution": 768
+    }
+  ],
+  "configurableVisualBudgets": [
+    70,
+    140,
+    280,
+    560,
+    1120
+  ],
+  "sdk": "LiteRT-LM 0.17.1",
+  "api": "ExperimentalFlags.INSTANCE.setVisualTokenBudget",
+  "verifiedEngineAndSendBytecodeReadFlag": true,
+  "reasoningDefault": false,
+  "phoneInference": false
+}

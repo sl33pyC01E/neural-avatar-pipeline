@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {AvatarDirection} from './avatar-direction.mjs';
+import {createIdleAnimation} from './idle-animation.mjs';
 import {relaxedStance} from './relaxed-stance.mjs';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from './vendor/three-vrm.module.js';
@@ -13,8 +15,8 @@ import { createAppearanceControls } from './appearance-controls.mjs';
 const status = document.querySelector('#status');
 const canvas = document.querySelector('canvas');
 export async function createAvatarView() {
-  let visible=false,frameId=0,initialized=false;
-  function invalidate(){if(initialized&&visible&&!frameId)frameId=requestAnimationFrame(frame);}
+  let visible=false,frameId=0,idleTimer=0,initialized=false,idleEnabled=true;
+  function invalidate(){if(idleTimer){clearTimeout(idleTimer);idleTimer=0;}if(initialized&&visible&&!frameId)frameId=requestAnimationFrame(frame);}
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   function fitViewport() {
     const top = document.querySelector('header').getBoundingClientRect().bottom + 12;
@@ -36,7 +38,7 @@ export async function createAvatarView() {
   light.position.set(1.5, 3.5, 2); scene.add(light);
   const grid = new THREE.GridHelper(12, 60, 0x537c6a, 0x243d32); scene.add(grid);
   const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 30);
-  const cameraControls=createCameraControls(canvas,camera,invalidate);
+  const cameraControls=createCameraControls(canvas,camera,invalidate,()=>{direction.cameraEnabled=false;});
   document.querySelector('#camera-reset').onclick=()=>cameraControls.reset();
 
   const loader = new GLTFLoader(); loader.register(parser => new VRMLoaderPlugin(parser));
@@ -56,7 +58,7 @@ export async function createAvatarView() {
   VRMUtils.removeUnnecessaryVertices(vrm.scene);
   const after = geometryStats();
   vrm.scene.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
-  scene.add(vrm.scene); vrm.scene.updateMatrixWorld(true);
+  const stageRoot=new THREE.Group();stageRoot.add(vrm.scene);scene.add(stageRoot);stageRoot.updateMatrixWorld(true);
   const appearance=createAppearanceControls(vrm,renderer,fill,light,invalidate);
   const faceDriver=createFaceDriver(vrm);let speaking=false,faceStream=null;const faceSegments=[];
   const position = name => vrm.humanoid.getRawBoneNode(name)?.getWorldPosition(new THREE.Vector3());
@@ -65,7 +67,13 @@ export async function createAvatarView() {
   const retarget = createRetargeter(vrm, bind, alignment);
   retarget.reset();relaxedStance(vrm);
   const faceControls=createFaceControls(vrm,faceDriver);
-  const setFaceView=value=>cameraControls.setFaceView(value,position('head').y-.02);
+  const setFaceView=value=>cameraControls.setFaceView(value,position('head').y+.10);
+  setFaceView(true);
+  const direction=new AvatarDirection(cameraControls,stageRoot),idle=createIdleAnimation(vrm);
+  document.querySelector('#view-face').onclick=()=>{setFaceView(true);cameraControls.reset();};
+  document.querySelector('#view-body').onclick=()=>{setFaceView(false);cameraControls.reset();};
+  const idleCheckbox=document.querySelector('#idle-enabled');try{idleEnabled=localStorage.getItem('cleo-idle')!=='false';}catch{}idleCheckbox.checked=idleEnabled;
+  idleCheckbox.onchange=()=>{idle.restore();idleEnabled=idleCheckbox.checked;try{localStorage.setItem('cleo-idle',String(idleEnabled));}catch{}invalidate();};
   for(const key of ['eyes','mouth','head']) {
     const slider=document.querySelector(`#face-${key}`),output=document.querySelector(`#face-${key}-value`);
     slider.value=faceControls.settings[key];output.textContent=`${Number(slider.value).toFixed(2)}×`;
@@ -86,14 +94,14 @@ export async function createAvatarView() {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
     if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;liveStream='';}
     performanceTrack=null;performanceGate=null;entryPose=null;
-    mode = value; started = performance.now(); retarget.reset();if(value==='rest')relaxedStance(vrm); vrm.springBoneManager?.setInitState();
-    if(value==='rest')status.textContent=`Relaxed stance · display sleeps until input\n${after.vertices.toLocaleString()} vertices`;
+    idle.restore();direction.clear();mode = value; started = performance.now();stageRoot.position.set(0,0,0);stageRoot.rotation.y=0;stageRoot.updateMatrixWorld(true);retarget.reset();if(value==='rest'||value==='live')relaxedStance(vrm); vrm.springBoneManager?.setInitState();
+    if(value==='rest')status.textContent=`Relaxed stance · ${idleEnabled?'gentle idle':'display sleeps until input'}\n${after.vertices.toLocaleString()} vertices`;
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     invalidate();
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   // Local replay/renderer inspection hook. Native engines are exposed only on the offline asset origin.
-  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls,cameraControls,camera,appearance };
+  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls,cameraControls,camera,appearance,direction,stageRoot,idle };
   const matrixQuaternion = values => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
     ...values[0], 0, ...values[1], 0, ...values[2], 0, 0, 0, 0, 1)).normalize();
   const rotations = motion.rotations.map(frame => frame.map(matrixQuaternion));
@@ -119,6 +127,7 @@ export async function createAvatarView() {
   }
   function beginPerformance(event){
     // Preserve the displayed pose while generation prepares a new frame-zero take.
+    idle.restore();
     entryPose=Object.values(vrm.humanoid.normalizedHumanBones).map(({node})=>({node,position:node.position.clone(),quaternion:node.quaternion.clone()}));
     entryRoot=[...heldRoot];
     liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=document.querySelector('#profile').value;
@@ -198,10 +207,13 @@ export async function createAvatarView() {
   console.log('CLEO_READY ' + JSON.stringify(window.validationState));
   function frame(now) {
     frameId=0;if(!visible)return;
-    const workStarted = performance.now();
+    const workStarted = performance.now();idle.restore();
     const dt = Math.min((now-last)/1000, .05); last = now;
     const elapsed = Math.max(0,now - started)/1000;
     const trackClock=performanceTrack?performanceTrack.sample(window.Cleo?.playbackSeconds()??-1):null;
+    if(trackClock&&performanceTrack.started)direction.advance(trackClock.trackSeconds);
+    // Retarget in the calibrated stage coordinate system; apply floor placement after solving.
+    stageRoot.position.set(0,0,0);stageRoot.rotation.y=0;stageRoot.updateMatrixWorld(true);
     const currentRoot = performanceTrack?[...heldRoot]:[0, standing, 0];let bodyApplied=false;
     if(mode==='live') {
       const sample=performanceTrack?(performanceTrack.started?liveBuffer.sampleAt(trackClock.bodySeconds):null):liveBuffer.sample(liveError||livePaused?0:dt);
@@ -243,19 +255,21 @@ export async function createAvatarView() {
         const segment=faceSegments[0];
         const position=THREE.MathUtils.clamp((time-segment.startSeconds)*30,0,segment.frames.length-1);
         const a=Math.floor(position),b=Math.min(a+1,segment.frames.length-1),alpha=position-a;
-        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1);
+        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1,direction.state.face);
       }
     }
-    if(stagedPlan&&speaking&&performanceTrack){
-      const name=stagedPlan.expression;
-      if(name!=='neutral'&&vrm.expressionManager?.getExpression(name))vrm.expressionManager.setValue(name,Math.min(.75,Math.max(0,stagedPlan.strength))*(trackClock?.faceWeight??0));
+    if(direction.active&&speaking&&performanceTrack?.started){
+      for(const [name,value] of Object.entries(direction.state.expressions))if(vrm.expressionManager?.getExpression(name))vrm.expressionManager.setValue(name,value);
     }
+    const bodyActive=mode==='replay'||mode==='turn'||(mode==='live'&&bodyApplied&&!livePaused&&!liveError&&(!performanceTrack||performanceTrack.started&&!performanceTrack.finished));
+    const faceActive=speaking&&faceSegments.length>0&&(trackClock?trackClock.faceSeconds>=0:(window.Cleo?.playbackSeconds()??-1)>=0);
+    if(idleEnabled)idle.apply(now/1000,dt,bodyActive,faceActive);
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
-    vrm.scene.updateMatrixWorld(true);
+    direction.apply();stageRoot.updateMatrixWorld(true);
     heldRoot=[...currentRoot];
     if(trackClock)window.validationState.performance={...trackClock,motionSeconds:liveBuffer.seconds,motionEndSeconds:liveBuffer.endSeconds,origin:liveBuffer.origin,gate:performanceGate?.seconds??null,finished:performanceTrack.finished};
-    cameraControls.update(currentRoot);
+    cameraControls.update(new THREE.Vector3(...currentRoot).applyMatrix4(stageRoot.matrixWorld).toArray());
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (canvas.width !== Math.round(width*renderer.getPixelRatio()) || canvas.height !== Math.round(height*renderer.getPixelRatio())) {
       renderer.setSize(width,height,false); camera.aspect=width/height; camera.updateProjectionMatrix();
@@ -273,14 +287,16 @@ export async function createAvatarView() {
       window.Cleo?.benchmarkFrame?.(JSON.stringify(metrics));
     }
     const activePerformance=performanceTrack?.started&&!performanceTrack.finished;
+    window.validationState.idle={enabled:idleEnabled,body:!bodyActive,face:!faceActive};window.validationState.direction=direction.snapshot();
     if(activePerformance||(!performanceTrack&&speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(!performanceTrack&&mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
+    else if(idleEnabled)idleTimer=setTimeout(()=>{idleTimer=0;invalidate();},1000/20);
   }
   const setVisible=value=>{
     visible=Boolean(value)&&!document.hidden;
-    if(!visible){cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
+    if(!visible){clearTimeout(idleTimer);idleTimer=0;cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
-  function stopFace(){stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
+  function stopFace(){idle.restore();direction.clear();stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
   initialized=true;
-  return {stage(plan){stagedPlan={...plan};},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {stage(plan){stagedPlan={...plan};direction.stage(plan);},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

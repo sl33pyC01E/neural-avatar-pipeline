@@ -1,7 +1,7 @@
-# In-app Gemma and browser: 0.6.0
+# In-app Gemma and browser: 0.7.0
 
-Gemma 4 E2B is the only conversational model. LiteRT-LM 0.17.1 loads the full
-`gemma-4-E2B-it.litertlm` bundle on CPU or GPU for decoder/vision, with the audio
+Gemma 4 E2B and E4B are selectable conversational models. LiteRT-LM 0.17.1 loads the full
+`gemma-4-E2B-it.litertlm` or `gemma-4-E4B-it.litertlm` bundle on CPU or GPU for decoder/vision, with the audio
 encoder on CPU. The separately named `-gpu` artifact is text-only and is unused.
 No Qwen, Whisper or WhisperX chat runtime is packaged. Ardy's LLM2Vec JNI remains.
 
@@ -9,13 +9,30 @@ No Qwen, Whisper or WhisperX chat runtime is packaged. Ardy's LLM2Vec JNI remain
 
 Load Gemma, then type, attach an image/WAV or record audio. Gemma receives audio
 directly. Attachments remain bounded to 20 MB; images to 16 megapixels. Reasoning
-defaults on with a 256-token budget (128/256/512 selectable). The actual package's
+defaults off, including a one-time migration of the previous default-on preference. When enabled, 128/256/512 tokens are selectable; subsequent choices persist. The actual package's
 template supports the reasoning toggle and emits a `thought` channel; the UI
 streams it separately from the answer in a collapsed-by-default disclosure.
 All generated text is inserted as text, never HTML. Only the answer is spoken.
 
 The engine uses a 4,096-token context and at most eight images per conversation;
-image allocation is controlled by the artifact and has no runtime slider here.
+image token budget is selectable: 70, 140, 280 (default), 560 or 1120. The real
+LiteRT 0.17.1 `ExperimentalFlags.visualTokenBudget` is set BEFORE engine creation
+and applies to every subsequent message, including browser screenshots. Changing
+it reloads the engine/conversations so the vision buffer allocation matches.
+These are experimental runtime configurations; device performance is user-tested.
+Both artifact metadata defaults specify 16x16 patches and 2520 maximum patches.
+Gemma4 pools 3x3 patches per visual token, giving a default budget of 280. The
+runtime preserves approximate aspect ratio and rounds dimensions to multiples
+of 48: square images become 384, 528, 768, 1104 or 1584 pixels per side for these
+budgets (64, 121, 256, 529 or 1089 actual visual tokens). It is not a fixed square
+input, and source image dimensions do not independently set the token budget.
+E2B/E4B's architectural context is 128K; this app intentionally allocates 4096,
+shared by system/tools, retained messages, media and output. No 128K phone claim.
+
+Sources: [Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4),
+[variable-resolution vision](https://ai.google.dev/gemma/docs/capabilities/vision/image),
+[LiteRT 0.17.1 experimental flag](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/kotlin/java/com/google/ai/edge/litertlm/ExperimentalFlags.kt),
+[resize implementation](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/support/preprocessor/image_preprocessor_utils.cc).
 Normal chat and tab 9 retain separate LiteRT conversations/prefixes. New chat
 resets that conversation; settings reload or Unload resets both. Browser steps
 use temporary conversations. A failed/cancelled conversation is reset. History
@@ -30,7 +47,11 @@ The model worker blocks when idle. Unload releases it; memory pressure may too.
 ## Tab 8: Browser
 
 The embedded Android WebView opens Google. Load a model in tab 7, enter a goal
-beneath the viewport and press Go. Each step captures only the browser viewport,
+beneath the viewport and press Go. A goal or follow-up can also be recorded or
+attached as WAV. Gemma receives that audio together with each viewport screenshot;
+there is no transcription service. Up to four spoken inputs are retained for a
+task, in order; start a new goal to clear them. Recording/picking pauses the loop.
+Audio copies stay private and are removed on task replacement/Stop/close. Each step captures only the browser viewport,
 sends it to the selected local model with the goal and recent actions, validates
 one returned action, performs it, and captures the next view. Supported actions
 are click, scroll up/down, type into the focused field, Enter, Back, ask and done.
@@ -48,7 +69,7 @@ Pause cancels a pending response and keeps the goal. Resume captures a fresh
 view. Stop clears the task. Leaving tab 8 or hiding the app pauses it. A pending
 click is guarded against pause, navigation and stale results. The browser shares
 tab 7's settings but does not mix browser turns into the normal chat history.
-Reasoning is enabled by default through the shared tab 7 setting.
+Reasoning defaults off through the shared tab 7 setting.
 
 The external browser has no Cleopatra JavaScript bridge, file access or content
 access. Pages cannot invoke model/service controls. Model output is parsed as

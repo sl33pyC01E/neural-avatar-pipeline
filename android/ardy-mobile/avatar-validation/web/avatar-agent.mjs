@@ -1,3 +1,4 @@
+import {mediaInput} from './media-input.mjs';
 import {streamMessage} from './stream-message.mjs';
 const $=selector=>document.querySelector(selector);
 // A bounded catalog of TEXT EMBEDDINGS. Ardy still generates every body frame live.
@@ -9,14 +10,16 @@ export function embeddingCatalog(bank=[]){
 }
 export function createAvatarAgent(chat,hooks){
   let active=false,warmId=null,loading=false,nativeReady=false,run=null,nativeConfig='',awaitingReady=false,historyKey='';
+  const media=mediaInput('cleopatra',{changed:controls,error:text=>status(text)});
   const components={ardy:'unloaded',pocket:'unloaded',lam:'unloaded'};
   const runtimeKey=()=>JSON.stringify(hooks.runtime());
   const status=text=>{$('#cleopatra-status').textContent=text;};
   function ready(){return active&&Boolean(hooks.avatar())&&nativeReady&&nativeConfig===runtimeKey()&&chat.ready();}
   function controls(){
     const model=chat.status();
-    $('#cleopatra-models').textContent=`VRM ${hooks.avatar()?'ready':'loading'} · Gemma ${model.loaded?(model.dirty?'settings changed':'resident'):model.busy?'loading':'unloaded'} · Ardy ${components.ardy} · Pocket ${components.pocket} · LAM ${components.lam}`;
+    $('#cleopatra-models').textContent=`VRM ${hooks.avatar()?'ready':'loading'} · Gemma ${model.selection?.model==='gemma-e4b'?'E4B':'E2B'} ${model.loaded?(model.dirty?'settings changed':'resident'):model.busy?'loading':'unloaded'} · Ardy ${components.ardy} · Pocket ${components.pocket} · LAM ${components.lam}`;
     $('#cleopatra-load').disabled=loading||Boolean(run)||model.busy||model.recording||!hooks.avatar();
+    media.block(Boolean(run)||loading||model.busy);
     $('#cleopatra-send').disabled=!ready()||Boolean(run)||loading;
     $('#cleopatra-new').disabled=Boolean(run)||model.busy||!model.loaded;
     if(ready()&&!run&&!loading&&awaitingReady){status('All five ready · live Ardy uses cached text embeddings');awaitingReady=false;}
@@ -24,7 +27,7 @@ export function createAvatarAgent(chat,hooks){
   function stop(message='Stopped'){
     if(run?.phase==='generating')chat.request({action:'cancel'});
     if(loading&&chat.status().busy)chat.request({action:'cancel'});
-    run=null;loading=false;awaitingReady=false;warmId=null;window.Cleo?.cancelWarmAll?.();hooks.stopTake();status(message);controls();
+    media.stop();run=null;loading=false;awaitingReady=false;warmId=null;window.Cleo?.cancelWarmAll?.();hooks.stopTake();status(message);controls();
   }
   $('#cleopatra-load').onclick=()=>{
     if(!active||run||chat.status().busy||chat.status().recording||!hooks.avatar()||!window.Cleo?.warmAll)return;
@@ -39,12 +42,12 @@ export function createAvatarAgent(chat,hooks){
   $('#cleopatra-new').onclick=()=>{if(run||chat.status().busy)return;chat.request({action:'avatarNew'});$('#cleopatra-log').replaceChildren();$('#cleopatra-tools').textContent='';status('New Cleopatra conversation');};
   $('#cleopatra-form').onsubmit=event=>{
     event.preventDefault();if(!ready()||run||loading)return;
-    const text=$('#cleopatra-text').value.trim();if(!text)return;
+    const text=$('#cleopatra-text').value.trim();if(!text&&!media.get())return;
     const motions=embeddingCatalog(hooks.state()?.bank);if(!motions.length){status('No cached embeddings available; prepare one in tab 5.');return;}
-    const id=crypto.randomUUID(),log=$('#cleopatra-log');streamMessage(log,'user',text,'','Cleopatra');
+    const attachment=media.take(),id=crypto.randomUUID(),log=$('#cleopatra-log');streamMessage(log,'user',(attachment?`[${attachment.kind}]\n`:'')+text,'','Cleopatra');
     run={id,phase:'generating',started:performance.now(),view:streamMessage(log,'assistant','','','Cleopatra')};
     $('#cleopatra-tools').textContent='';$('#cleopatra-text').value='';$('#cleopatra-text').blur();
-    chat.request({action:'avatarSend',requestId:id,text,motions,expressions:hooks.avatar().expressions()});
+    chat.request({action:'avatarSend',requestId:id,text,...(attachment?{file:attachment.file,kind:attachment.kind}:{}),motions,expressions:hooks.avatar().expressions()});
     status('Gemma is responding…');$('#cleopatra-latency').textContent='Send → voice: measuring…';controls();
   };
   function event(value){
@@ -55,6 +58,7 @@ export function createAvatarAgent(chat,hooks){
     }
     if(value.type==='ensembleReleased'){nativeReady=false;for(const key of Object.keys(components))components[key]='unloaded';if(run)stop(value.message);else status(value.message);}
     if(value.type==='chat'){
+      media.event(value);
       if(value.state&&!value.busy){
         const history=value.avatarHistory||[],key=JSON.stringify(history);
         if(!run&&key!==historyKey){const log=$('#cleopatra-log');log.replaceChildren();for(const item of history)streamMessage(log,item.role,item.text,item.reasoning,'Cleopatra');}

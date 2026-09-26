@@ -2,13 +2,15 @@ import {streamMessage} from './stream-message.mjs';
 const $=selector=>document.querySelector(selector);
 export function createModelChat(){
   let loaded=false,busy=false,recording=false,attachment=null,selection=null,pending=null,lastError='',metrics={},historyKey='';
-  const ids=['chat-backend','chat-reasoning','reasoning-budget'];
+  const ids=['chat-model','chat-backend','chat-reasoning','reasoning-budget','image-budget'];
   try{const saved=JSON.parse(localStorage.getItem('cleo-model-settings')||'{}');
     if(saved['chat-backend']==='cpu')saved['chat-backend']='litert-cpu';
     if(saved['chat-backend']==='opencl')saved['chat-backend']='litert-gpu';
     for(const id of ids){const e=$(`#${id}`);if(id in saved){if(e.type==='checkbox')e.checked=Boolean(saved[id]);else if([...e.options].some(o=>o.value===String(saved[id])))e.value=saved[id];}}
   }catch{}
-  function settings(){return {model:'gemma',backend:$('#chat-backend').value,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0};}
+  // One-time migration from the previous default-on release; later user choices persist.
+  try{if(!localStorage.getItem('cleo-reasoning-off-default-v1')){$('#chat-reasoning').checked=false;save();localStorage.setItem('cleo-reasoning-off-default-v1','1');}}catch{}
+  function settings(){return {model:$('#chat-model').value,visualTokens:Number($('#image-budget').value),backend:$('#chat-backend').value,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0};}
   function dirty(){const value=settings();return !selection||Object.keys(value).some(k=>value[k]!==selection[k]);}
   function request(value){if(!window.Cleo?.chat){$('#chat-status').textContent='Models run in the Android app.';return null;}const requestId=value.requestId||crypto.randomUUID();window.Cleo.chat(JSON.stringify({...value,requestId}));return requestId;}
   function save(){try{localStorage.setItem('cleo-model-settings',JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(`#${id}`).type==='checkbox'?$(`#${id}`).checked:$(`#${id}`).value]))));}catch{}}
@@ -18,10 +20,11 @@ export function createModelChat(){
     $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload Gemma':'Load / apply Gemma';
     $('#chat-send').disabled=!loaded||busy||recording||dirty();$('#chat-new').disabled=busy||!loaded;$('#chat-unload').disabled=!loaded&&!busy;
     $('#chat-record').textContent=recording?'Finish recording':'Record';
+    const budget=settings().visualTokens,side=48*Math.floor(Math.sqrt(budget));$('#image-token-note').textContent=`Context: 4,096 tokens shared by prompt, media, tools and response. Visual budget: ${budget} tokens/image; a square image resizes to ${side} × ${side} (${(side/48)**2} actual visual tokens). Other aspect ratios vary. Changing this experimental LiteRT setting reloads the model.`;
     for(const id of ['chat-image','chat-audio'])$(`#${id}`).disabled=busy||recording;
     $('#chat-record').disabled=busy;$('#chat-attachment').textContent=attachment?attachment.label:'';$('#chat-clear-attachment').hidden=!attachment;
-    $('#browser-model').textContent=loaded?`Gemma · ${selection.backend} · reasoning ${selection.reasoning?selection.reasoning+' tokens':'off'}${dirty()?' · apply settings in tab 7':''}`:'Load Gemma in tab 7 first.';
-    $('#browser-start').disabled=!loaded||busy||dirty();
+    $('#browser-model').textContent=loaded?`Gemma ${selection.model==='gemma-e4b'?'E4B':'E2B'} · ${selection.backend} · reasoning ${selection.reasoning?selection.reasoning+' tokens':'off'}${dirty()?' · apply settings in tab 7':''}`:'Load Gemma in tab 7 first.';
+    $('#browser-start').disabled=!loaded||busy||recording||dirty();
   }
   function load(){if(busy||recording)return null;save();const id=request({action:'load',...settings()});if(id){busy=true;loaded=false;lastError='';$('#chat-status').textContent='Loading Gemma…';$('#chat-log').replaceChildren();pending=null;historyKey='';metrics={};paintMetrics();controls();}return id;}
   $('#chat-load').onclick=load;$('#chat-text').onfocus=()=>{$('#model-settings').open=false;};
@@ -39,8 +42,8 @@ export function createModelChat(){
     for(const [key,value] of Object.entries(values))document.querySelectorAll(`[data-model-metric="${key}"]`).forEach(e=>e.textContent=value);
   }
   function event(value){
-    if(value.attachment)attachment=value.attachment;if('recording' in value)recording=value.recording;
-    if(value.inputError)$('#chat-status').textContent=value.inputError;
+    if(!value.inputScope||value.inputScope==='chat'){if(value.attachment)attachment=value.attachment;if(value.inputError)$('#chat-status').textContent=value.inputError;}
+    if('recording' in value)recording=value.recording;
     if(value.memory){metrics.memory=value.memory;paintMetrics();}
     if(value.result){metrics={...metrics,...value.result};paintMetrics();}
     if(value.state){busy=value.busy;loaded=value.loaded;if(loaded)selection=value.selection;metrics={...metrics,...value.metrics};paintMetrics();

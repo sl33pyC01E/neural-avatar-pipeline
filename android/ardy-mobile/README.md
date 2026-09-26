@@ -4,20 +4,22 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.6.0 · Gemma avatar
+## Latest checkpoint: 0.7.0 · E4B, audio and avatar controls
 
-Gemma 4 E2B now uses LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
+Gemma 4 E2B/E4B use LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
 Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
 active provisioning/benchmark commands. Ardy's independent GGUF LLM2Vec encoder
 and cached embedding bank remain available in tab 5.
 
-Answers and Gemma-provided reasoning stream in tabs 7–9. Reasoning starts
-collapsed. Browser remains tab 8; **tab 9 · Cleopatra** loads Gemma, live Ardy,
+Answers and Gemma-provided reasoning stream in tabs 7–9. Reasoning defaults off; enabled traces start
+collapsed. Tab 7 exposes 70–1120 image tokens, shared by tabs 8–9. Audio input is
+available in all three Gemma tabs. The runtime context remains 4,096 tokens. Browser remains tab 8; **tab 9 · Cleopatra** loads Gemma, live Ardy,
 Pocket/Anna, LAM and the VRM together. The `avatar_stage` tool selects a cached
 text embedding to steer live Ardy generation, a supported expression, and the
-speech cue/tail. The final answer feeds the scheduled audio/face/body pipeline.
-The default VRM stance lowers the arms and slightly bends the elbows; idle
-rendering still sleeps. See [Gemma avatar](GEMMA_AVATAR.md).
+speech cue/tail, plus camera, floor placement, heading, face gains and timed cues. The final answer feeds the scheduled audio/face/body pipeline.
+The default VRM stance lowers the arms and slightly bends the elbows; face framing is the default. Visible idle adds gentle breathing/blinking/sway
+at up to 20 fps, and yields to model animation. Hidden views sleep; Idle off
+restores demand-only rendering. See [Gemma avatar](GEMMA_AVATAR.md).
 
 The original Ardy app is preserved. Host checks and build results do not qualify
 phone inference, model coexistence, voice quality or timing. The agent can install;
@@ -34,7 +36,7 @@ the active gesture.
 mapping controls. Settings save locally and apply across avatar tabs. Balanced
 uses softer lighting and neutral highlight compression; Original restores the
 previous look. Color grading runs in the VRM materials, without an extra render
-pass or changes to the avatar asset. Idle views still stop rendering.
+pass or changes to the avatar asset. With Idle off, resting views stop rendering.
 
 The six-tab checkpoint now schedules body, voice and face on a shared audio clock
 and corrects four Ardy history/mask/decoder contracts. See
@@ -74,8 +76,8 @@ expanded the debug sequence to these nine tabs:
 4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
 5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
 6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
-7. **Models:** Gemma chat, image/audio input, CPU/GPU and reasoning settings, streamed text and metrics.
-8. **Browser:** embedded Google browser, screenshot/action loop, follow-up input and pause/stop controls.
+7. **Models:** Gemma E2B/E4B chat, image/audio input, CPU/GPU and reasoning settings, streamed text and metrics.
+8. **Browser:** embedded Google browser, screenshot/action loop, text/audio goals and follow-up input, and pause/stop controls.
 9. **Cleopatra:** Gemma replies through live Ardy, Pocket/Anna, LAM and the VRM; explicit Load all and bounded avatar tools.
 
 Only after the modules work independently should their tabs collapse into a debug

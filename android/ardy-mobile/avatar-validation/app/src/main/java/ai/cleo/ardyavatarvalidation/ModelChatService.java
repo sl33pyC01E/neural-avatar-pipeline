@@ -93,13 +93,14 @@ public final class ModelChatService extends Service {
     }
     private void load(JSONObject request)throws Exception {
         closeModels();loaded=false;history=new JSONArray();turns=0;lastMetrics=new JSONObject();
-        String backend=request.optString("backend","litert-gpu");int reasoning=request.optInt("reasoning",256);
-        if(!Set.of("litert-cpu","litert-gpu").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
-        selection=new JSONObject().put("model","gemma").put("backend",backend).put("reasoning",reasoning);
+        String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280);
+        if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
+        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens);
         long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
         emit(json("phase","Loading Gemma with vision and audio..."));
-        File file=new File(getFilesDir(),"benchmark/gemma-4-E2B-it.litertlm");
+        File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");
         if(!file.isFile())throw new IOException("Missing full Gemma audio/vision model");
+        ExperimentalFlags.INSTANCE.setVisualTokenBudget(visualTokens); // Must precede engine creation: reserves the matching vision buffers.
         engine=new Engine(new EngineConfig(file.getPath(),gpu?new Backend.GPU():new Backend.CPU(2,null),gpu?new Backend.GPU():new Backend.CPU(2,null),new Backend.CPU(2,null),4096,8,getCacheDir().getPath()));
         engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready"));
     }
@@ -112,7 +113,7 @@ public final class ModelChatService extends Service {
         }
         int reasoning=selection.getInt("reasoning");
         return engine.createConversation(new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
-            null,Collections.emptyMap(),null,false,(api==null?512:256)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false));
+            null,Collections.emptyMap(),null,false,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false));
     }
     private com.google.ai.edge.litertlm.Message input(String prompt,String kind,byte[] media){
         List<Content> parts=new ArrayList<>();if("image".equals(kind))parts.add(new Content.ImageBytes(media));if("audio".equals(kind))parts.add(new Content.AudioBytes(media));parts.add(new Content.Text(prompt));
@@ -157,13 +158,16 @@ public final class ModelChatService extends Service {
     }
     private void avatarSend(JSONObject request)throws Exception {
         if(!loaded)throw new IOException("Load all models first");
-        String prompt=request.getString("text").trim();if(prompt.isEmpty()||prompt.length()>4000)throw new IOException("Enter a message up to 4,000 characters");
+        String prompt=request.optString("text","").trim(),kind=request.optString("kind","");
+        if(prompt.length()>4000||!Set.of("","audio","image").contains(kind)||(prompt.isEmpty()&&kind.isEmpty()))throw new IOException("Enter a message or attach audio/image");
+        byte[] media=kind.isEmpty()?null:readMedia(request.getString("file"));
+        if(prompt.isEmpty())prompt=kind.equals("audio")?"Respond to the speech in this audio.":"Respond to this image.";
         JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString();
         if(avatarConversation==null||!key.equals(avatarToolKey)){
             closeAvatarConversation();avatarTools=new AvatarToolApi(catalog,expressions);avatarToolKey=key;avatarConversation=createConversation(avatarTools);
         }
         avatarTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
-        com.google.ai.edge.litertlm.Message next=input(prompt,"",null);JSONArray actions=new JSONArray();
+        com.google.ai.edge.litertlm.Message next=input(prompt,kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(avatarConversation,next,text,started,first);
             if(calls.isEmpty())break;
@@ -179,7 +183,7 @@ public final class ModelChatService extends Service {
         }
         checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
         JSONObject result=result(text,started,first).put("avatarPlan",avatarTools.plan()).put("tools",actions);
-        avatarHistory.put(new JSONObject().put("role","user").put("text",prompt));
+        avatarHistory.put(new JSONObject().put("role","user").put("text",prompt).put("attachment",kind));
         avatarHistory.put(new JSONObject().put("role","assistant").put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("tools",actions));avatarTurns++;
         lastMetrics=result;emit(json("result",result));
     }
@@ -187,11 +191,16 @@ public final class ModelChatService extends Service {
         if(!loaded)throw new IOException("Load Gemma in tab 7 first");String prompt=request.getString("text");if(prompt.length()>24000)throw new IOException("Browser context too large");
         File file=inputFile(request.getString("file"));if(file.length()>20*1024*1024)throw new IOException("Screenshot too large");
         long started=SystemClock.elapsedRealtimeNanos();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);
-        try(Conversation active=createConversation(null)){stream(active,input(prompt,"image",Files.readAllBytes(file.toPath())),text,started,first);}
+        List<Content> parts=new ArrayList<>();parts.add(new Content.ImageBytes(Files.readAllBytes(file.toPath())));
+        JSONArray audio=request.optJSONArray("audioFiles");if(audio!=null){if(audio.length()>4)throw new IOException("Too many audio instructions");for(int i=0;i<audio.length();i++){parts.add(new Content.Text("User spoken instruction "+(i+1)+" (chronological order):"));parts.add(new Content.AudioBytes(readMedia(audio.getString(i))));}}
+        parts.add(new Content.Text(prompt));
+        com.google.ai.edge.litertlm.Message message=new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
+        try(Conversation active=createConversation(null)){stream(active,message,text,started,first);}
         lastMetrics=result(text,started,first);emit(json("result",lastMetrics));
     }
     private void checkCancelled()throws InterruptedIOException{if(stopping||cancellation.get()!=operationCancellation)throw new InterruptedIOException("Response cancelled; conversation reset");}
     private static double elapsed(long started){return (SystemClock.elapsedRealtimeNanos()-started)/1e6;}
+    private byte[] readMedia(String name)throws IOException{File file=inputFile(name);if(file.length()>20*1024*1024)throw new IOException("Attachment too large");return Files.readAllBytes(file.toPath());}
     private File inputFile(String name)throws IOException{
         if(!name.matches("[a-zA-Z0-9-]+\\.(png|wav)"))throw new IOException("Invalid attachment");File file=new File(getCacheDir(),"chat-input/"+name);if(!file.isFile())throw new IOException("Attachment is unavailable");return file;
     }

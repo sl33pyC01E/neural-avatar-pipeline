@@ -60,7 +60,7 @@ async function selectTab(tab){
     const active=button.dataset.tab===tab;button.setAttribute('aria-selected',active);button.tabIndex=active?0:-1;
   });
   for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
-  $('canvas').hidden=!usesAvatar(tab);
+  $('canvas').hidden=!usesAvatar(tab);$('#avatar-view-controls').hidden=!usesAvatar(tab);
   $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Gemma · local multimodal chat',browser:'Gemma · browser actions',cleopatra:'Gemma + live Ardy + Anna + LAM'}[tab];
   modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);
   buttons();avatar?.setVisible(false);
@@ -69,7 +69,6 @@ async function selectTab(tab){
     avatar=await avatarLoading;
     if(lastState)avatar.event(lastState);
     if(['face','talk','full','cleopatra'].includes(currentTab))avatar.setMode('rest');
-    avatar.setFaceView(['face','talk'].includes(currentTab));
     avatar.setVisible(pageVisible&&usesAvatar(currentTab));
     if(['talk','full'].includes(currentTab))describeSettings(currentTab);
     buttons();avatarAgent.refresh();

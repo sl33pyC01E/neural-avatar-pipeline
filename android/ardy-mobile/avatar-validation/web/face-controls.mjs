@@ -13,9 +13,9 @@ export function createFaceControls(vrm,driver) {
   let bodyHead=headRest?.clone(),bodyNeck=neckRest?.clone();
   const gaze=vrm.lookAt?.applier,usesEyeBones=gaze?.constructor.type==='bone';
   function resetBones(){head?.quaternion.copy(headRest);neck?.quaternion.copy(neckRest);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
-  function apply(track,values,time,withBody=false,weight=1) {
+  function apply(track,values,time,withBody=false,weight=1,gains={eyes:1,mouth:1,head:1}) {
     const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
-    const scales={...settings,eyes:settings.eyes*weight,mouth:settings.mouth*weight,head:settings.head*weight};
+    const scales={...settings,eyes:settings.eyes*weight*gains.eyes,mouth:settings.mouth*weight*gains.mouth,head:settings.head*weight*gains.head};
     driver.apply({...track,scales,naturalMotion:settings.naturalMotion},values,time);
     if(settings.naturalMotion) {
       const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*scales.head,Math.sin(time*.49)*.055*scales.head,Math.sin(time*.31+1.7)*.018*scales.head,'YXZ');
