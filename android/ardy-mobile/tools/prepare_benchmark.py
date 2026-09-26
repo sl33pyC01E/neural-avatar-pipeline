@@ -90,16 +90,18 @@ def install(adb, transport, models):
             run('shell','mv',dest+'.partial',dest)
         run('shell','chmod','755' if '-server' in source.name else '644',dest)
         print('Installed and verified',source.name,flush=True)
-    # LiteRT reads private app files. Copy only the two dedicated benchmark models.
+    # App-owned runtimes read private model files without ADB at execution time.
     run('shell','run-as',PACKAGE,'mkdir','-p','files/benchmark')
     for item in models:
-        if item['file'].endswith('.litertlm'):
+        if item['file'].endswith(('.litertlm','.gguf','.bin')):
             dest='files/benchmark/'+item['file']
             current=run('shell',f'run-as {PACKAGE} sh -c "if [ -f {dest} ]; then sha256sum {dest}; fi"')
             if not current.startswith(item['sha256']):
-                run('shell','run-as',PACKAGE,'cp',REMOTE+'/'+item['file'],dest)
-                if not run('shell','run-as',PACKAGE,'sha256sum',dest).startswith(item['sha256']):
+                run('shell','run-as',PACKAGE,'cp',REMOTE+'/'+item['file'],dest+'.partial')
+                if not run('shell','run-as',PACKAGE,'sha256sum',dest+'.partial').startswith(item['sha256']):
                     raise ValueError('Private model hash mismatch')
+                run('shell','run-as',PACKAGE,'mv',dest+'.partial',dest)
+            print('App-private model verified',item['file'],flush=True)
     print('Installation only. No app, server or inference was started.')
 
 def build_opencl(ndk):

@@ -5,6 +5,12 @@ The competition is **Ardy + Pocket/Anna + LAM + Cleopatra VRM +
 separate. A runtime that disrupts speech or animation cannot win on token speed
 alone. There are no phone results yet: the agent prepares/installs; the user runs.
 
+**The interactive interface is now in the app:** tab 7 selects Qwen + Whisper or
+Gemma for persistent chat with image/audio input and metrics; tab 8 uses that
+selection for an embedded browser agent. See [model chat and browser](../MODEL_CHAT_BROWSER.md).
+The PowerShell runner below is optional for repeatable fixture comparisons;
+ordinary chat and browser operation do not require a computer.
+
 ## Prepared contenders
 
 | Contender | Runtime / precision | Phone execution status |
@@ -25,10 +31,10 @@ runs, not certified as working on the phone.
 
 `models.json` pins nine model/projector artifacts by repository revision, bytes
 and SHA-256. The downloadable set is 10.23 GB; only the selected contender is
-loaded. LiteRT also has private app copies of its two models. These payloads stay
-outside Git. All servers bind localhost. The baseline app keeps its offline
-network policy; LiteRT requests travel through the user's ADB session, not a
-public HTTP service. Stopping the benchmark service releases its dedicated
+loaded. All nine artifacts have private app copies for the in-app interface.
+These payloads stay outside Git. App-owned servers bind authenticated localhost;
+the separate browser WebView can access the internet. The optional comparison
+runner uses ADB transport, not a public HTTP service. Stopping the benchmark service releases its dedicated
 process, without stopping the avatar process.
 
 ## User runs

@@ -4,7 +4,17 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.4.3
+## Latest checkpoint: 0.5.0
+
+**Tab 7 — Models** provides on-device chat with Qwen + Whisper or Gemma, image
+and audio input, retained conversation prefixes, image-token controls, reasoning
+settings and latency/resource metrics. **Tab 8 — Browser** opens an embedded
+Google browser and runs a screenshot/action loop with a goal, click-box preview,
+follow-up input, Pause, Resume and Stop. Both tabs share the model settings.
+See [the in-app model/browser checkpoint](MODEL_CHAT_BROWSER.md) for behavior,
+runtime options, packaging and validation limits. Phone execution is left to the user.
+
+### Retained avatar controls from 0.4.3
 
 Tab 5 adds two-finger panning alongside one-finger orbit and pinch zoom, plus a
 Reset view button. Pan is a separate offset from Ardy root following, and the
@@ -20,7 +30,7 @@ pass or changes to the avatar asset. Idle views still stop rendering.
 The six-tab checkpoint now schedules body, voice and face on a shared audio clock
 and corrects four Ardy history/mask/decoder contracts. See
 [scheduled takes](SCHEDULED_TAKES.md) and [the contract audit](ARDY_CONTRACT_AUDIT.md).
-Version 0.4.3 is installed for the user's visual/audio test; the original app and
+The checkpoint is installed for the user's visual/audio/model test; the original app and
 its models are retained. Desktop checks do not establish phone quality or speed.
 
 The [comparison kit](benchmark/README.md) prepares **Ardy + Pocket + LAM + VRM +
@@ -49,7 +59,7 @@ inference/benchmarks, play audio, or automate phone controls. The user launches
 the installed app and reports the results. Keep the original Ardy installation.
 
 The user reported a speech-preparation crash, then approved Pocket and LAM and
-expanded the debug sequence to these six tabs:
+expanded the debug sequence to these eight tabs:
 
 1. **Welcome:** navigation to the modules.
 2. **PocketTTS:** Anna speech and runtime settings.
@@ -57,6 +67,8 @@ expanded the debug sequence to these six tabs:
 4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
 5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
 6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
+7. **Models:** Qwen + Whisper or Gemma chat, image/audio input, runtime/image/reasoning settings and metrics.
+8. **Browser:** embedded Google browser, screenshot/action loop, follow-up input and pause/stop controls.
 
 Only after the modules work independently should their tabs collapse into a debug
 menu behind a real product frontend. Quantization and compilation are authorized

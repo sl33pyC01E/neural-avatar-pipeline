@@ -84,13 +84,22 @@ if __name__ == '__main__':
         unused = args.apk.stat().st_size - sum(i.compress_size for i in archive.infolist())
         assert unused < 8 * 1024**2, 'APK contains large unused ZIP space; remove only the output APK and repackage'
         web = Path(__file__).resolve().parents[1] / 'avatar-validation/web'
-        for name in ('main.mjs', 'avatar-view.mjs', 'face-controls.mjs','index.html', 'motion-buffer.mjs'):
+        for name in [file.name for file in web.iterdir() if file.suffix in ('.mjs','.html')]:
             assert archive.read('assets/' + name) == (web / name).read_bytes(), f'Stale packaged UI: {name}'
+        packaged_workers={}
+        for source,target in [('llama-server','libcleo_llama.so'),('llama-server-opencl','libcleo_llama_opencl.so'),('whisper-server','libcleo_whisper.so')]:
+            binary=archive.read('lib/arm64-v8a/'+target)
+            assert binary[:6]==b'\x7fELF\x02\x01' and struct.unpack_from('<H',binary,18)[0]==183, 'Expected ARM64 ELF executable'
+            assert b'/system/bin/linker64' in binary and b'CLEO_PID=' in binary, 'Missing Android entrypoint or process identity'
+            expected=(web.parents[1]/'payloads/benchmark'/source).read_bytes()
+            assert binary==expected, 'Packaged runtime differs from verified cross-compile: '+source
+            packaged_workers[target]=hashlib.sha256(binary).hexdigest()
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,
               'apkSha256': digest, 'apkBytes': args.apk.stat().st_size, 'lamPayloadBundled': True, 'lamPayloadHashVerified':True,'packagedWebMatchesSource': True,
               'repairedEncoderSha256':manifest['encoderRepair']['repairedSha256'],'allPocketPayloadHashesVerified':True,
-              'phoneTest': False, 'limitation': 'Verifies packaged ABI and payloads, not Android synthesis/audio execution.'}
+              'packagedModelRuntimes':packaged_workers,
+              'phoneTest': False, 'limitation': 'Verifies packaged ABI and payloads, not Android synthesis/model/browser execution.'}
     args.report.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))

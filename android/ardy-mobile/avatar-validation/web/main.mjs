@@ -1,7 +1,11 @@
 // Module shell. Welcome and isolated speech load no avatar or WebGL context.
+import { createModelChat } from './model-chat.mjs';
+import { createBrowserUI } from './browser-ui.mjs';
 let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
-const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel'};
+const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel'};
+const modelChat=createModelChat(),browserUI=createBrowserUI();
+new ResizeObserver(()=>document.documentElement.style.setProperty('--content-top',`${document.querySelector('header').getBoundingClientRect().bottom+12}px`)).observe(document.querySelector('header'));
 const usesAvatar=tab=>['face','talk','avatar','full'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
@@ -46,7 +50,8 @@ async function selectTab(tab){
   });
   for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
   $('canvas').hidden=!usesAvatar(tab);
-  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy'}[tab];
+  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Qwen / Gemma · local multimodal chat',browser:'Local models · browser actions'}[tab];
+  modelChat.select(tab);browserUI.select(tab);
   buttons();avatar?.setVisible(false);
   if(usesAvatar(tab)){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());
@@ -74,6 +79,8 @@ document.addEventListener('visibilitychange',()=>window.cleoVisible(!document.hi
 const ms=value=>value>=0?`${Math.round(value)} ms`:'—';
 const eventTab=event=>event.tab||((event.withFace||event.type==='face')?'face':'pocket');
 window.cleoEvent=event=>{
+  if(event.type==='chat'){modelChat.event(event);return;}
+  if(event.type==='browser'){browserUI.event(event);return;}
   const tab=eventTab(event),status=tab==='pocket'?pocketStatus:tab==='face'?faceStatus:$(`#${tab}-status`);
   if(event.type==='state'){
     lastState=event;

@@ -40,9 +40,17 @@ try {
   await call('Emulation.setDeviceMetricsOverride',{width:412,height:915,deviceScaleFactor:1,mobile:true});
   await call('Page.addScriptToEvaluateOnNewDocument',{source:`
     const source=${JSON.stringify(motion)};let cursor=0,run=false,paused=false,currentProfile='core40',currentStream='';
-    window.bridgeRequests=0;window.testClock=0;
+    window.bridgeRequests=0;window.testClock=0;window.chatRequests=[];window.browserRequests=[];let modelLoaded=false,modelSelection={},chatHistory=[];
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
-    window.Cleo={state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
+    window.Cleo={
+      chat(raw){const r=JSON.parse(raw);window.chatRequests.push(r);
+        if(r.action==='load'){modelSelection=Object.fromEntries(Object.entries(r).filter(([k])=>k!=='action'));modelLoaded=true;chatHistory=[];}
+        if(r.action==='newChat')chatHistory=[];
+        if(r.action==='unload'){modelLoaded=false;emit({type:'chat',unloaded:true});}
+        if(r.action==='send'){chatHistory.push({role:'user',text:r.text,attachment:r.kind||''},{role:'assistant',text:'<img src=x onerror=alert(1)> Model response'});emit({type:'chat',partial:'Model response'});}
+        emit({type:'chat',state:true,loaded:modelLoaded,busy:false,selection:modelSelection,history:chatHistory,turns:chatHistory.length/2,metrics:{firstTokenMs:125,totalMs:500,memory:{pssKb:1048576,peakPssKb:1050000,complete:true},timings:{cache_n:17}}});
+      },browserBounds(raw){window.browserBounds=JSON.parse(raw);},browserCommand(raw){window.browserRequests.push(JSON.parse(raw));},chatAttach(kind){window.attachKind=kind;},chatRecord(start){emit({type:'chat',recording:start});},
+      state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
       startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.Cleo.start(profile,embedding,stream);},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
@@ -55,7 +63,7 @@ try {
   await call('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
   assert.equal(await evaluate('window.debugTabs.current()'),'welcome');
-  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full']);
+  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full','chat','browser']);
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   const welcomeImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'welcome-tab.png'),Buffer.from(welcomeImage.data,'base64'));
   await evaluate('document.querySelector("[data-open=pocket]").click()');await sleep(100);
@@ -242,9 +250,49 @@ try {
   assert.equal(await evaluate('window.avatarValidation.appearance.settings.contrast'),1.21,'Appearance did not persist');
   assert.equal(await evaluate('document.querySelector("#vrm-contrast").value'),'1.21');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
+  await evaluate('window.debugTabs.select("chat")');await sleep(100);
+  assert(await evaluate('document.querySelector("#chat-reasoning").checked'),'Browser reasoning should default on');
+  await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
+  const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
+  assert.deepEqual(loadedModel,{action:'load',model:'qwen',backend:'cpu',whisper:'base',imageMinTokens:0,imageTokens:560,imageBatchTokens:1024,reasoning:256});
+  await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
+  assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
+  assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
+  assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'17 tokens');
+  await evaluate('window.cleoEvent({type:"chat",attachment:{file:"test.png",kind:"image",label:"Test image"}});document.querySelector("#chat-form").requestSubmit()');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="send").at(-1).kind'),'image');
+  await evaluate('document.querySelector("#chat-reasoning").checked=false;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"))');
+  assert(await evaluate('document.querySelector("#chat-send").disabled'),'Changed runtime settings were silently ignored');
+  await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),0);
+  await evaluate('document.querySelector("#chat-model").value="gemma";document.querySelector("#chat-model").dispatchEvent(new Event("change"))');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).model'),'gemma');
+  await evaluate('document.querySelector("#chat-backend").value="litert-gpu";document.querySelector("#chat-backend").dispatchEvent(new Event("change"))');
+  assert(await evaluate('document.querySelector("#image-max-tokens").disabled&&document.querySelector("#image-batch-tokens").disabled'),'LiteRT advertised unsupported image budget overrides');
+  await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-model").value="qwen";document.querySelector("#chat-model").dispatchEvent(new Event("change"))');await sleep(100);
+  const chatBounds=await evaluate('(()=>{const p=document.querySelector("#chat-panel").getBoundingClientRect(),m=document.querySelector("#chat-panel .resource-strip").getBoundingClientRect();return {panelBottom:p.bottom,metricsBottom:m.bottom,logHeight:document.querySelector("#chat-log").clientHeight}})()');
+  assert(chatBounds.metricsBottom<=915&&chatBounds.logHeight>=40,'Chat controls overflow viewport: '+JSON.stringify(chatBounds));
+  const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));
+  await evaluate('window.debugTabs.select("browser")');await sleep(100);
+  const browserBounds=await evaluate('window.browserBounds');assert(browserBounds.height>.15&&browserBounds.y+browserBounds.height<=1,'Embedded browser bounds invalid');
+  await evaluate('document.querySelector("#browser-goal").value="Find documentation";document.querySelector("#browser-form").requestSubmit()');
+  assert.deepEqual(await evaluate('window.browserRequests.at(-1)'),{action:'start',goal:'Find documentation'});
+  await evaluate('window.cleoEvent({type:"browser",status:"Inspecting",running:true,waiting:false,url:"https://www.google.com/"});document.querySelector("#browser-pause").click();document.querySelector("#browser-stop").click()');
+  assert.deepEqual(await evaluate('window.browserRequests.slice(-2).map(r=>r.action)'),['pause','stop']);
+  await evaluate('window.cleoEvent({type:"browser",status:"Input needed",running:false,waiting:true,question:"Which result?",confirmation:false});document.querySelector("#browser-answer").value="The first";document.querySelector("#browser-followup-form").requestSubmit()');
+  assert.deepEqual(await evaluate('window.browserRequests.at(-1)'),{action:'followup',text:'The first'});
+  await evaluate('window.cleoEvent({type:"browser",status:"Approve?",running:false,waiting:true,question:"Send?",confirmation:true})');
+  assert(await evaluate('!document.querySelector("#browser-confirm").hidden&&document.querySelector("#browser-followup-form").hidden'));
+  await evaluate('document.querySelector("#browser-reject").click();window.cleoEvent({type:"browser",status:"Paused",running:false,waiting:false})');
+  const browserImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'browser-tab.png'),Buffer.from(browserImage.data,'base64'));
+  await call('Emulation.setDeviceMetricsOverride',{width:360,height:520,deviceScaleFactor:1,mobile:true});await sleep(200);
+  const compactBounds=await evaluate('(()=>{const b=document.querySelector("#browser-stop").getBoundingClientRect(),v=document.querySelector("#browser-viewport").getBoundingClientRect();return {stopBottom:b.bottom,viewportHeight:v.height}})()');
+  assert(compactBounds.stopBottom<=520&&compactBounds.viewportHeight>=90,'Keyboard-sized browser layout hides controls: '+JSON.stringify(compactBounds));
+  await evaluate('window.debugTabs.select("chat");document.querySelector("#model-settings").open=false');await sleep(150);
+  assert(await evaluate('document.querySelector("#chat-send").getBoundingClientRect().bottom<=520'),'Keyboard-sized chat hides Send');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
-    sixTabsAndWelcome:true,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
+    eightTabsAndWelcome:true,modelSettingsForwarded:true,modelSwitchLoadsSelection:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};

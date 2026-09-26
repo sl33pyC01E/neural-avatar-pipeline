@@ -1,3 +1,25 @@
+diff --git a/tools/server/main.cpp b/tools/server/main.cpp
+index 7f17c56..89fa00d 100644
+--- a/tools/server/main.cpp
++++ b/tools/server/main.cpp
+@@ -1,5 +1,17 @@
+ int llama_server(int argc, char ** argv);
++#ifdef __ANDROID__
++#include <sys/prctl.h>
++#include <signal.h>
++#include <unistd.h>
++#include <cstdio>
++#endif
+ 
+ int main(int argc, char ** argv) {
++#ifdef __ANDROID__
++    const auto parent = getppid();
++    prctl(PR_SET_PDEATHSIG, SIGKILL);
++    if (parent == 1 || getppid() != parent) return 1;
++    std::fprintf(stderr, "CLEO_PID=%d\n", getpid());
++#endif
+     return llama_server(argc, argv);
+ }
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 index e95fb63..43cd04d 100644
 --- a/tools/server/server-context.cpp

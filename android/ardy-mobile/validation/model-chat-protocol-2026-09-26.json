@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "phoneTest": false,
+  "model": "fake HTTP endpoint",
+  "prefixHistory": true,
+  "reasoningBudget": true,
+  "imageInput": true,
+  "whisperRouting": true,
+  "failedTurnsExcluded": true,
+  "browserIsolation": true,
+  "invalidActionsRejected": 9
+}

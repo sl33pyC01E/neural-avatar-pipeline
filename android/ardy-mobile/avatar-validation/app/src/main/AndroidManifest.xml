@@ -1,9 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <application android:label="Cleopatra · Avatar Check" android:allowBackup="false"
-        android:theme="@android:style/Theme.Material.NoActionBar" android:hardwareAccelerated="true">
+        android:theme="@android:style/Theme.Material.NoActionBar" android:hardwareAccelerated="true"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <service android:name=".ModelChatService" android:process=":models" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-selected offline VLM chat, with resident models and explicit Unload control." />
+        </service>
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <uses-native-library android:name="libvndksupport.so" android:required="false" />
         <service android:name=".BenchmarkService" android:process=":benchmark" android:exported="true"

@@ -110,7 +110,7 @@ public final class ResidentService extends Service {
     }
     public synchronized void tab(String value) {
         if(stopping)return;
-        if(!java.util.Set.of("welcome","avatar","pocket","face","talk","full").contains(value))return;
+        if(!java.util.Set.of("welcome","avatar","pocket","face","talk","full","chat","browser").contains(value))return;
         if(activeTab.equals(value))return;
         activeTab=value;stopSpeech();pauseMotion();
         // Audio/face tabs release motion; LAM is instantiated only by a user's face/talk action.
