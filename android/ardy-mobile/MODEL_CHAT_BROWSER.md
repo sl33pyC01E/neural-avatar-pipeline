@@ -1,8 +1,12 @@
-# In-app models and browser: 0.5.1 (in progress)
+# In-app models and browser: 0.5.1
 
 Tabs 7 and 8 run from **Cleopatra · Avatar Check**. No computer launcher is
 needed after installation and model provisioning. The agent installs; the user
 opens the app and tests it. No phone model execution was performed for this change.
+Version code 12 is installed. WhisperX and full Gemma payloads are verified;
+the custom Qwen artifact is still compiling. Its separate delivery job provisions
+it only after the conversion checks pass, without another APK update. Availability
+is recorded in `payloads/benchmark/qwen-delivery-status.json`.
 
 ## Tab 7: Models
 
@@ -126,8 +130,8 @@ include model, backend and timestamp and retain the latest twelve files.
 The user reported Gemma CPU and the old text-only LiteRT GPU package loading.
 That does not qualify the full multimodal package or Qwen GPU. Android also
 recorded app-update exits during earlier installations; those are not GPU crash
-evidence. The next delivery is one consolidated installation, with execution
-left to the user.
+evidence. Version 0.5.1 was delivered in one installation, with execution left
+to the user. Adding the finished Qwen model file does not reinstall or start the app.
 
 ## Verification
 
@@ -137,7 +141,7 @@ left to the user.
 - `check_qwen_litert_quality.py`: native Spark CPU conversion check with eight
   text questions, reasoning on/off retained conversations and two basic images.
   The reference 512/4K bundle passes after sampling adjustment; the custom
-  768/8K artifact still needs this gate after compilation.
+  768/8K artifact must pass this gate before provisioning.
 - `check_desktop_web.mjs`: CPU-rendered eight-tab UI with a stub Android bridge;
   settings, chat controls, metrics, follow-up actions and compact layouts, plus
   regressions for the existing avatar, face and scheduled speech views.

@@ -4,15 +4,21 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.5.0
+## Latest checkpoint: 0.5.1
 
-The **0.5.1 model-loading update** is built but not yet installed. It repairs the
+The **0.5.1 model-loading update** is installed, without launching it. It repairs the
 Whisper server arguments, selects Gemma's complete audio/vision LiteRT artifact,
 adds an experimental native WhisperX option, and prepares Qwen LiteRT CPU/GPU at
-768×768 / 576 visual tokens / 8K context. The custom vision export passes its
-numerical check; decoder compilation is in progress on Spark. Installation waits
-for the complete Qwen artifact. The reconnected phone has the verified WhisperX
-payloads and full Gemma audio/vision file; its installed APK is still 0.5.0. See
+768×768 / 576 visual tokens / 8K context. The phone has the verified WhisperX
+payloads and full Gemma audio/vision file. `validation/installation-model-loading-2026-09-26.json`
+records version code 12 and confirms the original Ardy app is preserved.
+
+Custom Qwen delivery proceeds separately from the APK: its vision export passes
+the numerical check, and the decoder is compiling on Spark. A one-shot delivery
+job waits for the completed artifact and native correctness checks, then copies
+and hash-verifies it on the same phone without restarting the app. Its live
+status is `payloads/benchmark/qwen-delivery-status.json`; only `ready` means the
+custom model has been provisioned. See
 [the Qwen build](benchmark/qwen-litert/README.md) and
 [WhisperX Android](benchmark/WHISPERX_ANDROID.md).
 

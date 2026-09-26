@@ -46,8 +46,8 @@ The manifest pins 10 files, including ASR, VAD, alignment and their configuratio
 Provisioning verifies local, transfer and app-private hashes and never launches
 phone code. Models are provisioned separately from the debug APK.
 The 243,174,455-byte model set was provisioned on September 26; see
-`validation/provisioning-whisperx-2026-09-26.json`. APK installation and the user's
-runtime check are still pending.
+`validation/provisioning-whisperx-2026-09-26.json`. APK 0.5.1 is installed;
+the user's runtime check is pending.
 
 The C++ spectrogram matches the faster-whisper NumPy implementation on silence,
 tones and deterministic noise. Java checks cover RIFF padding, resampling,

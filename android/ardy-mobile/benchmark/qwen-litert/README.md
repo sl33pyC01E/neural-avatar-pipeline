@@ -105,6 +105,18 @@ runs the native gate and stops the owned compiler container on success. Its
 `finish-status.json` and stage logs remain in the workspace. It does not install
 or execute anything on the phone.
 
+On Windows, `tools/finish_qwen_delivery.py --adb PATH --serial PHONE_SERIAL`
+completes the one-shot transfer after the Spark finisher reports `ready`. It
+requires the pinned profile and a matching passing quality report, copies the
+artifact with SCP, verifies its checksum, locates that phone by its hardware
+serial, and provisions only the custom model plus the existing worker binaries.
+It never installs an APK, restarts the app, or executes inference. Connection
+waits are bounded to eight hours by default. A failed build stops delivery.
+The current stage is in `payloads/benchmark/qwen-delivery-status.json`; final
+build/quality/provisioning receipts go under this directory and `validation/`.
+The delivery helper's host test mocks SSH and ADB, including wrong-device and
+failed-quality cases; it does not contact the phone.
+
 The build receipt records source weight hashes, graph contracts, numerical
 checks and generation checks. It explicitly leaves phone qualification pending.
 These native CPU conversion checks do not establish phone speed, memory use,
