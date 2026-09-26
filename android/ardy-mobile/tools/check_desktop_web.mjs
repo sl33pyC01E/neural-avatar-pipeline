@@ -172,6 +172,12 @@ try {
   await evaluate(`document.querySelector('#full-send').click()`);await sleep(150);
   assert.equal(await evaluate('window.performanceStarts'),2,'Second take did not start a new motion stream');
   assert.equal(await evaluate('window.validationState.performance.motionSeconds'),0,'Second take reused the old cursor');
+  await evaluate(`document.querySelector('#benchmark-repeat').checked=true;document.querySelector('#benchmark-repeat').dispatchEvent(new Event('change'));window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,completed:true,message:'Ready'})`);await sleep(300);
+  assert.equal(await evaluate('window.performanceStarts'),3,'Opt-in workload did not repeat');
+  await evaluate(`window.cleoVisible(false);window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,completed:true,message:'Ready'})`);await sleep(300);
+  assert.equal(await evaluate('window.performanceStarts'),3,'Hidden workload kept repeating');
+  assert.equal(await evaluate('document.querySelector("#benchmark-repeat").checked'),false);
+  await evaluate('window.cleoVisible(true)');
   await evaluate(`document.querySelector('#full-stop').click();window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,completed:false,message:'Stopped'});window.avatarValidation.setMode('rest')`);
   const bodyOverlay=await evaluate(`(()=>{const {vrm,faceControls:c}=window.avatarValidation,head=vrm.humanoid.getNormalizedBoneNode('head');c.clear();head.quaternion.set(0,.1,0,Math.sqrt(.99));const base=head.quaternion.toArray();c.captureBodyPose();c.set('head',0);c.apply({names:['jawOpen']},[.4],.5,true);const zero=head.quaternion.toArray();c.set('head',1);c.apply({names:['jawOpen']},[.4],.5,true);const once=head.quaternion.toArray();c.apply({names:['jawOpen']},[.4],.5,true);const twice=head.quaternion.toArray();c.clear();return {base,zero,once,twice}})()`);
   assert.deepEqual(bodyOverlay.base,bodyOverlay.zero,'Zero facial head gain erased Ardy head pose');
@@ -186,7 +192,7 @@ try {
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     sixTabsAndWelcome:true,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
-    realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
+    realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));

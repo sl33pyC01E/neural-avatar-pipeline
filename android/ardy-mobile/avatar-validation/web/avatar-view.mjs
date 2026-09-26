@@ -282,6 +282,7 @@ export async function createAvatarView() {
       status.textContent=`${mode} · ${metrics.displayFps.toFixed(1)} display fps\n${after.vertices.toLocaleString()} vertices · ${metrics.calls} draws\nCPU frame p95 ${metrics.cpuFrameP95Ms.toFixed(1)} ms`;
       fitViewport();
       console.log('CLEO_METRICS '+JSON.stringify(metrics)); samples=[];ticks=0;reportAt=now;
+      window.Cleo?.benchmarkFrame?.(JSON.stringify(metrics));
     }
     const activePerformance=performanceTrack?.started&&!performanceTrack.finished;
     if(activePerformance||(!performanceTrack&&speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(!performanceTrack&&mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);

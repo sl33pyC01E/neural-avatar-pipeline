@@ -34,6 +34,29 @@ public final class ArdyCpuCheck {
             int total=0;
             ArdySampler.Settings settings=new ArdySampler.Settings(); settings.constrainRoot=false;
             try(ArdySampler sampler=new ArdySampler(models,assets,id)) {
+                sampler.inputObserver=(stage,inputs)->{
+                    if(stage.equals("denoiser")) {
+                        float[] ht=tensor(inputs.get("history_token_mask")),gt=tensor(inputs.get("generation_token_mask"));
+                        float[] ft=tensor(inputs.get("future_token_mask")),x=tensor(inputs.get("x"));
+                        for(float v:ft)require(v==0,"Unobserved future must be masked out");
+                        int retained=0;for(float v:ht)if(v==1)retained++;
+                        long h=inputs.get("history_len").getLongBuffer().get();
+                        require(h==retained*data.numFramesPerToken,"History token/frame alignment");
+                        for(int t=0;t<retained;t++)for(int k=0;k<data.latentDim;k++) {
+                            int i=t*data.tokenDim+data.numFramesPerToken*data.rootDim+k;
+                            double level=(x[i]*data.latentStd[k]+data.latentMean[k])*data.latentHalfWidth[k];
+                            require(Math.abs(level-Math.rint(level))<1e-4,"History must lie on FSQ lattice");
+                        }
+                        double expected=h==0?0:Math.atan2(x[4]*data.globalRootStd[4]+data.globalRootMean[4],x[3]*data.globalRootStd[3]+data.globalRootMean[3]);
+                        require(Math.abs(tensor(inputs.get("first_heading_angle"))[0]-expected)<1e-6,"Heading follows first retained frame");
+                    } else {
+                        int frames=0;boolean padding=false;for(float v:tensor(inputs.get("motion_pad_mask"))){if(v==1){require(!padding,"Noncontiguous decoder mask");frames++;}else{require(v==0,"Invalid mask");padding=true;}}
+                        long tokens=inputs.get("latent_tokens").getInfo().getShape()[1];
+                        require(frames>0&&frames<=tokens*data.numFramesPerToken,"Decoder masks invalid padded context");
+                        float[] cond=tensor(inputs.get("external_cond"));
+                        for(int k=0;k<3;k++)require(Math.abs(cond[(int)(frames-1)*data.localRootDim+k]-cond[(int)(frames-2)*data.localRootDim+k])<1e-5,"Last valid velocity repeats previous sample");
+                    }
+                };
                 for(int b=0;b<9;b++) {
                     ArdySampler.Batch batch=sampler.next(embedding,settings);
                     require(batch.startFrame==total,"Rolling frame index");
@@ -86,6 +109,7 @@ public final class ArdyCpuCheck {
             JSONObject motion=new JSONObject().put("fps",data.fps).put("joints",joints).put("rootPositions",roots).put("rotations",rotations);
             Files.writeString(output.toPath().resolveSibling(id+"-generated.json"),motion.toString());
             reports.put(new JSONObject().put("model",id).put("frames",total).put("horizons",9).put("steps",settings.steps)
+                .put("actualOrtInputsAudited",true).put("futureConstraintsSparse",true).put("historyOnFsqLattice",true).put("croppedHeadingCorrect",true).put("decoderValidLength",true)
                 .put("generationMs",timings).put("historyCapacityExceeded",true).put("resetReproducible",true).put("checkpointContinuationExact",true)
                 .put("maxBoneLengthErrorM",maxBoneError).put("maxRotationOrthonormalityError",maxRotationError)
                 .put("maxRootFrameStepM",maxRootStep).put("maxRootHorizonSeamStepM",maxSeamStep));
@@ -94,5 +118,8 @@ public final class ArdyCpuCheck {
             .put("limits","Numeric continuity checks; no claim of phone speed, visual quality or whole-app integration.")
             .put("models",reports);
         Files.writeString(output.toPath(),report.toString(2)+"\n"); System.out.println(report.toString());
+    }
+    static float[] tensor(ai.onnxruntime.OnnxTensor tensor) {
+        FloatBuffer buffer=tensor.getFloatBuffer();float[] out=new float[buffer.remaining()];buffer.get(out);return out;
     }
 }

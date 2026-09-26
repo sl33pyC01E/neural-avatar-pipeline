@@ -23,6 +23,7 @@ public final class PocketAnna implements AutoCloseable {
         "decoder.int8.onnx","text_conditioner.onnx","vocab.json","token_scores.json","anna.wav",
         "lm_flow.onnx","lm_main.onnx","decoder.onnx"};
     public PocketAnna(Context context) { this.context=context.getApplicationContext(); }
+    public boolean isWarm(){return engine!=null;}
     public void warm(int threads,String precision) throws Exception {
         PocketModels.file("lm_main",precision); // Validate before releasing a working engine.
         if(engine!=null&&loadedThreads==threads&&precision.equals(loadedPrecision)) return;

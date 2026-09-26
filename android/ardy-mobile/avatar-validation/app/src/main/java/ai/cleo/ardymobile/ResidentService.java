@@ -42,6 +42,30 @@ public final class ResidentService extends Service {
     private volatile long talkRequestedNanos;
     private Embeddings embeddings;
     private JSONObject heldMotion;
+    private boolean benchmarkTracing;
+    public synchronized void benchmarkTrace(boolean enabled){
+        if(enabled&&!benchmarkTracing)try(FileOutputStream out=new FileOutputStream(new File(getCacheDir(),"benchmark-load.jsonl"))){out.flush();}catch(IOException ignored){}
+        if(enabled)benchmarkTracing=true;
+        try{traceBenchmark(new JSONObject().put("type",enabled?"traceStart":"traceStop"));}catch(JSONException ignored){}
+        benchmarkTracing=enabled;
+    }
+    public void benchmarkFrame(String metrics){try{JSONObject value=new JSONObject(metrics);value.put("type","renderMetrics");traceBenchmark(value);}catch(JSONException ignored){}}
+    private synchronized void traceBenchmark(JSONObject event){
+        if(!benchmarkTracing)return;
+        String type=event.optString("type");
+        if(!java.util.Arrays.asList("traceStart","traceStop","speechStart","speechEnd","talkPlayback","talkMetrics","motion","motionError","face","renderMetrics").contains(type))return;
+        try{
+            JSONObject line=new JSONObject().put("type",type).put("elapsedRealtimeMs",SystemClock.elapsedRealtime())
+                .put("tab",activeTab).put("visible",visible).put("profile",profile).put("embedding",embeddingId)
+                .put("pocketWarm",pocket!=null&&pocket.isWarm()).put("lamWarm",lam!=null&&lam.isWarm()).put("ardyResident",sampler!=null)
+                .put("speechBusy",speechBusy.get()).put("motionBusy",motionBusy.get());
+            for(String key:new String[]{"generationMs","playbackStartMs","underruns","lamComputeMs","audioSeconds","totalMs","displayFps","cpuFrameP95Ms","completed"})
+                if(event.has(key))line.put(key,event.get(key));
+            File file=new File(getCacheDir(),"benchmark-load.jsonl");
+            if(file.length()>2*1024*1024){benchmarkTracing=false;return;}
+            try(FileOutputStream out=new FileOutputStream(file,true)){out.write((line+"\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+        }catch(Exception ignored){}
+    }
 
     @Override public void onCreate() {
         super.onCreate();
@@ -420,7 +444,7 @@ public final class ResidentService extends Service {
     @Override public void onLowMemory(){super.onLowMemory();trim();}
     private void error(Exception error){emit("error",error.getMessage()==null?error.toString():error.getMessage());}
     private void emit(String type,String message){try{publish(new JSONObject().put("type",type).put("message",message));}catch(JSONException ignored){}}
-    private void publish(JSONObject message){main.post(()->{Listener current=listener;if(current!=null)current.event(message);});}
+    private void publish(JSONObject message){traceBenchmark(message);main.post(()->{Listener current=listener;if(current!=null)current.event(message);});}
     @Override public void onDestroy() {
         stopping=true;stopMotion();stopSpeech();
         motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(this::releaseSpeechSessions);

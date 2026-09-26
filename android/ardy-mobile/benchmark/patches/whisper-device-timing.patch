@@ -1,0 +1,22 @@
+diff --git a/examples/server/server.cpp b/examples/server/server.cpp
+index b745f4d..4af3796 100644
+--- a/examples/server/server.cpp
++++ b/examples/server/server.cpp
+@@ -824,6 +824,7 @@ int main(int argc, char ** argv) {
+     });
+ 
+     svr->Post(sparams.request_path + sparams.inference_path, [&](const Request &req, Response &res){
++        const auto cleo_start = std::chrono::steady_clock::now();
+         // acquire whisper model mutex lock
+         std::lock_guard<std::mutex> lock(whisper_mutex);
+ 
+@@ -1163,7 +1164,8 @@ int main(int argc, char ** argv) {
+         {
+             std::string results = output_str(ctx, params, pcmf32s);
+             json jres = json{
+-                {"text", results}
++                {"text", results},
++                {"deviceRequestMs", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cleo_start).count()}
+             };
+             if (params.detect_language) {
+                 jres["language"] = whisper_lang_str_full(whisper_full_lang_id(ctx));

@@ -42,6 +42,7 @@ final class ArdyRuntimeData {
     final int rootDim;
     final int tokenDim;
     final int vertexCount;
+    float[] latentMean, latentStd, latentHalfWidth;
 
     private ArdyRuntimeData(ArdyModelProfile profile, JSONObject meta, float[] motionMean, float[] motionStd, float[] globalRootMean, float[] globalRootStd, float[] localRootMean, float[] localRootStd, float[] bindRigInv, float[] lbsWeights, int[] lbsIndices, float[] neutralJoints, int[] jointParents) {
         this.modelId = meta.optString("modelId", profile.id);
@@ -86,7 +87,20 @@ final class ArdyRuntimeData {
 
     private static ArdyRuntimeData load(Assets assets, ArdyModelProfile profile) throws Exception {
         JSONObject meta = new JSONObject(readText(assets, profile.runtimeAsset));
-        return new ArdyRuntimeData(profile, meta, readF32(assets, meta.getString("motionMean")), readF32(assets, meta.getString("motionStd")), readF32(assets, meta.getString("globalRootMean")), readF32(assets, meta.getString("globalRootStd")), readF32(assets, meta.getString("localRootMean")), readF32(assets, meta.getString("localRootStd")), readF32(assets, meta.getString("bindRigInv")), readF32(assets, meta.getString("lbsWeights")), readI32(assets, meta.getString("lbsIndices")), readF32(assets, meta.getString("neutralJoints")), readI32(assets, meta.getString("jointParents")));
+        ArdyRuntimeData data=new ArdyRuntimeData(profile, meta, readF32(assets, meta.getString("motionMean")), readF32(assets, meta.getString("motionStd")), readF32(assets, meta.getString("globalRootMean")), readF32(assets, meta.getString("globalRootStd")), readF32(assets, meta.getString("localRootMean")), readF32(assets, meta.getString("localRootStd")), readF32(assets, meta.getString("bindRigInv")), readF32(assets, meta.getString("lbsWeights")), readI32(assets, meta.getString("lbsIndices")), readF32(assets, meta.getString("neutralJoints")), readI32(assets, meta.getString("jointParents")));
+        JSONObject quant=new JSONObject(readText(assets,"ardy-contract/"+profile.id+".json"));
+        data.latentMean=array(quant,"mean",data.latentDim);
+        data.latentStd=array(quant,"std",data.latentDim);
+        data.latentHalfWidth=array(quant,"halfWidth",data.latentDim);
+        for(int i=0;i<data.latentDim;i++)if(data.latentStd[i]<=0||data.latentHalfWidth[i]<=0)throw new IOException("Invalid FSQ scale");
+        return data;
+    }
+
+    private static float[] array(JSONObject object,String name,int size)throws Exception {
+        org.json.JSONArray values=object.getJSONArray(name);
+        if(values.length()!=size)throw new IOException("Invalid FSQ dimensions");
+        float[] out=new float[size];for(int i=0;i<size;i++){out[i]=(float)values.getDouble(i);if(!Float.isFinite(out[i]))throw new IOException("Invalid FSQ value");}
+        return out;
     }
 
     String summary() {

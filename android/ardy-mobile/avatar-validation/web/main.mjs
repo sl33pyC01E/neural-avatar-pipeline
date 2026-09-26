@@ -6,6 +6,9 @@ const usesAvatar=tab=>['face','talk','avatar','full'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
 const timingControls=[$('#full-cue'),$('#full-tail')];
+const benchmarkRepeat=$('#benchmark-repeat');let repeatTimer;
+function stopRepeat(){clearTimeout(repeatTimer);benchmarkRepeat.checked=false;window.Cleo?.benchmarkTrace?.(false);}
+benchmarkRepeat.onchange=()=>{clearTimeout(repeatTimer);window.Cleo?.benchmarkTrace?.(benchmarkRepeat.checked);};
 try{const saved=JSON.parse(localStorage.getItem('cleo-performance-timing')||'{}');for(const input of timingControls)if(Number.isFinite(saved[input.id])&&saved[input.id]>=Number(input.min)&&saved[input.id]<=Number(input.max))input.value=saved[input.id];}catch{}
 for(const input of timingControls)input.onchange=()=>{try{localStorage.setItem('cleo-performance-timing',JSON.stringify(Object.fromEntries(timingControls.map(item=>[item.id,Number(item.value)]))));}catch{}};
 try {
@@ -36,7 +39,7 @@ window.addEventListener('unhandledrejection',event=>fail(event.reason));
 
 async function selectTab(tab){
   if(!panels[tab])return;
-  if(tab!==currentTab){window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
+  if(tab!==currentTab){stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
   currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
   document.querySelectorAll('[data-tab]').forEach(button=>{
     const active=button.dataset.tab===tab;button.setAttribute('aria-selected',active);button.tabIndex=active?0:-1;
@@ -66,7 +69,7 @@ document.querySelectorAll('[data-tab]').forEach(button=>{
     event.preventDefault();tabs[next].focus();tabs[next].click();
   };
 });
-window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
+window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;if(!pageVisible)stopRepeat();avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
 document.addEventListener('visibilitychange',()=>window.cleoVisible(!document.hidden));
 const ms=value=>value>=0?`${Math.round(value)} ms`:'—';
 const eventTab=event=>event.tab||((event.withFace||event.type==='face')?'face':'pocket');
@@ -104,6 +107,8 @@ window.cleoEvent=event=>{
     speechBusy=false;
     if(event.clipReady||(!event.withFace&&event.message==='Anna ready'))lastState={...lastState,pocketClip:true};
     if(tab==='full')avatar?.pause();buttons();
+    if(tab==='full'&&event.completed&&benchmarkRepeat.checked)repeatTimer=setTimeout(()=>{if(currentTab==='full'&&pageVisible&&benchmarkRepeat.checked&&!speechBusy)$('#full-form').requestSubmit();},150);
+    else if(tab==='full'&&!event.completed)stopRepeat();
   }
   if(event.type==='pocketMetrics'){
     $('#first-audio').textContent=ms(event.firstChunkMs);$('#model-load').textContent=ms(event.loadMs)+(event.warm?' · warm':' · cold');
@@ -136,7 +141,7 @@ for(const tab of ['talk','full']){
     $(`#${tab}-status`).textContent='Starting…';$(`#${tab}-latency`).textContent='Send → playback: measuring…';
     window.Cleo.speakWithFace(text,...settings(),tab==='full'?Number($('#full-cue').value):0,tab==='full'?Number($('#full-tail').value):0);
   };
-  $(`#${tab}-stop`).onclick=()=>{window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();$(`#${tab}-status`).textContent='Stopping…';};
+  $(`#${tab}-stop`).onclick=()=>{stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();$(`#${tab}-status`).textContent='Stopping…';};
 }
 window.debugTabs={select:selectTab,current:()=>currentTab};
 selectTab('welcome').catch(fail);window.Cleo?.state();

@@ -1,0 +1,41 @@
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index e95fb63..43cd04d 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -4928,6 +4928,7 @@ void server_routes::init_routes() {
+     };
+ 
+     this->post_chat_completions = [this](const server_http_req & req) {
++        const int64_t cleo_start_us = ggml_time_us();
+         auto res = create_response();
+         std::vector<raw_buffer> files;
+         json body = json::parse(req.body);
+@@ -4935,12 +4936,27 @@ void server_routes::init_routes() {
+             body,
+             meta->chat_params,
+             files);
+-        return handle_completions_impl(
++        auto response = handle_completions_impl(
+             req,
+             SERVER_TASK_TYPE_COMPLETION,
+             body_parsed,
+             files,
+             TASK_RESPONSE_TYPE_OAI_CHAT);
++        if (response->next) {
++            auto next = std::move(response->next);
++            response->next = [next, cleo_start_us](std::string & output) {
++                const bool more = next(output);
++                if (!output.empty()) {
++                    const json timing = {{"cleoBenchmark", {
++                        {"elapsedMs", (ggml_time_us() - cleo_start_us) / 1000.0},
++                        {"complete", !more}
++                    }}};
++                    output = format_oai_sse(timing) + output;
++                }
++                return more;
++            };
++        }
++        return response;
+     };
+ 
+     this->post_chat_completions_tok = [this](const server_http_req & req) {

@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "models": [
+    {
+      "repo": "unsloth/Qwen3.5-2B-GGUF",
+      "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+      "source": "Qwen3.5-2B-Q4_K_M.gguf",
+      "file": "Qwen3.5-2B-Q4_K_M.gguf",
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "bytes": 1280835840
+    },
+    {
+      "repo": "unsloth/Qwen3.5-2B-GGUF",
+      "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+      "source": "mmproj-F16.gguf",
+      "file": "qwen35-mmproj-F16.gguf",
+      "sha256": "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7",
+      "bytes": 668227264
+    },
+    {
+      "repo": "ggml-org/gemma-4-E2B-it-GGUF",
+      "revision": "b4243c156154b6dca9324415f8c7ccc098b4aed1",
+      "source": "gemma-4-E2B-it-Q4_0.gguf",
+      "file": "gemma-4-E2B-it-Q4_0.gguf",
+      "sha256": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
+      "bytes": 2841481184
+    },
+    {
+      "repo": "ggml-org/gemma-4-E2B-it-GGUF",
+      "revision": "b4243c156154b6dca9324415f8c7ccc098b4aed1",
+      "source": "mmproj-gemma-4-E2B-it-Q8_0.gguf",
+      "file": "mmproj-gemma-4-E2B-it-Q8_0.gguf",
+      "sha256": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
+      "bytes": 557368064
+    },
+    {
+      "repo": "litert-community/gemma-4-E2B-it-litert-lm",
+      "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+      "source": "gemma-4-E2B-it.litertlm",
+      "file": "gemma-4-E2B-it.litertlm",
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "bytes": 2588147712
+    },
+    {
+      "repo": "litert-community/gemma-4-E2B-it-litert-lm",
+      "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+      "source": "gemma-4-E2B-it-gpu.litertlm",
+      "file": "gemma-4-E2B-it-gpu.litertlm",
+      "sha256": "a53a59001894c58e6bdb5b9b227709f91a2e3e556baa7d85acf9c55402ba5cf5",
+      "bytes": 2008432640
+    },
+    {
+      "repo": "ggerganov/whisper.cpp",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "source": "ggml-tiny.en-q5_1.bin",
+      "file": "ggml-tiny.en-q5_1.bin",
+      "sha256": "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b",
+      "bytes": 32166155
+    },
+    {
+      "repo": "ggerganov/whisper.cpp",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "source": "ggml-base.en-q5_1.bin",
+      "file": "ggml-base.en-q5_1.bin",
+      "sha256": "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f",
+      "bytes": 59721011
+    },
+    {
+      "repo": "ggerganov/whisper.cpp",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "source": "ggml-small.en-q5_1.bin",
+      "file": "ggml-small.en-q5_1.bin",
+      "sha256": "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30",
+      "bytes": 190098681
+    }
+  ]
+}

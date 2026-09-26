@@ -1,0 +1,257 @@
+{
+  "phoneExecution": false,
+  "appLaunched": false,
+  "modelInferenceRun": false,
+  "installationOnly": true,
+  "installedCheckpoint": {
+    "installedAt": "2026-09-26T14:57:40.901362+00:00",
+    "package": "ai.cleo.ardyavatarvalidation",
+    "versionCode": 9,
+    "versionName": "0.4.2-ardy-contracts",
+    "apkSha256": "d75bb8a44798df76469f8b84824fdcae60b0de00c3d49a513d39d266426ba0ae",
+    "apkBytes": 1124888476,
+    "originalPackage": "ai.cleo.ardymobile",
+    "originalVersion": {
+      "versionCode": "1",
+      "versionName": "0.1.0-stored-embeddings"
+    },
+    "appLaunched": false,
+    "inferenceTest": false,
+    "models": [
+      {
+        "path": "files/ardy-models/core8-onnx/denoiser.onnx",
+        "bytes": 685175149,
+        "sha256": "b1c7f632622db28033a8092de3386eedec57ae478c8d2a602a0d4d9643874b3d",
+        "action": "retained"
+      },
+      {
+        "path": "files/ardy-models/core8-onnx/decoder.onnx",
+        "bytes": 81925886,
+        "sha256": "8facfe5cb3cdd1a88db77d65ef9d1c1c18a5deaa3f72c2b5fe17c5564ac8b053",
+        "action": "retained"
+      },
+      {
+        "path": "files/ardy-models/core40-onnx/denoiser.onnx",
+        "bytes": 685175149,
+        "sha256": "c0745f310b373c93858eb02bb7f30bae0ee139258e608ef4a317e8882e9bfac3",
+        "action": "retained"
+      },
+      {
+        "path": "files/ardy-models/core40-onnx/decoder.onnx",
+        "bytes": 81925886,
+        "sha256": "5a9ba4e1d1f537c61f91d63d63685f7f2176dffc8b9dd12cc88783d205987d2e",
+        "action": "retained"
+      },
+      {
+        "path": "files/embedding-models/ardy-llm2vec-q4_k_m.gguf",
+        "bytes": 4625232928,
+        "sha256": "60ec43402975a1fa520c7c05193c02e63d793f0311a0f7e59cd17690ebca5fd4",
+        "action": "retained"
+      }
+    ],
+    "complete": true,
+    "installedVersion": {
+      "versionCode": "9",
+      "versionName": "0.4.2-ardy-contracts"
+    },
+    "originalVersionUnchanged": true
+  },
+  "modelManifest": {
+    "schema": 1,
+    "models": [
+      {
+        "repo": "unsloth/Qwen3.5-2B-GGUF",
+        "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+        "source": "Qwen3.5-2B-Q4_K_M.gguf",
+        "file": "Qwen3.5-2B-Q4_K_M.gguf",
+        "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+        "bytes": 1280835840
+      },
+      {
+        "repo": "unsloth/Qwen3.5-2B-GGUF",
+        "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+        "source": "mmproj-F16.gguf",
+        "file": "qwen35-mmproj-F16.gguf",
+        "sha256": "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7",
+        "bytes": 668227264
+      },
+      {
+        "repo": "ggml-org/gemma-4-E2B-it-GGUF",
+        "revision": "b4243c156154b6dca9324415f8c7ccc098b4aed1",
+        "source": "gemma-4-E2B-it-Q4_0.gguf",
+        "file": "gemma-4-E2B-it-Q4_0.gguf",
+        "sha256": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
+        "bytes": 2841481184
+      },
+      {
+        "repo": "ggml-org/gemma-4-E2B-it-GGUF",
+        "revision": "b4243c156154b6dca9324415f8c7ccc098b4aed1",
+        "source": "mmproj-gemma-4-E2B-it-Q8_0.gguf",
+        "file": "mmproj-gemma-4-E2B-it-Q8_0.gguf",
+        "sha256": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
+        "bytes": 557368064
+      },
+      {
+        "repo": "litert-community/gemma-4-E2B-it-litert-lm",
+        "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+        "source": "gemma-4-E2B-it.litertlm",
+        "file": "gemma-4-E2B-it.litertlm",
+        "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+        "bytes": 2588147712
+      },
+      {
+        "repo": "litert-community/gemma-4-E2B-it-litert-lm",
+        "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+        "source": "gemma-4-E2B-it-gpu.litertlm",
+        "file": "gemma-4-E2B-it-gpu.litertlm",
+        "sha256": "a53a59001894c58e6bdb5b9b227709f91a2e3e556baa7d85acf9c55402ba5cf5",
+        "bytes": 2008432640
+      },
+      {
+        "repo": "ggerganov/whisper.cpp",
+        "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+        "source": "ggml-tiny.en-q5_1.bin",
+        "file": "ggml-tiny.en-q5_1.bin",
+        "sha256": "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b",
+        "bytes": 32166155
+      },
+      {
+        "repo": "ggerganov/whisper.cpp",
+        "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+        "source": "ggml-base.en-q5_1.bin",
+        "file": "ggml-base.en-q5_1.bin",
+        "sha256": "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f",
+        "bytes": 59721011
+      },
+      {
+        "repo": "ggerganov/whisper.cpp",
+        "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+        "source": "ggml-small.en-q5_1.bin",
+        "file": "ggml-small.en-q5_1.bin",
+        "sha256": "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30",
+        "bytes": 190098681
+      }
+    ]
+  },
+  "nativeRuntimes": {
+    "llama": {
+      "repository": "ggml-org/llama.cpp",
+      "commit": "81bc6b83f827df746eb129235488d325c49cae52",
+      "backend": "CPU",
+      "abi": "arm64-v8a",
+      "file": "llama-server",
+      "sha256": "d2987f02f1ae241bde99af47d4b2ae583ea97a7ff463d0f3b1012af98cd2d73d",
+      "bytes": 12815648,
+      "options": [
+        "-G",
+        "Ninja",
+        "-DCMAKE_TOOLCHAIN_FILE=C:\\Users\\forre\\AppData\\Local\\Android\\Sdk\\ndk\\29.0.14206865/build/cmake/android.toolchain.cmake",
+        "-DANDROID_ABI=arm64-v8a",
+        "-DANDROID_PLATFORM=android-29",
+        "-DANDROID_STL=c++_static",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DGGML_NATIVE=OFF",
+        "-DGGML_OPENMP=OFF",
+        "-DGGML_LLAMAFILE=OFF",
+        "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod",
+        "-UHAVE_DOTPROD",
+        "-UHAVE_FP16_VECTOR_ARITHMETIC",
+        "-DLLAMA_OPENSSL=OFF",
+        "-DLLAMA_BUILD_TESTS=OFF",
+        "-DLLAMA_BUILD_APP=OFF",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_BUILD_EXAMPLES=OFF"
+      ],
+      "timingPatchSha256": "922962aab17813ebb62584222931175f455a1395a049d3a8860034d2e501a468"
+    },
+    "whisper": {
+      "repository": "ggml-org/whisper.cpp",
+      "commit": "d09f61a708f3487afa956ff578e60eae5e7a233c",
+      "backend": "CPU",
+      "abi": "arm64-v8a",
+      "file": "whisper-server",
+      "sha256": "ccbe83f1a0c4f90338beaa0d217dacfb528d6ea68705747813d4d8a1100330f7",
+      "bytes": 2435752,
+      "options": [
+        "-G",
+        "Ninja",
+        "-DCMAKE_TOOLCHAIN_FILE=C:\\Users\\forre\\AppData\\Local\\Android\\Sdk\\ndk\\29.0.14206865/build/cmake/android.toolchain.cmake",
+        "-DANDROID_ABI=arm64-v8a",
+        "-DANDROID_PLATFORM=android-29",
+        "-DANDROID_STL=c++_static",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DGGML_NATIVE=OFF",
+        "-DGGML_OPENMP=OFF",
+        "-DGGML_LLAMAFILE=OFF",
+        "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod",
+        "-UHAVE_DOTPROD",
+        "-UHAVE_FP16_VECTOR_ARITHMETIC",
+        "-DWHISPER_BUILD_TESTS=OFF",
+        "-DWHISPER_BUILD_SERVER=ON",
+        "-DWHISPER_CURL=OFF"
+      ],
+      "timingPatchSha256": "891c4759daef4b9620007a251e29deb94b3708967ea7a9fdf017a23b969a9684"
+    }
+  },
+  "openclRuntime": {
+    "repository": "ggml-org/llama.cpp",
+    "commit": "81bc6b83f827df746eb129235488d325c49cae52",
+    "backend": "OpenCL requested; phone coverage untested",
+    "file": "llama-server-opencl",
+    "sha256": "218c931ec4ec616ce9e8f07ca1b262fe83efb66761b290159722b737d33bb485",
+    "bytes": 15795400,
+    "options": [
+      "-G",
+      "Ninja",
+      "-DCMAKE_TOOLCHAIN_FILE=C:\\Users\\forre\\AppData\\Local\\Android\\Sdk\\ndk\\29.0.14206865/build/cmake/android.toolchain.cmake",
+      "-DANDROID_ABI=arm64-v8a",
+      "-DANDROID_PLATFORM=android-29",
+      "-DANDROID_STL=c++_static",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DGGML_NATIVE=OFF",
+      "-DGGML_OPENMP=OFF",
+      "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod",
+      "-DGGML_OPENCL=ON",
+      "-DGGML_OPENCL_EMBED_KERNELS=ON",
+      "-DOpenCL_LIBRARY=C:\\Users\\forre\\.codex\\worktrees\\ardy-mobile-cleopatra\\unified\\android\\ardy-mobile\\payloads\\benchmark-builddeps\\libOpenCL.so",
+      "-DOpenCL_INCLUDE_DIR=C:\\Users\\forre\\.codex\\worktrees\\ardy-mobile-cleopatra\\unified\\android\\ardy-mobile\\payloads\\OpenCL-Headers",
+      "-DLLAMA_OPENSSL=OFF",
+      "-DLLAMA_BUILD_TESTS=OFF",
+      "-DLLAMA_BUILD_APP=OFF",
+      "-DLLAMA_BUILD_UI=OFF",
+      "-DLLAMA_BUILD_EXAMPLES=OFF"
+    ],
+    "linkLibrarySha256": "cd35cf1ecbfb2053e45566421aa605f819b69ceb5264706ed4feb15bed0942f9",
+    "timingPatchSha256": "922962aab17813ebb62584222931175f455a1395a049d3a8860034d2e501a468",
+    "headersCommit": "e6060189f4ebe8b52d885c37af71b9a50c272154"
+  },
+  "installedAndHashVerified": true,
+  "modelLocation": "/data/local/tmp/cleopatra-bench",
+  "liteRTPrivateCopies": "ai.cleo.ardyavatarvalidation/files/benchmark",
+  "hostAdapterChecks": {
+    "passed": true,
+    "phoneExecution": false,
+    "coordinateScaling": true,
+    "malformedOutputsFail": true,
+    "silenceScoredSeparately": true,
+    "failuresRemainInAccuracyDenominator": true,
+    "mockedNativeAndLiteRTTimingAdapters": true
+  },
+  "androidBuild": "assembleDebug and lintDebug passed",
+  "lintErrors": 0,
+  "lintWarnings": [
+    "AndroidGradlePluginVersion",
+    "GradleDependency",
+    "SetJavaScriptEnabled",
+    "DataExtractionRules",
+    "MissingApplicationIcon"
+  ],
+  "limits": [
+    "No latency, memory, accuracy or backend qualification results from the phone.",
+    "Models and native executables provisioned; runtime invocation must be performed by the user.",
+    "Faster-whisper, WhisperX alignment and NPU execution are not integrated."
+  ]
+}

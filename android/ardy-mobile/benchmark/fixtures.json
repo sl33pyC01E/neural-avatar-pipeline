@@ -1,0 +1,406 @@
+{
+  "schema": 1,
+  "cases": [
+    {
+      "id": "ui-0-tab",
+      "modality": "image",
+      "file": "ui-0-tab.png",
+      "width": 1080,
+      "height": 2400,
+      "prompt": "Switch to the Notes tab.",
+      "targetBox": [
+        707,
+        180,
+        1035,
+        360
+      ],
+      "expectedAction": "tap",
+      "sha256": "c8760045fe4c088983368a32d2d7cc28ec93566a2cc7dc916149c7cd86d20956",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-0-menu",
+      "modality": "image",
+      "file": "ui-0-menu.png",
+      "width": 1080,
+      "height": 2400,
+      "prompt": "Open the three-dot menu.",
+      "targetBox": [
+        963,
+        585,
+        1043,
+        665
+      ],
+      "expectedAction": "tap",
+      "sha256": "c8760045fe4c088983368a32d2d7cc28ec93566a2cc7dc916149c7cd86d20956",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-0-share",
+      "modality": "image",
+      "file": "ui-0-share.png",
+      "width": 1080,
+      "height": 2400,
+      "prompt": "Select the share icon to begin sending this tab.",
+      "targetBox": [
+        37,
+        2148.0,
+        137,
+        2328.0
+      ],
+      "expectedAction": "tap",
+      "sha256": "c8760045fe4c088983368a32d2d7cc28ec93566a2cc7dc916149c7cd86d20956",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-0-absent",
+      "modality": "image",
+      "file": "ui-0-absent.png",
+      "width": 1080,
+      "height": 2400,
+      "prompt": "Select the microphone icon. If it is absent, return action none.",
+      "targetBox": null,
+      "expectedAction": "none",
+      "sha256": "c8760045fe4c088983368a32d2d7cc28ec93566a2cc7dc916149c7cd86d20956",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-0-send-tab",
+      "modality": "image",
+      "file": "ui-0-send-tab.png",
+      "width": 1080,
+      "height": 2400,
+      "prompt": "Choose the menu item for sending this tab to another device.",
+      "targetBox": [
+        172.8,
+        982.0,
+        907.1999999999999,
+        1033.0
+      ],
+      "expectedAction": "tap",
+      "sha256": "7cb9c85e72b5c7fea3c50e379b216ea685157aad50a488792a2346dd6dd74825",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-1-tab",
+      "modality": "image",
+      "file": "ui-1-tab.png",
+      "width": 1440,
+      "height": 2560,
+      "prompt": "Switch to the Notes tab.",
+      "targetBox": [
+        50,
+        192,
+        488,
+        384
+      ],
+      "expectedAction": "tap",
+      "sha256": "31ed6ffd774b85cec21e1c9855cc9bd734c6319488dbbedd676015efd6f5f6f7",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-1-menu",
+      "modality": "image",
+      "file": "ui-1-menu.png",
+      "width": 1440,
+      "height": 2560,
+      "prompt": "Open the three-dot menu.",
+      "targetBox": [
+        1310,
+        621,
+        1390,
+        701
+      ],
+      "expectedAction": "tap",
+      "sha256": "31ed6ffd774b85cec21e1c9855cc9bd734c6319488dbbedd676015efd6f5f6f7",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-1-share",
+      "modality": "image",
+      "file": "ui-1-share.png",
+      "width": 1440,
+      "height": 2560,
+      "prompt": "Select the share icon to begin sending this tab.",
+      "targetBox": [
+        50,
+        2291.2,
+        150,
+        2483.2
+      ],
+      "expectedAction": "tap",
+      "sha256": "31ed6ffd774b85cec21e1c9855cc9bd734c6319488dbbedd676015efd6f5f6f7",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-1-absent",
+      "modality": "image",
+      "file": "ui-1-absent.png",
+      "width": 1440,
+      "height": 2560,
+      "prompt": "Select the microphone icon. If it is absent, return action none.",
+      "targetBox": null,
+      "expectedAction": "none",
+      "sha256": "31ed6ffd774b85cec21e1c9855cc9bd734c6319488dbbedd676015efd6f5f6f7",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-1-send-tab",
+      "modality": "image",
+      "file": "ui-1-send-tab.png",
+      "width": 1440,
+      "height": 2560,
+      "prompt": "Choose the menu item for sending this tab to another device.",
+      "targetBox": [
+        230.4,
+        1048.0,
+        1209.6,
+        1110.0
+      ],
+      "expectedAction": "tap",
+      "sha256": "53aff920f6cb9ca2b96b4cef4b23feb85de86602cb7357f4978cdf77a24c7f5a",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-2-tab",
+      "modality": "image",
+      "file": "ui-2-tab.png",
+      "width": 1920,
+      "height": 1080,
+      "prompt": "Switch to the Notes tab.",
+      "targetBox": [
+        1257,
+        81,
+        1845,
+        162
+      ],
+      "expectedAction": "tap",
+      "sha256": "79fb2d2cb1e96e45a52e9ad0cca6fa1536dc4938d0db23b26ebcd8c1df0a4521",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-2-menu",
+      "modality": "image",
+      "file": "ui-2-menu.png",
+      "width": 1920,
+      "height": 1080,
+      "prompt": "Open the three-dot menu.",
+      "targetBox": [
+        1773,
+        288,
+        1853,
+        368
+      ],
+      "expectedAction": "tap",
+      "sha256": "79fb2d2cb1e96e45a52e9ad0cca6fa1536dc4938d0db23b26ebcd8c1df0a4521",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-2-share",
+      "modality": "image",
+      "file": "ui-2-share.png",
+      "width": 1920,
+      "height": 1080,
+      "prompt": "Select the share icon to begin sending this tab.",
+      "targetBox": [
+        67,
+        966.6,
+        167,
+        1047.6
+      ],
+      "expectedAction": "tap",
+      "sha256": "79fb2d2cb1e96e45a52e9ad0cca6fa1536dc4938d0db23b26ebcd8c1df0a4521",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-2-absent",
+      "modality": "image",
+      "file": "ui-2-absent.png",
+      "width": 1920,
+      "height": 1080,
+      "prompt": "Select the microphone icon. If it is absent, return action none.",
+      "targetBox": null,
+      "expectedAction": "none",
+      "sha256": "79fb2d2cb1e96e45a52e9ad0cca6fa1536dc4938d0db23b26ebcd8c1df0a4521",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "ui-2-send-tab",
+      "modality": "image",
+      "file": "ui-2-send-tab.png",
+      "width": 1920,
+      "height": 1080,
+      "prompt": "Choose the menu item for sending this tab to another device.",
+      "targetBox": [
+        307.2,
+        437.5,
+        1612.8,
+        513.5
+      ],
+      "expectedAction": "tap",
+      "sha256": "8f4e78bdea10bd2c357dd05a085fda4c0ae4b68e2789ac936f6b20618f2d4e4d",
+      "source": "controlled UI fixture"
+    },
+    {
+      "id": "asr-0-clean",
+      "modality": "audio",
+      "file": "asr-0-clean.wav",
+      "reference": "MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE ARE GLAD TO WELCOME HIS GOSPEL",
+      "seconds": 5.855,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0000",
+      "noiseSnrDb": null,
+      "sha256": "799f78ed4beb4de7ceae3a809262d4ce242394342ccd1d58cef7d49dbc2def46",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-0-noise10db",
+      "modality": "audio",
+      "file": "asr-0-noise10db.wav",
+      "reference": "MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE ARE GLAD TO WELCOME HIS GOSPEL",
+      "seconds": 5.855,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0000",
+      "noiseSnrDb": 10,
+      "sha256": "5d3edc0994a362674339a29d8d3b8ec3b2acc1cf7b1ab124b47f71c97de6348d",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-1-clean",
+      "modality": "audio",
+      "file": "asr-1-clean.wav",
+      "reference": "NOR IS MISTER QUILTER'S MANNER LESS INTERESTING THAN HIS MATTER",
+      "seconds": 4.815,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0001",
+      "noiseSnrDb": null,
+      "sha256": "473b1bb573e8f7cdcd639c6e318036236190107b66bfe6892286121a92d464c1",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-1-noise10db",
+      "modality": "audio",
+      "file": "asr-1-noise10db.wav",
+      "reference": "NOR IS MISTER QUILTER'S MANNER LESS INTERESTING THAN HIS MATTER",
+      "seconds": 4.815,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0001",
+      "noiseSnrDb": 10,
+      "sha256": "8534acb7fa30eaf2025de32131f51905907fe2458c60a2ab3c5ea9bab3d5dc8e",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-2-clean",
+      "modality": "audio",
+      "file": "asr-2-clean.wav",
+      "reference": "HE TELLS US THAT AT THIS FESTIVE SEASON OF THE YEAR WITH CHRISTMAS AND ROAST BEEF LOOMING BEFORE US SIMILES DRAWN FROM EATING AND ITS RESULTS OCCUR MOST READILY TO THE MIND",
+      "seconds": 12.485,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0002",
+      "noiseSnrDb": null,
+      "sha256": "5f4d8f7331acffc3d2efbe0f764b9eb3447911dc17f9843e38e1083eb1685b9c",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-2-noise10db",
+      "modality": "audio",
+      "file": "asr-2-noise10db.wav",
+      "reference": "HE TELLS US THAT AT THIS FESTIVE SEASON OF THE YEAR WITH CHRISTMAS AND ROAST BEEF LOOMING BEFORE US SIMILES DRAWN FROM EATING AND ITS RESULTS OCCUR MOST READILY TO THE MIND",
+      "seconds": 12.485,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0002",
+      "noiseSnrDb": 10,
+      "sha256": "45e6f7ab1819abc06d3edb238259c7dcf24fe92f070e0a76382d993068315aa5",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-3-clean",
+      "modality": "audio",
+      "file": "asr-3-clean.wav",
+      "reference": "HE HAS GRAVE DOUBTS WHETHER SIR FREDERICK LEIGHTON'S WORK IS REALLY GREEK AFTER ALL AND CAN DISCOVER IN IT BUT LITTLE OF ROCKY ITHACA",
+      "seconds": 9.9,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0003",
+      "noiseSnrDb": null,
+      "sha256": "fc23353b884061a5c5784b0cf6b5c539680c50cfae993882822ebdd4a06ddf8c",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-3-noise10db",
+      "modality": "audio",
+      "file": "asr-3-noise10db.wav",
+      "reference": "HE HAS GRAVE DOUBTS WHETHER SIR FREDERICK LEIGHTON'S WORK IS REALLY GREEK AFTER ALL AND CAN DISCOVER IN IT BUT LITTLE OF ROCKY ITHACA",
+      "seconds": 9.9,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0003",
+      "noiseSnrDb": 10,
+      "sha256": "603125262ef18d22270f24f40a307e9a4fa39db6b05ecdb16d351a283fd88866",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-4-clean",
+      "modality": "audio",
+      "file": "asr-4-clean.wav",
+      "reference": "IT IS OBVIOUSLY UNNECESSARY FOR US TO POINT OUT HOW LUMINOUS THESE CRITICISMS ARE HOW DELICATE IN EXPRESSION",
+      "seconds": 9.01,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0005",
+      "noiseSnrDb": null,
+      "sha256": "abd89d9a5108f87f03d03875272e1f3f18bef61ea4c271a0ec5bbc3a5bfc223a",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-4-noise10db",
+      "modality": "audio",
+      "file": "asr-4-noise10db.wav",
+      "reference": "IT IS OBVIOUSLY UNNECESSARY FOR US TO POINT OUT HOW LUMINOUS THESE CRITICISMS ARE HOW DELICATE IN EXPRESSION",
+      "seconds": 9.01,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0005",
+      "noiseSnrDb": 10,
+      "sha256": "342962017e9260cf8b63db60b796e0193d90d4fe8ab2a9062980455a0152c80b",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-5-clean",
+      "modality": "audio",
+      "file": "asr-5-clean.wav",
+      "reference": "ON THE GENERAL PRINCIPLES OF ART MISTER QUILTER WRITES WITH EQUAL LUCIDITY",
+      "seconds": 5.64,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0006",
+      "noiseSnrDb": null,
+      "sha256": "acbc588a1ba63290a48aeb9b37c815475627ba58a815ff095042fa61729fe3a0",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-5-noise10db",
+      "modality": "audio",
+      "file": "asr-5-noise10db.wav",
+      "reference": "ON THE GENERAL PRINCIPLES OF ART MISTER QUILTER WRITES WITH EQUAL LUCIDITY",
+      "seconds": 5.64,
+      "sampleRate": 16000,
+      "sourceId": "1272-128104-0006",
+      "noiseSnrDb": 10,
+      "sha256": "df6e306758995d13ab9dec0cb349098d41a30ade8b97a97c2e947a4c313ceaab",
+      "source": "LibriSpeech human read speech (not conversational commands)"
+    },
+    {
+      "id": "asr-silence",
+      "modality": "audio",
+      "file": "asr-silence.wav",
+      "reference": "",
+      "seconds": 3,
+      "sampleRate": 16000,
+      "sha256": "d303811b8c84619667cd0501342f84ec6cbe69f7aa3856dcf52fabda374c92b8",
+      "source": "generated digital silence"
+    }
+  ],
+  "audioSource": "https://huggingface.co/datasets/hf-internal-testing/librispeech_asr_dummy/resolve/5be91486e11a2d616f4ec5db8d3fd248585ac07a/clean/validation-00000-of-00001.parquet",
+  "audioLicense": "LibriSpeech CC BY 4.0",
+  "limitations": [
+    "Controlled UI only; add held-out real screenshots before deployment decisions.",
+    "Human read English speech and controlled noise; no conversational command accuracy claim.",
+    "No model outputs or benchmark results are generated here."
+  ]
+}

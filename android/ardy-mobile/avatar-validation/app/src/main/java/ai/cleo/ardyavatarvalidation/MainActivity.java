@@ -107,6 +107,8 @@ public final class MainActivity extends Activity implements ResidentService.List
         @JavascriptInterface public void faceReady(String run){if(engines!=null)engines.faceReady(run);}
         @JavascriptInterface public double playbackSeconds(){return engines==null?-1:engines.playbackSeconds();}
         @JavascriptInterface public void memoryBudget(int mib){if(engines!=null)engines.memoryBudget(mib);}
+        @JavascriptInterface public void benchmarkTrace(boolean enabled){if(engines!=null)engines.benchmarkTrace(enabled);}
+        @JavascriptInterface public void benchmarkFrame(String metrics){if(engines!=null)engines.benchmarkFrame(metrics);}
         @JavascriptInterface public void importModels(){runOnUiThread(()->{
             Intent choose=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
             startActivityForResult(choose,71);

@@ -4,6 +4,20 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
+## Latest checkpoint: 0.4.2
+
+The six-tab checkpoint now schedules body, voice and face on a shared audio clock
+and corrects four Ardy history/mask/decoder contracts. See
+[scheduled takes](SCHEDULED_TAKES.md) and [the contract audit](ARDY_CONTRACT_AUDIT.md).
+Version 0.4.2 is installed for the user's visual/audio test; the original app and
+its models are retained. Desktop checks do not establish phone quality or speed.
+
+The [comparison kit](benchmark/README.md) prepares **Ardy + Pocket + LAM + VRM +
+[(Qwen + Whisper) versus Gemma]**. Image and audio are scored independently under
+matched idle and active avatar workloads. Models and CPU/GPU runtime candidates
+are installed; phone inference, resource measurements and a winner are pending
+the user's runs. The agent must not invoke the benchmark launcher.
+
 ## Agreed scope
 
 1. Preserve Core-8 and Core-40 and the existing on-device LLM2Vec GGUF backend.
@@ -23,13 +37,15 @@ checkpoint and provision verified models. Do not launch phone apps, run phone
 inference/benchmarks, play audio, or automate phone controls. The user launches
 the installed app and reports the results. Keep the original Ardy installation.
 
-The user reported a speech-preparation crash and set this debug sequence:
+The user reported a speech-preparation crash, then approved Pocket and LAM and
+expanded the debug sequence to these six tabs:
 
-1. **Tab 1 — VRM:** approved; preserve its appearance and controls.
-2. **Tab 2 — PocketTTS:** current step; get Anna working independently, then tune speed and runtime efficiency.
-3. **Tab 3 — LAM:** built on the user's subsequent request; replay the last Pocket clip using the playback clock, with independent eye/mouth/head amplitudes.
-4. **Tab 1 — Ardy:** qualify live/batched generation with cached embeddings.
-5. **Tab 1 submenu:** create new cached embeddings with the compatible LLM2Vec encoder.
+1. **Welcome:** navigation to the modules.
+2. **PocketTTS:** Anna speech and runtime settings.
+3. **LAM:** replay the last Pocket clip using the playback clock, with independent eye/mouth/head amplitudes.
+4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
+5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
+6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
 
 Only after the modules work independently should their tabs collapse into a debug
 menu behind a real product frontend. Quantization and compilation are authorized

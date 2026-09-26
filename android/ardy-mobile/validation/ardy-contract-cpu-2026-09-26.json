@@ -1,0 +1,66 @@
+{
+  "models": [
+    {
+      "resetReproducible": true,
+      "frames": 72,
+      "maxRootFrameStepM": 0.0023142876567934577,
+      "maxRootHorizonSeamStepM": 0.0021133841948551522,
+      "generationMs": [
+        152.955,
+        140.1096,
+        140.8238,
+        140.4458,
+        140.2294,
+        139.7763,
+        139.8098,
+        140.0845,
+        139.9228
+      ],
+      "steps": 4,
+      "horizons": 9,
+      "historyCapacityExceeded": true,
+      "historyOnFsqLattice": true,
+      "maxRotationOrthonormalityError": 7.059425115585327E-7,
+      "futureConstraintsSparse": true,
+      "actualOrtInputsAudited": true,
+      "croppedHeadingCorrect": true,
+      "model": "core8",
+      "maxBoneLengthErrorM": 3.1287122256862254E-7,
+      "checkpointContinuationExact": true,
+      "decoderValidLength": true
+    },
+    {
+      "resetReproducible": true,
+      "frames": 360,
+      "maxRootFrameStepM": 0.003925975821265176,
+      "maxRootHorizonSeamStepM": 0.0023031653606757348,
+      "generationMs": [
+        355.3298,
+        355.1204,
+        345.1238,
+        346.0257,
+        348.5196,
+        346.69,
+        352.8196,
+        345.4785,
+        341.1229
+      ],
+      "steps": 4,
+      "horizons": 9,
+      "historyCapacityExceeded": true,
+      "historyOnFsqLattice": true,
+      "maxRotationOrthonormalityError": 8.10716301202774E-7,
+      "futureConstraintsSparse": true,
+      "actualOrtInputsAudited": true,
+      "croppedHeadingCorrect": true,
+      "model": "core40",
+      "maxBoneLengthErrorM": 3.9027027742832843E-7,
+      "checkpointContinuationExact": true,
+      "decoderValidLength": true
+    }
+  ],
+  "phoneTest": false,
+  "passed": true,
+  "device": "Windows CPU",
+  "limits": "Numeric continuity checks; no claim of phone speed, visual quality or whole-app integration."
+}

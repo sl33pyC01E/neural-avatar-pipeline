@@ -80,6 +80,8 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <details><summary>Timing and settings</summary>
 <div class="row"><label>Speech cue (s) <input id="full-cue" type="number" min="0" max="3" step="0.05" value="0.5" style="width:75px"></label><label>Motion tail (s) <input id="full-tail" type="number" min="0.5" max="3" step="0.05" value="1" style="width:75px"></label></div>
 <p class="hint">Each take starts at Ardy frame zero after motion and speech are ready. Speech and face fire at the cue. The body continues through the tail and eases to a stop.</p>
-<p id="full-settings" class="hint"></p><p id="full-metrics" class="hint">One playback clock drives body, voice and face.</p></details></section>
+<p id="full-settings" class="hint"></p><p id="full-metrics" class="hint">One playback clock drives body, voice and face.</p></details>
+<details><summary>Benchmark workload</summary><label><input id="benchmark-repeat" type="checkbox"> Repeat Together while comparing models</label>
+<p class="hint">Press Send to begin. Keeps using these speech, face and Ardy settings, records frame pacing and audio underruns, and repeats after each completed take. Stop all, leaving this tab or hiding the app stops repetition. This does not start a competing model; use the comparison runner on the computer.</p></details></section>
 <script type="module" src="./main.mjs"></script>
 </html>

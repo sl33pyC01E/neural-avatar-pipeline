@@ -23,6 +23,9 @@ public final class ArdySampler implements AutoCloseable {
     private float globalX, globalZ;
     private StatefulRandom random;
     private float[] previousEmbedding;
+    // CPU contract checks inspect the tensors actually passed to ORT; unset in the app.
+    interface InputObserver { void inspect(String stage,Map<String,OnnxTensor> inputs)throws Exception; }
+    InputObserver inputObserver;
 
     public static final class Settings {
         public int steps = 4;
@@ -88,7 +91,7 @@ public final class ArdySampler implements AutoCloseable {
         File directory=destination.getParentFile();if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot save motion context");
         File temporary=new File(destination.getPath()+".partial");
         try(FileOutputStream file=new FileOutputStream(temporary);DataOutputStream out=new DataOutputStream(file)) {
-            out.writeInt(0x41524431);out.writeUTF(profile.id);out.writeInt(data.tokenDim);out.writeInt(historyCount);out.writeInt(generatedFrames);
+            out.writeInt(0x41524432);out.writeUTF(profile.id);out.writeInt(data.tokenDim);out.writeInt(historyCount);out.writeInt(generatedFrames);
             out.writeFloat(globalX);out.writeFloat(globalZ);out.writeLong(random.state);
             for(int i=0;i<historyCount*data.tokenDim;i++)out.writeFloat(history[i]);
             out.writeInt(previousEmbedding==null?0:previousEmbedding.length);
@@ -100,7 +103,7 @@ public final class ArdySampler implements AutoCloseable {
     public boolean restore(File source) throws IOException {
         if(!source.isFile())return false;
         try(DataInputStream in=new DataInputStream(new FileInputStream(source))) {
-            if(in.readInt()!=0x41524431||!in.readUTF().equals(profile.id)||in.readInt()!=data.tokenDim)throw new IOException("Incompatible motion checkpoint");
+            if(in.readInt()!=0x41524432||!in.readUTF().equals(profile.id)||in.readInt()!=data.tokenDim)throw new IOException("Incompatible motion checkpoint");
             int count=in.readInt(),frames=in.readInt();
             if(count<0||count>data.maxTokens||frames<0)throw new IOException("Invalid motion checkpoint dimensions");
             float x=finite(in.readFloat()),z=finite(in.readFloat());long rng=in.readLong();
@@ -136,7 +139,9 @@ public final class ArdySampler implements AutoCloseable {
         float[] hm=new float[data.maxFrames], gm=new float[data.maxFrames];
         float[] ht=new float[data.maxTokens],gt=new float[data.maxTokens],ft=new float[data.maxTokens];
         for(int f=0;f<data.maxFrames;f++) { if(f<historyFrames)hm[f]=1; else if(f<historyFrames+data.genHorizonFrames)gm[f]=1; }
-        for(int t=0;t<data.maxTokens;t++) { if(t<retained)ht[t]=1; else if(t<retained+newTokens)gt[t]=1; else ft[t]=1; }
+        // Future tokens are valid only if they contain an actual observed constraint.
+        // Padding is not a future constraint (HybridMotion.convert_frame_mask_to_token_mask).
+        for(int t=0;t<data.maxTokens;t++) { if(t<retained)ht[t]=1; else if(t<retained+newTokens)gt[t]=1; }
         float[] observed=new float[data.maxFrames*data.motionDim], mask=new float[observed.length];
         if(settings.constrainRoot) {
             int end=historyFrames+data.genHorizonFrames-1, base=end*data.motionDim;
@@ -160,10 +165,15 @@ public final class ArdySampler implements AutoCloseable {
         }
         // Decode with retained context, then publish only the newly generated horizon.
         int validTokens=retained+newTokens;
+        requantizeLatents(x,validTokens);
         float[] valid=Arrays.copyOf(x,validTokens*data.tokenDim);
-        float[] root=rootFromTokens(valid,data.maxFrames);
-        float[] body=runDecoder(extractLatents(x),globalRootToLocalRoot(root,data.maxFrames));
-        float[] normalized=concatRootBody(root,body,data.maxFrames);
+        int validFrames=validTokens*data.numFramesPerToken;
+        float[] root=rootFromTokens(valid,validFrames);
+        // The recovered ONNX attention reshape is fixed-size despite symbolic input metadata.
+        // Pad the tensors, but mark only real history+generation frames valid.
+        float[] condition=Arrays.copyOf(globalRootToLocalRoot(root,validFrames),data.maxFrames*data.localRootDim);
+        float[] body=runDecoder(extractLatents(x),condition,validFrames);
+        float[] normalized=concatRootBody(root,body,validFrames);
         float[] joints=new float[data.genHorizonFrames*data.jointCount*3];
         float[] roots=new float[data.genHorizonFrames*3];
         float[] rotations=new float[data.genHorizonFrames*data.jointCount*9];
@@ -196,18 +206,23 @@ public final class ArdySampler implements AutoCloseable {
             inputs.put("history_mask",tensor(hm,1,data.maxFrames)); inputs.put("generation_mask",tensor(gm,1,data.maxFrames));
             inputs.put("history_token_mask",tensor(ht,1,data.maxTokens)); inputs.put("generation_token_mask",tensor(gt,1,data.maxTokens));
             inputs.put("future_token_mask",tensor(ft,1,data.maxTokens)); inputs.put("text_feat",tensor(text,1,1,text.length));
-            inputs.put("timesteps",tensor(new long[]{mappedTimestep(step,steps)},1)); inputs.put("first_heading_angle",tensor(new float[]{0},1));
+            inputs.put("timesteps",tensor(new long[]{mappedTimestep(step,steps)},1));
+            float heading=historyFrames==0?0:(float)Math.atan2(x[4]*data.globalRootStd[4]+data.globalRootMean[4],x[3]*data.globalRootStd[3]+data.globalRootMean[3]);
+            inputs.put("first_heading_angle",tensor(new float[]{heading},1));
             inputs.put("motion_mask",tensor(mask,1,data.maxFrames,data.motionDim)); inputs.put("observed_motion",tensor(observed,1,data.maxFrames,data.motionDim));
+            if(inputObserver!=null)inputObserver.inspect("denoiser",inputs);
             try(OrtSession.Result result=denoiser.run(inputs)) { return tensorToFloatArray(result.get(0),x.length); }
         } finally { closeAll(inputs); }
     }
 
-    private float[] runDecoder(float[] latents,float[] condition) throws Exception {
+    private float[] runDecoder(float[] latents,float[] condition,int validFrames) throws Exception {
         Map<String,OnnxTensor> inputs=new HashMap<>();
         try {
             inputs.put("latent_tokens",tensor(latents,1,data.maxTokens,data.latentDim));
             inputs.put("external_cond",tensor(condition,1,data.maxFrames,data.localRootDim));
-            inputs.put("motion_pad_mask",tensor(fill(data.maxFrames,1),1,data.maxFrames));
+            float[] valid=new float[data.maxFrames];Arrays.fill(valid,0,validFrames,1);
+            inputs.put("motion_pad_mask",tensor(valid,1,data.maxFrames));
+            if(inputObserver!=null)inputObserver.inspect("decoder",inputs);
             try(OrtSession.Result result=decoder.run(inputs)) { return tensorToFloatArray(result.get(1),data.maxFrames*data.bodyDim); }
         } finally { closeAll(inputs); }
     }
@@ -268,11 +283,23 @@ public final class ArdySampler implements AutoCloseable {
     }
 
     private float[] extractLatents(float[] x) {
-        float[] latents = new float[this.data.maxTokens * this.data.latentDim];
-        for (int token = 0; token < this.data.maxTokens; token++) {
+        int tokens=x.length/data.tokenDim;
+        float[] latents = new float[tokens * this.data.latentDim];
+        for (int token = 0; token < tokens; token++) {
             System.arraycopy(x, (this.data.tokenDim * token) + (this.data.numFramesPerToken * this.data.rootDim), latents, this.data.latentDim * token, this.data.latentDim);
         }
         return latents;
+    }
+
+    private void requantizeLatents(float[] x,int tokens) {
+        // Match FSQVAETransformer.requantize, including ties-to-even rounding.
+        for(int t=0;t<tokens;t++)for(int k=0;k<data.latentDim;k++) {
+            int i=t*data.tokenDim+data.numFramesPerToken*data.rootDim+k;
+            float raw=x[i]*data.latentStd[k]+data.latentMean[k];
+            float scaled=Math.max(-1,Math.min(1,raw))*data.latentHalfWidth[k];
+            float discrete=(float)Math.rint(scaled)/data.latentHalfWidth[k];
+            x[i]=(discrete-data.latentMean[k])/data.latentStd[k];
+        }
     }
 
     private void fillRandomTokens(float[] x, int tokenStart, int tokenCount, Random random) {
