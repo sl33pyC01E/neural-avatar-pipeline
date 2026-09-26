@@ -1,0 +1,18 @@
+{
+  "name": "Qwen3.5-2B-Cleo-768-8k-int8",
+  "sourceModel": "Qwen/Qwen3.5-2B",
+  "sourceRevision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  "converterRepository": "https://github.com/john-rocky/hf-to-litertlm.git",
+  "converterRevision": "e77865e8b2ecd33efc70aba7c44e77c58959fdde",
+  "torchRepository": "https://github.com/john-rocky/litert-torch.git",
+  "torchRevision": "115a13607c730c81018bb9789138a3e5e5119e3d",
+  "imageSize": 768,
+  "visualTokens": 576,
+  "contextTokens": 8192,
+  "prefillLengths": [1024, 256, 64, 16, 4, 1],
+  "decoderWeights": "int8 linears and embedding; float convolutions and recurrent math",
+  "decoderActivations": "fp32",
+  "visionWeights": "fp16 encoder; int8 adapter",
+  "thinking": "runtime toggle and token budget",
+  "phoneQualified": false
+}

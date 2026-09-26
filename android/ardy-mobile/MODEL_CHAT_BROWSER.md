@@ -1,4 +1,4 @@
-# In-app models and browser: 0.5.0
+# In-app models and browser: 0.5.1 (in progress)
 
 Tabs 7 and 8 run from **Cleopatra · Avatar Check**. No computer launcher is
 needed after installation and model provisioning. The agent installs; the user
@@ -21,7 +21,7 @@ The native runtime keeps one conversation slot and resends its exact conversatio
 prefix with `cache_prompt` enabled. Failed/incomplete turns are excluded from
 history. LiteRT keeps a persistent Conversation. New chat resets history; it does
 not reload the weights. History is in memory, so unloading or process reclamation
-starts a fresh conversation. The context is 4,096 tokens; start a new chat when it
+starts a fresh conversation. The custom Qwen LiteRT context is 8,192 tokens; other runtimes use 4,096. Start a new chat when it
 fills. This debug build does not silently summarize or trim the conversation.
 
 Settings expose llama.cpp's minimum and maximum image tokens plus maximum image
@@ -34,10 +34,20 @@ The native request uses `reasoning_budget_tokens` and `enable_thinking`; the
 LiteRT Conversation uses ThinkingConfig. Answer output is capped at 512 tokens
 in addition to the reasoning budget.
 
-CPU and Adreno OpenCL are selectable for both GGUF models; Gemma additionally has
-LiteRT CPU/GPU. OpenCL loading requires evidence of nonzero layer offload in the
+CPU and Adreno OpenCL are selectable for both GGUF models. Both models also offer
+LiteRT CPU/GPU. Qwen uses our 768×768 / 576-visual-token / 8K-context build,
+with its thinking channel and a template that retains the exact conversation prefix.
+Gemma uses the full audio/vision package on both LiteRT backends: the separate
+`-gpu` artifact is text-only and caused the missing audio encoder failure. OpenCL loading requires evidence of nonzero layer offload in the
 startup log. Backend selection is not a claim of full operator coverage or NPU
 support. These candidates still need the user's phone qualification.
+
+The speech selector also offers **WhisperX native · Base English (experimental)**:
+Silero VAD, CTranslate2 INT8 greedy decoding, and wav2vec2 INT8 word alignment,
+all on CPU. Its additional stage times are shown beside total ASR time. It is an
+English native pipeline port without Python, temperature retries, or speaker
+diarization. See [the Android WhisperX implementation](benchmark/WHISPERX_ANDROID.md)
+and [the custom Qwen build](benchmark/qwen-litert/README.md).
 
 The bottom strip reports load time, time to first answer text, response duration,
 Whisper duration, model CPU time, decode rate, sampled PSS and prefix reuse. Missing
@@ -80,10 +90,10 @@ agent tab, and neither navigation accuracy nor autonomous completion is qualifie
 ## Packaging and lifecycle
 
 The APK packages three ARM64 executables in its extracted native library folder:
-CPU/OpenCL llama-server and whisper-server. Models live in private app storage
+CPU/OpenCL llama-server and whisper-server, plus the WhisperX JNI library. Models live in private app storage
 under `files/benchmark`, copied and hash-verified by `prepare_benchmark.py --install`.
-All nine pinned model artifacts are provisioned; only the selected contender is
-loaded. This checkpoint is self-contained at runtime, but model provisioning is
+Pinned source artifacts and a separately fingerprinted custom Qwen export are
+provisioned; only the selected contender is loaded. This checkpoint is self-contained at runtime, but model provisioning is
 still separate from the APK download. The final distribution bundle is future work.
 
 Inference runs in the separate `:models` process. Native servers bind only
@@ -97,6 +107,20 @@ signal so they cannot survive the model service.
 
 Native source patches, exact revisions, model hashes and preparation instructions
 are in `benchmark/`. The original `ai.cleo.ardymobile` package is preserved.
+
+## Loading repairs
+
+Whisper-server does not accept whisper-cli’s `-nc` flag; removing it repairs the
+observed Qwen-ready/Whisper-startup failure. Its independent-request context is
+already the server default. Native GPU loading now reads an explicit receipt of
+actual offloaded layers, independent of llama.cpp log verbosity. Worker logs
+include model, backend and timestamp and retain the latest twelve files.
+
+The user reported Gemma CPU and the old text-only LiteRT GPU package loading.
+That does not qualify the full multimodal package or Qwen GPU. Android also
+recorded app-update exits during earlier installations; those are not GPU crash
+evidence. The next delivery is one consolidated installation, with execution
+left to the user.
 
 ## Verification
 

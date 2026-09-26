@@ -17,9 +17,10 @@ ordinary chat and browser operation do not require a computer.
 | --- | --- | --- |
 | Qwen 3.5 2B + Whisper tiny/base/small English | llama.cpp Q4_K_M + FP16 vision projector; whisper.cpp Q5_1 | CPU binaries cross-compiled; optional Adreno OpenCL build for the VLM; user qualification pending |
 | Gemma 4 E2B baseline | Same llama.cpp build; Q4_0 + Q8_0 multimodal projector (vision and audio) | CPU and optional OpenCL; user qualification pending |
-| Gemma 4 E2B mobile | LiteRT-LM 0.17.1, official community CPU/GPU artifacts | Packaged in the checkpoint as a separate, explicitly started benchmark process; user qualification pending |
+| Gemma 4 E2B mobile | LiteRT-LM 0.17.1, full multimodal artifact on CPU/GPU | The separately named `-gpu` file is text-only; full audio/vision artifact is selected on both backends. User qualification pending |
+| Custom Qwen mobile | LiteRT-LM 0.17.1, 768×768 / 576 visual tokens / 8K | Custom graph export in progress; see `qwen-litert/`. GPU requested backend remains subject to user qualification |
 | faster-whisper | CTranslate2 + Python frontend | Not an installed Android runtime. Do not substitute desktop CPU/CUDA numbers into this phone contest. Android port remains unqualified. |
-| WhisperX | faster-whisper ASR plus alignment/optional diarization | Not an independent acoustic model. Additional alignment engines are not ported here; word timing/diarization should be a separately costed requirement. |
+| WhisperX native | Silero + CTranslate2 base.en INT8 + wav2vec2 INT8 alignment, CPU | Experimental tab 7 option; native library and Java pipeline built. English, greedy decoding, no diarization. User qualification pending |
 
 No CPU fallback is labelled NPU/GPU. OpenCL requires nonzero GPU layer offload
 in the startup log, which is retained; this is not proof that every operator or
@@ -29,9 +30,11 @@ artifacts exist for Gemma, but the corresponding vendor runtime and full modalit
 coverage are not yet integrated. The CPU/GPU candidates are ready for first user
 runs, not certified as working on the phone.
 
-`models.json` pins nine model/projector artifacts by repository revision, bytes
-and SHA-256. The downloadable set is 10.23 GB; only the selected contender is
-loaded. All nine artifacts have private app copies for the in-app interface.
+`models.json` pins ten source model/projector artifacts by repository revision,
+bytes and SHA-256. Nine previously provisioned artifacts have private app copies.
+The community Qwen LiteRT file is a local tooling reference and is not provisioned;
+the custom Qwen build has its own receipt. `whisperx-models.json` pins the extra
+ASR/VAD/alignment files. Only the selected contender is loaded.
 These payloads stay outside Git. App-owned servers bind authenticated localhost;
 the separate browser WebView can access the internet. The optional comparison
 runner uses ADB transport, not a public HTTP service. Stopping the benchmark service releases its dedicated

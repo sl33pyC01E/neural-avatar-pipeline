@@ -84,7 +84,7 @@ public final class BenchmarkService extends Service {
         if(budget<0||budget>512)throw new IllegalArgumentException("Invalid reasoning budget");
         ThinkingConfig thought=new ThinkingConfig(thinking,budget);
         ConversationConfig options=new ConversationConfig(null,Collections.emptyList(),Collections.emptyList(),
-            new SamplerConfig(1,1.0,0.0,42),false,Collections.emptyList(),Collections.emptyMap(),null,false,maximum,thought,false);
+            new SamplerConfig(1,1.0,0.0,42),false,null,Collections.emptyMap(),null,false,maximum,thought,false);
         StringBuilder text=new StringBuilder();AtomicReference<Throwable> error=new AtomicReference<>();
         AtomicLong first=new AtomicLong(-1);CountDownLatch done=new CountDownLatch(1);
         long started=SystemClock.elapsedRealtimeNanos();

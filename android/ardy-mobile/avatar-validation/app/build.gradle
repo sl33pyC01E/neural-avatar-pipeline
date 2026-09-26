@@ -11,8 +11,8 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 11
-        versionName '0.5.0-model-chat'
+        versionCode 12
+        versionName '0.5.1-model-loading'
         ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
@@ -55,12 +55,12 @@ tasks.register('stageRuntimePayload', Sync) {
 }
 tasks.register('stageChatNative', Sync) {
     from('../../payloads/benchmark') {
-        include 'llama-server', 'llama-server-opencl', 'whisper-server'
-        rename { name -> ['llama-server':'libcleo_llama.so','llama-server-opencl':'libcleo_llama_opencl.so','whisper-server':'libcleo_whisper.so'][name] }
+        include 'llama-server', 'llama-server-opencl', 'whisper-server', 'libcleo_whisperx.so'
+        rename { name -> ['llama-server':'libcleo_llama.so','llama-server-opencl':'libcleo_llama_opencl.so','whisper-server':'libcleo_whisper.so'].get(name,name) }
     }
     into layout.buildDirectory.dir('generated/chatNative/arm64-v8a')
     doFirst {
-        ['llama-server','llama-server-opencl','whisper-server'].each { name ->
+        ['llama-server','llama-server-opencl','whisper-server','libcleo_whisperx.so'].each { name ->
             if (!file('../../payloads/benchmark/' + name).isFile()) throw new GradleException('Build the Android model runtimes first: ' + name)
         }
     }

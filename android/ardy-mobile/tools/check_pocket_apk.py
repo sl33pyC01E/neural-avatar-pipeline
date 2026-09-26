@@ -91,9 +91,16 @@ if __name__ == '__main__':
             binary=archive.read('lib/arm64-v8a/'+target)
             assert binary[:6]==b'\x7fELF\x02\x01' and struct.unpack_from('<H',binary,18)[0]==183, 'Expected ARM64 ELF executable'
             assert b'/system/bin/linker64' in binary and b'CLEO_PID=' in binary, 'Missing Android entrypoint or process identity'
+            if 'opencl' in target:assert b'CLEO_GPU_LAYERS=' in binary, 'Missing independent GPU offload receipt'
             expected=(web.parents[1]/'payloads/benchmark'/source).read_bytes()
             assert binary==expected, 'Packaged runtime differs from verified cross-compile: '+source
             packaged_workers[target]=hashlib.sha256(binary).hexdigest()
+        binary=archive.read('lib/arm64-v8a/libcleo_whisperx.so')
+        assert binary[:6]==b'\x7fELF\x02\x01' and struct.unpack_from('<H',binary,18)[0]==183
+        for symbol in ('nativeLoad','nativeTranscribe','nativeClose'):
+            assert ('Java_ai_cleo_ardyavatarvalidation_WhisperXRuntime_'+symbol).encode() in binary, 'Missing WhisperX JNI method: '+symbol
+        assert binary==(web.parents[1]/'payloads/benchmark/libcleo_whisperx.so').read_bytes(), 'Stale WhisperX JNI library'
+        packaged_workers['libcleo_whisperx.so']=hashlib.sha256(binary).hexdigest()
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,

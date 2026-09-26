@@ -90,7 +90,7 @@ class NativeServer:
             else:raise TimeoutError('Server startup timed out')
             self.loadMs=(time.perf_counter()-self.started)*1000
             self.backendEvidence=self.logpath.read_text(errors='replace')
-            if binary.endswith('-opencl') and not re.search(r'offloaded [1-9]\d*/\d+ layers',self.backendEvidence):
+            if binary.endswith('-opencl') and not re.search(r'(?:CLEO_GPU_LAYERS=|offloaded )[1-9]\d*/\d+',self.backendEvidence):
                 raise RuntimeError('Requested OpenCL, but no GPU layer offload confirmed in log; do not rank CPU fallback as GPU')
         except BaseException:self.close();raise
     def close(self):
@@ -153,7 +153,7 @@ class NativeServer:
 class LiteRT:
     def __init__(self,device,backend):
         self.device=device;self.backend=backend;self.pid=None
-        self.model='gemma-4-E2B-it'+('-gpu' if backend=='gpu' else '')+'.litertlm'
+        self.model='gemma-4-E2B-it.litertlm'
         result=self.request(dict(action='load',model=self.model,backend=backend,threads=2))
         self.loadMs=result['loadMs'];self.pid=result['pid']
     def request(self,value):
@@ -271,7 +271,7 @@ def main():
                 report['backendEvidence']=engine.backendEvidence
             whisper=None
             if a.engine=='qwen-whisper':
-                whisper=NativeServer(d,'whisper-server',['-m',REMOTE+f'/ggml-{a.whisper}.en-q5_1.bin','-t','2','-ng','-nc','-nf','-bo','1','-bs','1','-l','en'],18762,out,loading.pids)
+                whisper=NativeServer(d,'whisper-server',['-m',REMOTE+f'/ggml-{a.whisper}.en-q5_1.bin','-t','2','-ng','-nf','-bo','1','-bs','1','-l','en'],18762,out,loading.pids)
                 servers.append(whisper)
         report['loadMs']=dict(llm=engine.loadMs,asr=whisper.loadMs if whisper else None)
         report['loadingMemory']=loading.samples

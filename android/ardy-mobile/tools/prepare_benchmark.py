@@ -143,7 +143,14 @@ def main():
     if a.opencl:
         if not a.ndk:p.error('--ndk is required for OpenCL build')
         build_opencl(a.ndk)
-    if a.install:install(a.adb,a.transport,models)
+    if a.install:
+        custom_receipt=ROOT/'benchmark/qwen-litert/build-receipt.json'
+        if not custom_receipt.is_file():
+            p.error('The custom Qwen LiteRT build receipt is required before provisioning this app version')
+        custom=json.loads(custom_receipt.read_text(encoding='utf-8'))
+        if custom.get('imageSize')!=768 or custom.get('contextTokens')!=8192 or not custom.get('graphExported'):
+            p.error('Expected the custom 768-pixel / 8192-token Qwen graph export')
+        install(a.adb,a.transport,[*[model for model in models if model.get('provision',True)],custom])
     elif a.install_runtimes_only:install(a.adb,a.transport,[])
 
 if __name__=='__main__':main()

@@ -1,0 +1,29 @@
+{
+  "prefixHistory": true,
+  "imageInput": true,
+  "whisperRouting": true,
+  "phoneTest": false,
+  "invalidActionsRejected": 9,
+  "gpuReceiptValidation": true,
+  "browserIsolation": true,
+  "reasoningBudget": true,
+  "failedTurnsExcluded": true,
+  "cancelledTurnsExcluded": true,
+  "model": "fake HTTP endpoint",
+  "passed": true,
+  "whisperArguments": [
+    "-m",
+    "model.bin",
+    "-t",
+    "2",
+    "-ng",
+    "-nf",
+    "-bo",
+    "1",
+    "-bs",
+    "1",
+    "-l",
+    "en"
+  ],
+  "whisperFlagsMatchPinnedServerParser": true
+}

@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "encoder": "vision_encoder.tflite",
+      "adapter": "vision_adapter.tflite",
+      "sha256": {
+        "vision_encoder.tflite": "b63b308e13bc57689da15bbfa92416f70de77b59e5ca6a7e32f27940fede9a7e",
+        "vision_adapter.tflite": "5af8d0f172a0fae8126f387a7d600f8c86c102fbf7b0e2f00eb0d20c84134244"
+      },
+      "correlation": 0.9999999993276263,
+      "minimum": 0.9999,
+      "maxAbsoluteError": 0.0007834434509277344,
+      "passed": true
+    },
+    {
+      "encoder": "vision_encoder_fp16.tflite",
+      "adapter": "vision_adapter_int8.tflite",
+      "sha256": {
+        "vision_encoder_fp16.tflite": "119ca3dc5dfd5d85adedba586b8668508455be7fdc39d2cf33827846a99f6d8d",
+        "vision_adapter_int8.tflite": "e56206ccf35c195f7cb736141a3c3a67a2525b68fcc5c04f884b496de732fc30"
+      },
+      "correlation": 0.9998067875467487,
+      "minimum": 0.999,
+      "maxAbsoluteError": 0.05005383491516113,
+      "passed": true
+    }
+  ],
+  "scope": "768-pixel source vision parity on deterministic noise; no phone performance claim",
+  "phoneExecuted": false
+}

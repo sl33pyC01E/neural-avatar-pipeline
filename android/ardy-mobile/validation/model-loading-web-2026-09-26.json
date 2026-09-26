@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "phoneTest": false,
+  "bridge": "stub",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "faceFollowsPlaybackClock": true,
+  "twoFingerPan": true,
+  "pinchAndRotate": true,
+  "cancelledTouchRecovery": true,
+  "panSurvivesMotionAndTabSwitch": true,
+  "cameraReset": true,
+  "appearanceAffectsRenderedAvatar": true,
+  "appearancePersists": true,
+  "noExtraAppearanceRenderPass": true,
+  "eightTabsAndWelcome": true,
+  "modelSettingsForwarded": true,
+  "modelSwitchLoadsSelection": true,
+  "imageAndReasoningControls": true,
+  "chatInputAndSafeText": true,
+  "chatMetrics": true,
+  "browserGoalFollowupAndControls": true,
+  "compactBounds": {
+    "stopBottom": 469.8125,
+    "viewportHeight": 171.8125
+  },
+  "chatBounds": {
+    "panelBottom": 899,
+    "metricsBottom": 888,
+    "logHeight": 295
+  },
+  "browserBounds": {
+    "x": 0.055825242718446605,
+    "y": 0.3284153005464481,
+    "width": 0.8883495145631068,
+    "height": 0.4407786885245902
+  },
+  "combinedUsesPocketAndFaceSettings": true,
+  "rollingFaceClock": true,
+  "staleFacialWindowsRejected": true,
+  "togetherStartsSelectedArdy": true,
+  "headOverlayPreservesBodyPose": true,
+  "scheduledCue": true,
+  "preparationHoldsMotion": true,
+  "audioClockDrivesBody": true,
+  "motionCoverageBeforeAudio": true,
+  "smoothTailAndIdle": true,
+  "repeatedTakesStartAtZero": true,
+  "talkBounds": {
+    "height": 432.5,
+    "bottom": 660,
+    "composer": 670
+  },
+  "realGeneratedMotionFrames": 360,
+  "finiteTransforms": true,
+  "hiddenStopsRenderAndRequests": true,
+  "staticRestStopsRendering": true,
+  "benchmarkRepeatOptInAndStopsWhenHidden": true,
+  "staleProfileResultsIgnored": true,
+  "pauseResumeKeepsStream": true,
+  "pocketStartupLoadsNoAvatar": true,
+  "pocketTabStopsAvatarAndMotion": true,
+  "pocketSettingsAndMetrics": true,
+  "pocketSettingsPersist": true,
+  "approvedSpeechBaselineAvailable": true,
+  "independentFaceGains": true,
+  "zeroGainDisablesGroup": true,
+  "declaredEyeBoneDriver": true,
+  "faceTimelineAcknowledged": true,
+  "bounds": {
+    "canvasHeight": 196.5,
+    "canvasBottom": 424,
+    "panelTop": 434
+  },
+  "limitations": [
+    "Native Android service/JNI/audio path is not exercised by this browser check.",
+    "No phone timing or thermal claim."
+  ]
+}

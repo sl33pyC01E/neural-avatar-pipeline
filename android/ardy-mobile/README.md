@@ -6,6 +6,15 @@ The target avatar is `Zome_Cleopatra_v1.vrm`.
 
 ## Latest checkpoint: 0.5.0
 
+The **0.5.1 model-loading update** is built but not yet installed. It repairs the
+Whisper server arguments, selects Gemma's complete audio/vision LiteRT artifact,
+adds an experimental native WhisperX option, and prepares Qwen LiteRT CPU/GPU at
+768×768 / 576 visual tokens / 8K context. The custom vision export passes its
+numerical check; decoder compilation is in progress on Spark. Installation waits
+for the complete Qwen artifact and a connected phone. See
+[the Qwen build](benchmark/qwen-litert/README.md) and
+[WhisperX Android](benchmark/WHISPERX_ANDROID.md).
+
 **Tab 7 — Models** provides on-device chat with Qwen + Whisper or Gemma, image
 and audio input, retained conversation prefixes, image-token controls, reasoning
 settings and latency/resource metrics. **Tab 8 — Browser** opens an embedded

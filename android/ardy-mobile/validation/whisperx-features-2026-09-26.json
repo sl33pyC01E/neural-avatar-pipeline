@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "silence",
+      "maxAbsoluteError": 0.0,
+      "passed": true
+    },
+    {
+      "case": "tones",
+      "maxAbsoluteError": 1.0848045349121094e-05,
+      "passed": true
+    },
+    {
+      "case": "noise",
+      "maxAbsoluteError": 2.5033950805664062e-06,
+      "passed": true
+    }
+  ],
+  "referenceSha256": "e403966dbc592a53695eea2aea24fa60bab50ef6755e0076b311f907be7a397c",
+  "phoneExecuted": false
+}

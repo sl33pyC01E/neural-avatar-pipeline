@@ -1,0 +1,32 @@
+{%- macro content(value) -%}
+{# Require typed content: FastVLM 0.17.1 drops channels when flattening text parts. #}
+{%- for item in value -%}
+{%- if item.type == 'text' -%}{{ item.text }}
+{%- elif item.type == 'image' -%}{{ '<|vision_start|><image_soft_token><|vision_end|>' }}
+{%- endif -%}{%- endfor -%}
+{%- endmacro -%}
+{%- for message in messages -%}
+{%- if message.role == 'assistant' or message.role == 'model' -%}
+{{ '<|im_start|>assistant\n' }}
+{%- if enable_thinking -%}
+{{ '<think>\n' }}
+{%- if message.reasoning_content is defined -%}{{ message.reasoning_content }}
+{%- elif message.channels is defined and message.channels.thought is defined -%}{{ message.channels.thought }}
+{%- endif -%}
+{{ '</think>' }}{{ content(message.content) }}
+{%- else -%}
+{{ '<think>\n\n</think>\n\n' }}{{ content(message.content) }}
+{%- endif -%}
+{{ '<|im_end|>\n' }}
+{%- else -%}
+{%- if message.role == 'system' -%}{{ '<|im_start|>system\n' }}
+{%- else -%}{{ '<|im_start|>' + message.role + '\n' }}{%- endif -%}
+{{ content(message.content) }}{{ '<|im_end|>\n' }}
+{%- endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+{{ '<|im_start|>assistant\n' }}
+{%- if enable_thinking -%}{{ '<think>\n' }}
+{%- else -%}{{ '<think>\n\n</think>\n\n' }}
+{%- endif -%}
+{%- endif -%}

@@ -1,0 +1,58 @@
+{
+  "file": "Qwen3.5-2B-Cleo-template-check.litertlm",
+  "bytes": 3148905040,
+  "sha256": "b8c2975aeb33585aef93434396886b34f26d3031ebee4372987f49d89385292f",
+  "sourceFile": "Qwen3.5-2B-VL_int8.litertlm",
+  "sourceSha256": "f8821e403dcfc939a033f6b2c9633a5d6b78c29a380ca825e0b90a62df61afe5",
+  "templateSha256": "5be7f53bf58362e6e9c4f9634a70e9d88c9f7a22e029e4b9c8f9c0381451d338",
+  "imageSize": 512,
+  "contextTokens": 4096,
+  "thinkingChannel": {
+    "name": "thought",
+    "start": "<think>\n",
+    "end": "</think>"
+  },
+  "preservedSections": [
+    {
+      "type": 9,
+      "metadata": {},
+      "sha256": "616a19e00ee4aa8286646823c406738c6670f3befe9d8d15fc7027522d097630"
+    },
+    {
+      "type": 6,
+      "metadata": {},
+      "sha256": "f7099e031c8ef292b5b5d49c36b75dfb39c81f215ccdaf3fd87d5071ab6fe684"
+    },
+    {
+      "type": 3,
+      "metadata": {
+        "model_type": "tf_lite_embedder"
+      },
+      "sha256": "66cf0ccfac29900347e7edf7aa3cbee55b4fff71d6319218ce2932d0083fba5c"
+    },
+    {
+      "type": 3,
+      "metadata": {
+        "model_type": "tf_lite_prefill_decode",
+        "prefer_activation_type": "fp32"
+      },
+      "sha256": "ca140fa29d658217f384316979e4dbde4f0b8811e513ea0ab556aa8b931ee1df"
+    },
+    {
+      "type": 3,
+      "metadata": {
+        "model_type": "tf_lite_vision_encoder"
+      },
+      "sha256": "96749e006bd883be8d82160169e593bbe188b4c707314fad237b68950fc6ff5b"
+    },
+    {
+      "type": 3,
+      "metadata": {
+        "model_type": "tf_lite_vision_adapter"
+      },
+      "sha256": "ea14414d09fefec1db5dc8907ed6db61e5c8c6c94f807fc71d94270e501ec38b"
+    }
+  ],
+  "graphExported": false,
+  "phoneQualified": false
+}

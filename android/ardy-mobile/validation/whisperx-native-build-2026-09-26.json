@@ -1,0 +1,36 @@
+{
+  "repository": "OpenNMT/CTranslate2",
+  "revision": "d44d2d069eb88c7b7804da864c10c201501cb4a9",
+  "abi": "arm64-v8a",
+  "backend": "Ruy CPU",
+  "file": "libcleo_whisperx.so",
+  "bytes": 2061632,
+  "sha256": "cc815d639f22f1c1135d41943c0ff7b524b711b3f4fce68691a231bc93faf7a9",
+  "flags": [
+    "-G",
+    "Ninja",
+    "-DCMAKE_TOOLCHAIN_FILE=C:\\Users\\forre\\AppData\\Local\\Android\\Sdk\\ndk\\29.0.14206865/build/cmake/android.toolchain.cmake",
+    "-DANDROID_ABI=arm64-v8a",
+    "-DANDROID_PLATFORM=android-29",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DANDROID_STL=c++_static",
+    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+    "-DWITH_MKL=OFF",
+    "-DWITH_CUDA=OFF",
+    "-DWITH_RUY=ON",
+    "-DOPENMP_RUNTIME=NONE",
+    "-DENABLE_CPU_DISPATCH=OFF",
+    "-DBUILD_CLI=OFF",
+    "-DBUILD_TESTS=OFF",
+    "-DCT2_SOURCE=C:\\Users\\forre\\.codex\\worktrees\\ardy-mobile-cleopatra\\unified\\android\\ardy-mobile\\payloads\\ctranslate2"
+  ],
+  "phoneExecuted": false,
+  "phoneQualified": false,
+  "pipeline": [
+    "Silero VAD",
+    "CTranslate2 base.en INT8 greedy ASR",
+    "wav2vec2 INT8 CTC word alignment"
+  ],
+  "diarization": false,
+  "patchSha256": "8b4624f33fb53fb89911b80a846f327918911c50776ad6eda3dedc90b6583cd1"
+}

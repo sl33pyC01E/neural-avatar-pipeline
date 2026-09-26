@@ -61,7 +61,10 @@ public final class ModelChatProtocolCheck {
         check(BrowserAction.parse("```json\n{\"action\":\"click\",\"box\":[0,0,1000,1000],\"confirm\":true}\n```").getBoolean("confirm"),"Confirmation preserved");
         check(BrowserAction.parse("{\"action\":\"ask\",\"question\":\"Which tab?\"}").getString("action").equals("ask"),"Follow-up action");
         BrowserAction.parse("{\"action\":\"done\",\"summary\":\"Finished\"}");
-        System.out.println("{\"passed\":true,\"phoneTest\":false,\"model\":\"fake HTTP endpoint\",\"prefixHistory\":true,\"reasoningBudget\":true,\"imageInput\":true,\"whisperRouting\":true,\"failedTurnsExcluded\":true,\"browserIsolation\":true,\"invalidActionsRejected\":9}");
+        check(NativeChatRuntime.hasGpuEvidence("CLEO_GPU_LAYERS=25/25"),"GPU receipt independent of verbosity");
+        check(!NativeChatRuntime.hasGpuEvidence("CLEO_GPU_LAYERS=0/25"),"Zero offload is not GPU success");
+        check(!NativeChatRuntime.hasGpuEvidence("GPU device detected"),"GPU detection is not proof of offload");
+        System.out.println(new JSONObject("{\"passed\":true,\"phoneTest\":false,\"model\":\"fake HTTP endpoint\",\"prefixHistory\":true,\"reasoningBudget\":true,\"imageInput\":true,\"whisperRouting\":true,\"failedTurnsExcluded\":true,\"browserIsolation\":true,\"invalidActionsRejected\":9}").put("whisperArguments",new JSONArray(NativeChatRuntime.whisperArguments("model.bin"))).put("gpuReceiptValidation",true).put("cancelledTurnsExcluded",true));
     }
     static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

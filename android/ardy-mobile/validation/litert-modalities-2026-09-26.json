@@ -1,0 +1,89 @@
+[
+  {
+    "file": "gemma-4-E2B-it.litertlm",
+    "bytes": 2588147712,
+    "sections": [
+      {},
+      {},
+      {
+        "model_type": "tf_lite_embedder"
+      },
+      {
+        "model_type": "tf_lite_per_layer_embedder"
+      },
+      {
+        "model_type": "tf_lite_audio_encoder_hw",
+        "backend_constraint": "cpu"
+      },
+      {
+        "model_type": "tf_lite_audio_adapter",
+        "backend_constraint": "cpu"
+      },
+      {
+        "model_type": "tf_lite_end_of_audio"
+      },
+      {
+        "model_type": "tf_lite_vision_encoder",
+        "prefer_activation_type": "fp16"
+      },
+      {
+        "model_type": "tf_lite_vision_adapter",
+        "backend_constraint": "cpu"
+      },
+      {
+        "model_type": "tf_lite_end_of_vision"
+      },
+      {
+        "model_type": "tf_lite_prefill_decode",
+        "prefer_activation_type": "fp16"
+      },
+      {
+        "model_type": "tf_lite_mtp_drafter"
+      }
+    ],
+    "vision": true,
+    "audio": true,
+    "phoneExecution": false
+  },
+  {
+    "file": "gemma-4-E2B-it-gpu.litertlm",
+    "bytes": 2008432640,
+    "sections": [
+      {},
+      {},
+      {
+        "model_type": "tf_lite_artisan_text_decoder",
+        "backend_constraint": "gpu_artisan",
+        "gpu_artisan_weights_version": "0.0"
+      }
+    ],
+    "vision": false,
+    "audio": false,
+    "phoneExecution": false
+  },
+  {
+    "file": "Qwen3.5-2B-VL_int8.litertlm",
+    "bytes": 3148905040,
+    "sections": [
+      {},
+      {},
+      {},
+      {
+        "model_type": "tf_lite_embedder"
+      },
+      {
+        "model_type": "tf_lite_prefill_decode",
+        "prefer_activation_type": "fp32"
+      },
+      {
+        "model_type": "tf_lite_vision_encoder"
+      },
+      {
+        "model_type": "tf_lite_vision_adapter"
+      }
+    ],
+    "vision": true,
+    "audio": false,
+    "phoneExecution": false
+  }
+]

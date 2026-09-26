@@ -9,11 +9,13 @@ export function createModelChat(){
   function save(){try{localStorage.setItem('cleo-model-settings',JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(`#${id}`).type==='checkbox'?$(`#${id}`).checked:$(`#${id}`).value]))));}catch{}}
   function controls(){
     const qwen=$('#chat-model').value==='qwen',lite=$('#chat-backend').value.startsWith('litert');
-    for(const option of $('#chat-backend').options)option.disabled=qwen&&option.value.startsWith('litert');
+    for(const option of $('#chat-backend').options)option.disabled=false;
     $('#chat-whisper').disabled=!qwen||busy;$('#image-min-tokens').disabled=lite||busy;$('#image-max-tokens').disabled=lite||busy;$('#image-batch-tokens').disabled=lite||busy;
+    $('#asr-note').hidden=!qwen;
     $('#reasoning-budget').disabled=!$('#chat-reasoning').checked||busy;
     for(const id of ['chat-model','chat-backend','chat-reasoning'])$(`#${id}`).disabled=busy;
-    $('#image-token-note').textContent=lite?'This LiteRT artifact fixes the image token allocation; its Android API does not expose a token-budget override.':'Minimum 0 uses the model default. Maximum bounds each image’s token allocation; screenshots keep their aspect ratio. Encoder batch tokens limits image work per batch. Applies on load.';
+    $('#chat-reasoning').disabled=busy;
+    $('#image-token-note').textContent=lite?(qwen?'Cleopatra Qwen LiteRT: 768 × 768 images, 576 visual tokens, 8,192-token context. Reasoning and its budget apply on load. Image size is fixed by this profile.':'Gemma LiteRT uses the full audio/vision package on CPU and GPU. Image allocation is fixed by that artifact; reasoning remains adjustable.'):'Minimum 0 uses the model default. Maximum bounds each image’s token allocation; screenshots keep their aspect ratio. Encoder batch tokens limits image work per batch. Applies on load.';
     $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload model':`Load ${qwen?'Qwen + Whisper':'Gemma'}`;
     $('#chat-send').disabled=!loaded||busy||recording||dirty();$('#chat-new').disabled=busy||!loaded;$('#chat-unload').disabled=!loaded&&!busy;
     $('#chat-record').textContent=recording?'Finish recording':'Record';
@@ -26,7 +28,7 @@ export function createModelChat(){
     save();if(request({action:'load',...s})){busy=true;loaded=false;lastError='';$('#chat-status').textContent='Loading selected model…';$('#chat-log').replaceChildren();metrics={};paintMetrics();controls();}}
   $('#chat-load').onclick=load;
   $('#chat-text').onfocus=()=>{$('#model-settings').open=false;};
-  for(const id of ids)$(`#${id}`).onchange=()=>{if($('#chat-model').value==='qwen'&&$('#chat-backend').value.startsWith('litert'))$('#chat-backend').value='cpu';save();controls();if(id==='chat-model')load();};
+  for(const id of ids)$(`#${id}`).onchange=()=>{save();controls();if(id==='chat-model')load();};
   function message(role,text,media=''){const article=document.createElement('article');article.className='chat-message '+role;const name=document.createElement('strong');name.textContent=role==='user'?'You':selection?.model==='qwen'?'Qwen':'Gemma';const content=document.createElement('div');content.textContent=(media?`[${media}]\n`:'')+text;article.append(name,content);$('#chat-log').append(article);$('#chat-log').scrollTop=$('#chat-log').scrollHeight;return content;}
   $('#chat-form').onsubmit=event=>{event.preventDefault();if(!loaded||busy||recording||dirty())return;const text=$('#chat-text').value.trim();if(!text&&!attachment)return;
     if(request({action:'send',text,...(attachment?{file:attachment.file,kind:attachment.kind}:{})})){lastError='';message('user',text,attachment?.kind||'');pendingAnswer=message('assistant','…');$('#chat-text').value='';$('#chat-text').blur();attachment=null;busy=true;$('#chat-status').textContent='Preparing response…';controls();}}
@@ -37,7 +39,8 @@ export function createModelChat(){
   const ms=v=>Number.isFinite(v)&&v>=0?`${Math.round(v)} ms`:'—';const memory=v=>Number.isFinite(v)&&v>=0?`${Math.round(v/1024)} MiB`:'—';
   function paintMetrics(){
     const m=metrics.memory||{},t=metrics.timings||{},cached=t.cache_n??t.prompt_n_cached??t.prompt_cached_n;
-    const values={load:ms(metrics.loadMs),first:ms(metrics.firstTokenMs),total:ms(metrics.totalMs),asr:ms(metrics.asrMs),cpu:ms(metrics.cpuMs),
+    const detail=metrics.asrDetails||{};
+    const values={load:ms(metrics.loadMs),first:ms(metrics.firstTokenMs),total:ms(metrics.totalMs),asr:ms(metrics.asrMs)+(detail.alignmentMs!==undefined?` · VAD ${ms(detail.vadMs)} · align ${ms(detail.alignmentMs)}`:''),cpu:ms(metrics.cpuMs),
       memory:memory(m.pssKb)+(m.complete===false?' (partial)':''),peak:memory(m.peakPssKb),cache:cached!==undefined?`${cached} tokens`:metrics.prefixCache?'Retained · count unavailable':'—',
       decode:Number.isFinite(t.predicted_per_second)?`${t.predicted_per_second.toFixed(1)} tok/s`:'—'};
     for(const [key,value] of Object.entries(values))document.querySelectorAll(`[data-model-metric="${key}"]`).forEach(e=>e.textContent=value);

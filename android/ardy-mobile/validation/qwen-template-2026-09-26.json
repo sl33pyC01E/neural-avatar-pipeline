@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "cases": 12,
+  "templateEngine": "MiniJinja",
+  "retainedPrefix": true,
+  "reasoningToggle": true,
+  "stringAndPartsUserContent": true,
+  "typedAssistantHistory": true,
+  "fastVlm0171AdapterModeled": true,
+  "requiresTypedContent": true,
+  "imageMarker": true,
+  "phoneExecution": false,
+  "limitation": "Template checks do not establish model quality or runtime budget enforcement."
+}

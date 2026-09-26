@@ -270,6 +270,12 @@ try {
   await evaluate('document.querySelector("#chat-backend").value="litert-gpu";document.querySelector("#chat-backend").dispatchEvent(new Event("change"))');
   assert(await evaluate('document.querySelector("#image-max-tokens").disabled&&document.querySelector("#image-batch-tokens").disabled'),'LiteRT advertised unsupported image budget overrides');
   await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-model").value="qwen";document.querySelector("#chat-model").dispatchEvent(new Event("change"))');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).backend'),'litert-gpu','Qwen LiteRT selection was lost');
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),256,'Qwen LiteRT reasoning did not survive selection');
+  assert(await evaluate('!document.querySelector("#chat-reasoning").disabled&&!document.querySelector("#chat-whisper").disabled'),'Qwen LiteRT controls unavailable');
+  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("576")'),'Wrong custom image profile');
+  await evaluate('document.querySelector("#chat-whisper").value="whisperx-base";document.querySelector("#chat-whisper").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).whisper'),'whisperx-base','WhisperX option was not forwarded');
   const chatBounds=await evaluate('(()=>{const p=document.querySelector("#chat-panel").getBoundingClientRect(),m=document.querySelector("#chat-panel .resource-strip").getBoundingClientRect();return {panelBottom:p.bottom,metricsBottom:m.bottom,logHeight:document.querySelector("#chat-log").clientHeight}})()');
   assert(chatBounds.metricsBottom<=915&&chatBounds.logHeight>=40,'Chat controls overflow viewport: '+JSON.stringify(chatBounds));
   const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));

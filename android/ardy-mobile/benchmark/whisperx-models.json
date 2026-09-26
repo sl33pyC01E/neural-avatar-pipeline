@@ -1,0 +1,89 @@
+{
+  "language": "en",
+  "asr": "CTranslate2 INT8 base.en",
+  "vad": "Silero",
+  "alignment": "wav2vec2-base-960h INT8 ONNX",
+  "phoneQualified": false,
+  "models": [
+    {
+      "repo": "Systran/faster-whisper-base.en",
+      "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+      "source": "model.bin",
+      "file": "base.en/model.bin",
+      "bytes": 145216508,
+      "sha256": "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"
+    },
+    {
+      "repo": "Systran/faster-whisper-base.en",
+      "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+      "source": "config.json",
+      "file": "base.en/config.json",
+      "bytes": 2227,
+      "sha256": "f3bc3821e9fc76a27bae538e11ae5b677dcdd352b4600429ce7951d398569aeb"
+    },
+    {
+      "repo": "Systran/faster-whisper-base.en",
+      "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+      "source": "vocabulary.txt",
+      "file": "base.en/vocabulary.txt",
+      "bytes": 422309,
+      "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"
+    },
+    {
+      "repo": "Systran/faster-whisper-base.en",
+      "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+      "source": "README.md",
+      "file": "base.en/README.md",
+      "bytes": 1323,
+      "sha256": "0360e1518671daf4064d44121ad1c4bbb0446dd5b0f8c724c8d3132fd33a1540"
+    },
+    {
+      "repo": "Xenova/wav2vec2-base-960h",
+      "revision": "a19f851b3d42865797e410752b4c570c871e4825",
+      "source": "onnx/model_quantized.onnx",
+      "file": "alignment/model.onnx",
+      "bytes": 95286046,
+      "sha256": "cd5040c147381580ed73258143dd8e0c28e800a09e74ee42ee2b3e8cb4d760a3"
+    },
+    {
+      "repo": "Xenova/wav2vec2-base-960h",
+      "revision": "a19f851b3d42865797e410752b4c570c871e4825",
+      "source": "vocab.json",
+      "file": "alignment/vocab.json",
+      "bytes": 358,
+      "sha256": "4178db26b3c7570f6a47f14ac6a1c7b32950b8c2800fb097287e53776934f1c5"
+    },
+    {
+      "repo": "Xenova/wav2vec2-base-960h",
+      "revision": "a19f851b3d42865797e410752b4c570c871e4825",
+      "source": "preprocessor_config.json",
+      "file": "alignment/preprocessor_config.json",
+      "bytes": 215,
+      "sha256": "8cdfd65ff4115423185a1512bdae100e2e0cd744f5b322417429944aaafd0827"
+    },
+    {
+      "repo": "Xenova/wav2vec2-base-960h",
+      "revision": "a19f851b3d42865797e410752b4c570c871e4825",
+      "source": "README.md",
+      "file": "alignment/README.md",
+      "bytes": 1372,
+      "sha256": "6c235e53bdc82374bd10f9dbff5aad652c0e1c11eaaf9427d85a7c3adcd56fb8"
+    },
+    {
+      "repo": "onnx-community/silero-vad",
+      "revision": "e71cae966052b992a7eca6b17738916ce0eca4ec",
+      "source": "onnx/model.onnx",
+      "file": "vad/model.onnx",
+      "bytes": 2243022,
+      "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+    },
+    {
+      "repo": "onnx-community/silero-vad",
+      "revision": "e71cae966052b992a7eca6b17738916ce0eca4ec",
+      "source": "LICENSE",
+      "file": "vad/LICENSE",
+      "bytes": 1075,
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    }
+  ]
+}
