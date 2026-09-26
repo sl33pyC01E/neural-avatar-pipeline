@@ -1,8 +1,64 @@
 # PocketTTS isolation checkpoint — 2026-09-26
 
 The user tests on the phone; the agent reads logs, builds, and installs only.
-Current target: reliable, fast **Anna** speech in tab 2, independently of VRM,
-Ardy, LLM2Vec inference, and LAM. The user also requested the working LAM tab in this build.
+The current checkpoint is a six-tab module lab with isolated tests and combined
+speech, face and body runs. The earlier Pocket/LAM corrections remain the baseline.
+
+## Integrated module lab — 0.4.0, version code 7
+
+The user reported that 0.3.2 is better and requested a combined pipeline test,
+then a welcome menu and an Ardy/full-pipeline split. The app now opens on:
+
+1. **Welcome:** links to each module; loads no VRM, WebGL or inference session.
+2. **PocketTTS:** the isolated Anna test and shared speech settings.
+3. **Face:** the existing last-clip LAM replay and shared eye/mouth/head settings.
+4. **Speak + face:** face camera, text input, Send and Stop.
+5. **Ardy:** the former tab 1, with model/controls, cached embeddings and creation.
+6. **Together:** text-to-speech/face plus the Ardy profile and cached steering
+   embedding currently selected in tab 5. Body generation runs alongside speech;
+   it is not inferred from the speech text. New embeddings are created in tab 5.
+
+Tabs 4 and 6 read the actual tab 2 controls on Send and share the same face driver
+and settings object as tab 3. This includes buffered versus raw streaming. WebView
+DOM storage is now explicitly enabled for saved controls. Switching tabs must not
+restore an older Ardy profile over an unsubmitted current selection.
+
+`SpeechFacePipeline` assembles exact Pocket PCM into one-second windows, with two
+bounded queues of two windows each. LAM analyzes ahead of playback. Each facial
+window must be accepted by the visible renderer before the matching audio is
+written to AudioTrack. Playback begins after the first window, not after analyzing
+the entire clip. Only the final analysis window is zero-padded to 800 samples;
+playback always gets the unmodified samples. Pocket/LAM sessions load concurrently
+on demand, remain warm afterward, and queue workers shut down after each request.
+
+Prepared speech still waits for Pocket's finalized pause-shortened clip. Raw
+streaming can feed LAM during native audio callbacks and retains untrimmed pauses.
+The existing native sentence-level LM barrier still applies. No extra text
+segmentation, step reduction, precision change or sped-up playback is hidden in
+the integrated tabs. Tab 4 runs no Ardy; tab 6 runs the real selected Core-8/Core-40
+sampler, and pauses body requests when speech finishes or the user stops/leaves.
+
+Ardy supplies the head/neck base pose in tab 6. The Face Lab head motion adds to
+that pose once per rendered frame; it does not replace or accumulate over it.
+Eye-bone gaze and the existing ARKit-to-VRM expression driver remain unchanged.
+Stale stream IDs and windows arriving after a tab switch are rejected.
+
+The compact Send-to-playback timing uses the native request time and AudioTrack's
+`play()` call. It is not acoustic hardware latency. Details separate Pocket load/
+generation, LAM load/compute, first facial window, duration and underruns. Timings
+are saved as `cache/talk-last.json` or `cache/full-last.json`, with nested Pocket
+settings. `totalMs` includes playback; raw callback backpressure is excluded from
+Pocket compute time. The latest fully generated WAV also remains available in tab 3.
+
+`SpeechFacePipelineCheck.java` ran real mixed-precision Pocket and LAM on Windows
+CPU in both buffered and raw modes. Playback capture was bit-exact with the chosen
+Pocket output, and rolling facial values matched the existing prepared-timeline
+path. Queue backpressure, cancellation while full and worker-error propagation
+passed. No audio device was opened. The SwiftShader browser check covers six-tab
+navigation, inherited controls, rolling audio-clock following, stale-window
+rejection, combined Ardy requests, additive head poses and the viewport layout.
+These checks do not exercise Android AudioTrack or simultaneous phone CPU/GPU
+contention. The user performs that test; the agent installs only.
 
 ## Speed checkpoint — 0.3.2, version code 6
 

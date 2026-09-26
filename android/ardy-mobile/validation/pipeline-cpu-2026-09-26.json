@@ -1,0 +1,38 @@
+{
+  "realPocketAndLam": true,
+  "limitation": "Production rolling queues and LAM with real JVM Pocket. Sink captures PCM without AudioTrack, WebView or phone execution; timings are not phone performance.",
+  "modes": [
+    {
+      "mode": "buffered",
+      "matchesPreparedLam": true,
+      "faceFrames": 89,
+      "lamComputeMs": 301.7997,
+      "firstPlaybackSinkMs": 1982.0089,
+      "lamLoadMs": 0.1872,
+      "pcmBitExact": true,
+      "firstFaceMs": 1980.7575,
+      "audioSamples": 70613,
+      "queueCapacity": 2,
+      "faceWindows": 3
+    },
+    {
+      "mode": "streaming",
+      "matchesPreparedLam": true,
+      "faceFrames": 96,
+      "lamComputeMs": 391.5847,
+      "firstPlaybackSinkMs": 1171.6088,
+      "lamLoadMs": 0.3457,
+      "pcmBitExact": true,
+      "firstFaceMs": 1171.5029,
+      "audioSamples": 76800,
+      "queueCapacity": 2,
+      "faceWindows": 4
+    }
+  ],
+  "workerFailurePropagates": true,
+  "cancelWhileQueuesFull": true,
+  "phoneTest": false,
+  "passed": true,
+  "boundedBackpressure": true,
+  "device": "Windows CPU"
+}

@@ -7,25 +7,29 @@
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:#101416;color:#e8f1ee;font:15px system-ui;height:100dvh;overflow:hidden}
 canvas{display:block;position:absolute;width:100%;height:100%;touch-action:none}header{position:absolute;top:24px;left:20px;right:20px;z-index:2}
 h1{font-size:24px;font-weight:600;margin:0 0 5px}p{margin:0;color:#aec5bc;font-size:13px;line-height:1.5}
-#panel,#face-panel{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px;max-height:calc(100dvh - 295px);overflow:auto}
+#panel,#face-panel,.composer{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px;max-height:calc(100dvh - 350px);overflow:auto}
 #controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}button{color:#dfeee7;background:#253f35;border:1px solid #49785f;border-radius:10px;padding:10px 13px;font:inherit}
 button[aria-pressed=true],button[aria-selected=true]{background:#b5d8bd;color:#14251b}#status{white-space:pre-wrap;font:12px/1.5 monospace;color:#b0c6bb}
 details{margin-top:8px}summary{cursor:pointer;color:#c6dbce}#engines{max-height:45dvh;overflow:auto;padding-top:10px}
 input,select,textarea{background:#101b19;border:1px solid #49785f;border-radius:8px;color:#e8f1ee;padding:8px;font:inherit;min-width:0;max-width:100%}
 .row{display:flex;gap:6px;margin:7px 0;flex-wrap:wrap}.row input{flex:1}#bank{width:100%}#engine-status{white-space:pre-wrap;font-size:12px;color:#aec5bc}
 button:disabled{opacity:.5}
-nav{display:flex;gap:6px;margin-top:15px}nav button{flex:1;padding:10px 6px;font-size:13px}
-#pocket-panel{position:absolute;top:155px;bottom:24px;left:16px;right:16px;overflow:auto;padding:16px;background:#172321;border:1px solid #36554a;border-radius:16px}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}nav button{padding:9px 6px;font-size:13px}
+#pocket-panel,#welcome-panel{position:absolute;top:195px;bottom:24px;left:16px;right:16px;overflow:auto;padding:16px;background:#172321;border:1px solid #36554a;border-radius:16px}
 h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertical;min-height:100px;margin:14px 0 8px}
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.metrics dt{font-size:12px;color:#aec5bc}.metrics dd{margin:3px 0;font-size:18px;font-variant-numeric:tabular-nums}
 #pocket-status{white-space:pre-wrap;margin:14px 0;font-size:14px;line-height:1.5}#pocket-settings label{display:flex;flex:1;flex-direction:column;gap:5px;font-size:12px}
 .hint{font-size:12px;line-height:1.5;color:#aec5bc}.badge{display:inline-block;font-size:12px;border:1px solid #49785f;border-radius:20px;padding:4px 8px;margin:0 0 12px}
 .face-gain{display:grid;grid-template-columns:75px 1fr 48px;gap:8px;align-items:center;margin:10px 0;font-size:13px}.face-gain input{width:100%;padding:0}.face-gain output{text-align:right}
+.welcome-links{display:grid;gap:10px;margin-top:18px}.welcome-links button{text-align:left;padding:14px}.welcome-links small{display:block;color:#b1c9bd;margin-top:5px}
+.composer textarea{min-height:60px;height:66px;margin:0 0 8px}.composer .row{margin:0 0 7px}.composer [role=status]{font-size:13px}.composer .hint{margin-top:5px;white-space:pre-line}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 <canvas id="scene" hidden></canvas>
-<header><h1>Cleopatra</h1><p id="subtitle">Anna · isolated speech runtime</p>
-<nav role="tablist" aria-label="Debug modules"><button id="tab-avatar" role="tab" data-tab="avatar" aria-controls="panel">1 · Avatar</button><button id="tab-pocket" role="tab" data-tab="pocket" aria-controls="pocket-panel">2 · PocketTTS</button><button id="tab-face" role="tab" data-tab="face" aria-controls="face-panel">3 · Face</button></nav></header>
+<header><h1>Cleopatra</h1><p id="subtitle">Local module lab</p>
+<nav role="tablist" aria-label="Debug modules"><button id="tab-welcome" role="tab" data-tab="welcome" aria-controls="welcome-panel">1 · Welcome</button><button id="tab-pocket" role="tab" data-tab="pocket" aria-controls="pocket-panel">2 · PocketTTS</button><button id="tab-face" role="tab" data-tab="face" aria-controls="face-panel">3 · Face</button><button id="tab-talk" role="tab" data-tab="talk" aria-controls="talk-panel">4 · Speak + face</button><button id="tab-avatar" role="tab" data-tab="avatar" aria-controls="panel">5 · Ardy</button><button id="tab-full" role="tab" data-tab="full" aria-controls="full-panel">6 · Together</button></nav></header>
+<section id="welcome-panel" role="tabpanel" aria-labelledby="tab-welcome"><h2>Welcome, Cleopatra</h2><p>Test each module, then bring them together.</p>
+<div class="welcome-links"><button data-open="pocket">2 · PocketTTS<small>Anna voice, speed and speech settings</small></button><button data-open="face">3 · Face<small>LAM replay and eye, mouth and head controls</small></button><button data-open="talk">4 · Speak + face<small>Type, send and time the speech-to-face pipeline</small></button><button data-open="avatar">5 · Ardy<small>Body motion, cached embeddings and new embeddings</small></button><button data-open="full">6 · Together<small>Anna, LAM and Ardy in one run</small></button></div></section>
 <section id="panel" role="tabpanel" aria-labelledby="tab-avatar" hidden><div id="controls">
 <button data-mode="replay" aria-pressed="true">Walk + wave</button><button data-mode="rest">Rest pose</button>
 <button data-mode="turn">Turn test</button><button id="skeleton" aria-pressed="false">Skeleton</button>
@@ -38,7 +42,7 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <div class="row"><button id="import">Import model files</button><label>Memory budget <select id="memory" aria-label="Memory budget"><option value="4096">4 GB</option><option value="6144" selected>6 GB</option><option value="8192">8 GB</option></select></label></div>
 <div id="engine-status">Connecting local engines…</div>
 </div></details></section>
-<section id="pocket-panel" role="tabpanel" aria-labelledby="tab-pocket">
+<section id="pocket-panel" role="tabpanel" aria-labelledby="tab-pocket" hidden>
 <span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Speed tuning · CPU · repeatable seed 42</p>
 <textarea id="speech-text" maxlength="2000" aria-label="Speech text" placeholder="Something for Anna to say">Hello. I'm Cleopatra. It's good to meet you.</textarea>
 <div class="row"><button id="speak" disabled>Speak</button><button id="quiet">Stop voice</button></div>
@@ -66,5 +70,13 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <label class="face-gain">Head<input id="face-head" type="range" min="0" max="2" step="0.01" value="1"><output id="face-head-value">1.00×</output></label>
 <label><input type="checkbox" id="face-natural" checked> Natural head and eye motion</label>
 <p id="face-driver-info" class="hint">Loading avatar driver mapping…</p><p class="hint">Controls save automatically. Zero turns that movement off. LAM supplies facial expressions; head motion is a separate procedural overlay.</p></details></section>
+<section id="talk-panel" class="composer" role="tabpanel" aria-labelledby="tab-talk" hidden>
+<form id="talk-form"><textarea id="talk-text" maxlength="2000" rows="2" aria-label="Text for Cleopatra to speak" placeholder="Something for Cleopatra to say…"></textarea><div class="row"><button id="talk-send" type="submit" disabled>Send</button><button id="talk-stop" type="button">Stop</button></div></form>
+<div id="talk-status" role="status" aria-live="polite">Uses speech settings from tab 2 and face settings from tab 3.</div><p id="talk-latency" class="hint">Send → playback: —</p>
+<details><summary>Timing and settings</summary><p id="talk-settings" class="hint"></p><p id="talk-metrics" class="hint">Send text to measure the complete speech and face run.</p></details></section>
+<section id="full-panel" class="composer" role="tabpanel" aria-labelledby="tab-full" hidden>
+<form id="full-form"><textarea id="full-text" maxlength="2000" rows="2" aria-label="Text for Cleopatra with body motion" placeholder="Speak with face and body motion…"></textarea><div class="row"><button id="full-send" type="submit" disabled>Send</button><button id="full-stop" type="button">Stop all</button></div></form>
+<div id="full-status" role="status" aria-live="polite">Uses settings from tabs 2, 3 and 5.</div><p id="full-latency" class="hint">Send → playback: —</p><p id="full-body" class="hint"></p>
+<details><summary>Timing and settings</summary><p id="full-settings" class="hint"></p><p id="full-metrics" class="hint">Speech and face run alongside the selected cached Ardy motion.</p></details></section>
 <script type="module" src="./main.mjs"></script>
 </html>

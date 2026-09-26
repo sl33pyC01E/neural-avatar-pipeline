@@ -24,7 +24,7 @@ import ai.cleo.ardymobile.ResidentService;
 public final class MainActivity extends Activity implements ResidentService.Listener {
     private WebView view;
     private volatile ResidentService engines;
-    private volatile String selectedTab="pocket";
+    private volatile String selectedTab="welcome";
     private boolean resumed,bound;
     private final ServiceConnection connection=new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name,IBinder binder) {
@@ -39,6 +39,7 @@ public final class MainActivity extends Activity implements ResidentService.List
         view = new WebView(this);
         view.setBackgroundColor(0xff101416);
         view.getSettings().setJavaScriptEnabled(true);
+        view.getSettings().setDomStorageEnabled(true);
         view.getSettings().setAllowFileAccess(false);
         view.getSettings().setAllowContentAccess(false);
         view.getSettings().setMediaPlaybackRequiresUserGesture(true);
@@ -96,6 +97,10 @@ public final class MainActivity extends Activity implements ResidentService.List
         @JavascriptInterface public void pause(){if(engines!=null)engines.pauseMotion();}
         @JavascriptInterface public void embed(String text){if(engines!=null)engines.createEmbedding(text);}
         @JavascriptInterface public void speak(String text,int threads,int steps,int chunkSize,String precision,boolean buffered){if(engines!=null)engines.speak(text,threads,steps,chunkSize,precision,buffered);}
+        @JavascriptInterface public void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered){
+            runOnUiThread(()->{if(view!=null)((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(),0);});
+            if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered);
+        }
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}
         @JavascriptInterface public void animateLastClip(){if(engines!=null)engines.animateLastClip();}
         @JavascriptInterface public void faceReady(String run){if(engines!=null)engines.faceReady(run);}

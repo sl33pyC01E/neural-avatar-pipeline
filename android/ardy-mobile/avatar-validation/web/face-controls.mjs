@@ -10,16 +10,18 @@ export function createFaceControls(vrm,driver) {
   settings.naturalMotion=Boolean(settings.naturalMotion);
   const head=vrm.humanoid.getNormalizedBoneNode('head'),neck=vrm.humanoid.getNormalizedBoneNode('neck');
   const headRest=head?.quaternion.clone(),neckRest=neck?.quaternion.clone();
+  let bodyHead=headRest?.clone(),bodyNeck=neckRest?.clone();
   const gaze=vrm.lookAt?.applier,usesEyeBones=gaze?.constructor.type==='bone';
   function resetBones(){head?.quaternion.copy(headRest);neck?.quaternion.copy(neckRest);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
-  function apply(track,values,time) {
+  function apply(track,values,time,withBody=false) {
+    const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
     driver.apply({...track,scales:settings,naturalMotion:settings.naturalMotion},values,time);
     if(settings.naturalMotion) {
       const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*settings.head,Math.sin(time*.49)*.055*settings.head,Math.sin(time*.31+1.7)*.018*settings.head,'YXZ');
       const n=new THREE.Euler(h.x*.35,h.y*.3,h.z*.4,'YXZ');
-      head?.quaternion.copy(headRest).multiply(new THREE.Quaternion().setFromEuler(h));
-      neck?.quaternion.copy(neckRest).multiply(new THREE.Quaternion().setFromEuler(n));
-    } else {head?.quaternion.copy(headRest);neck?.quaternion.copy(neckRest);}
+      head?.quaternion.copy(headBase).multiply(new THREE.Quaternion().setFromEuler(h));
+      neck?.quaternion.copy(neckBase).multiply(new THREE.Quaternion().setFromEuler(n));
+    } else {head?.quaternion.copy(headBase);neck?.quaternion.copy(neckBase);}
     if(usesEyeBones) {
       // Cleopatra declares Bone look-at. Use its VRM inner/outer/up/down range maps,
       // then clear the alternative gaze morphs so a look direction is not applied twice.
@@ -30,7 +32,7 @@ export function createFaceControls(vrm,driver) {
     }
     vrm.humanoid.update();vrm.expressionManager?.update();
   }
-  return {settings,apply,clear(){driver.clear();resetBones();},set(key,value){
+  return {settings,apply,captureBodyPose(){bodyHead=head?.quaternion.clone();bodyNeck=neck?.quaternion.clone();},clear(){driver.clear();resetBones();bodyHead=headRest?.clone();bodyNeck=neckRest?.clone();},set(key,value){
     if(key==='naturalMotion')settings[key]=Boolean(value);
     else if(['eyes','mouth','head'].includes(key)&&Number.isFinite(Number(value)))settings[key]=THREE.MathUtils.clamp(Number(value),0,key==='mouth'?2.5:2);
     try{localStorage.setItem('cleo-face-controls',JSON.stringify(settings));}catch{}

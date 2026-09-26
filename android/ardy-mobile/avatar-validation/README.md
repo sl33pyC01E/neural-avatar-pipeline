@@ -19,12 +19,17 @@ The scene uses the VRM's complete skin, inverse bind matrices, textures, morphs,
 and bone hierarchy. Three-VRM removes unused vertices after loading; it preserves
 indexed geometry and attributes. The original VRM remains unchanged.
 
-The debug tabs are **1 · Avatar**, **2 · PocketTTS**, and **3 · Face**. Tab 2 is the
-current milestone and opens first without loading the VRM or creating WebGL.
-It runs Pocket/Anna only. Tab 1 preserves the approved renderer and camera controls,
-with Ardy's cached steering bank and a submenu for creating embeddings. Tab 3 is a
-working LAM replay: generate a clip in tab 2, then play it with facial animation in
-tab 3. Eye, mouth and head amplitudes have independent saved sliders.
+The debug tabs are **1 · Welcome**, **2 · PocketTTS**, **3 · Face**,
+**4 · Speak + face**, **5 · Ardy**, and **6 · Together**. Welcome opens first
+without loading the VRM or creating WebGL and links to the other modules.
+Tab 2 runs Pocket/Anna only. Tab 3 replays the latest clip through LAM and exposes
+independent saved eye, mouth and head sliders. Tab 4 shows the face and a text box:
+Send runs Pocket and rolling LAM using the actual settings in tabs 2 and 3.
+Tab 5 preserves the original renderer, camera and Ardy cached steering controls,
+including the submenu for creating embeddings. Tab 6 adds the selected cached
+Ardy motion alongside speech and face, with additive head/neck facial motion.
+The combined tabs show Send-to-playback and per-stage timings; their bounded
+pipeline starts playback after the first LAM window is ready.
 Live motion uses bounded consecutive horizons, not repeated clips. Preview replay
 still deliberately wraps its recovered clip. Display fps is not inference speed.
 

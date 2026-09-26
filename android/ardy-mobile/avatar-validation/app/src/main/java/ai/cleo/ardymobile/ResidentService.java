@@ -33,9 +33,10 @@ public final class ResidentService extends Service {
     private final LamTimelineCache faceCache=new LamTimelineCache();
     private volatile CountDownLatch faceReady;
     private volatile String faceRun;
-    private volatile String activeTab="pocket";
+    private volatile String activeTab="welcome";
     private volatile long audioWritten;
     private long audioStartNanos;
+    private volatile long talkRequestedNanos;
     private Embeddings embeddings;
     private JSONObject heldMotion;
 
@@ -81,17 +82,18 @@ public final class ResidentService extends Service {
         File root=new File(getFilesDir(),"ardy-models/"+id+"-onnx");return new File(root,"denoiser.onnx").isFile()&&new File(root,"decoder.onnx").isFile();
     }
     public synchronized void tab(String value) {
-        if(!"avatar".equals(value)&&!"pocket".equals(value)&&!"face".equals(value))return;
+        if(stopping)return;
+        if(!java.util.Set.of("welcome","avatar","pocket","face","talk","full").contains(value))return;
         if(activeTab.equals(value))return;
         activeTab=value;stopSpeech();pauseMotion();
-        // Audio/face tabs release motion; LAM is instantiated only by the user's tab 3 action.
-        if(!"avatar".equals(value))motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});
+        // Audio/face tabs release motion; LAM is instantiated only by a user's face/talk action.
+        if(!"avatar".equals(value)&&!"full".equals(value))motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});
         // Pocket and LAM can remain resident together; tab switches never run inference.
         // Pressure/budget trims still release both on the serialized speech worker.
         trimIfOverBudget();
     }
     public synchronized void configureMotion(String profile,String embeddingId,String streamId) {
-        if(!"avatar".equals(activeTab)||stopping)return;
+        if((!"avatar".equals(activeTab)&&!"full".equals(activeTab))||stopping)return;
         if(!"core8".equals(profile)&&!"core40".equals(profile)){error(new IllegalArgumentException("Unknown Ardy profile"));return;}
         if(streamId==null||streamId.isEmpty()||streamId.length()>128){error(new IllegalArgumentException("Invalid motion stream"));return;}
         boolean newRun=this.embeddingId==null||!this.profile.equals(profile)||!streamId.equals(this.streamId);
@@ -101,9 +103,9 @@ public final class ResidentService extends Service {
         emit("configured","Motion ready");
     }
     public synchronized void stopMotion() { embeddingId=null;epoch++;heldMotion=null; }
-    public void pauseMotion(){motionPaused=true;motionWorker.execute(this::saveMotion);}
+    public void pauseMotion(){motionPaused=true;if(!stopping)motionWorker.execute(this::saveMotion);}
     public synchronized boolean nextMotion() {
-        if(stopping||!visible||!"avatar".equals(activeTab)||motionPaused||embeddingId==null||embeddingBusy.get())return false;
+        if(stopping||!visible||(!"avatar".equals(activeTab)&&!"full".equals(activeTab))||motionPaused||embeddingId==null||embeddingBusy.get())return false;
         if(heldMotion!=null) { JSONObject held=heldMotion;heldMotion=null;publish(held);return true; }
         if(!motionBusy.compareAndSet(false,true))return false;
         final long requestedEpoch=epoch;final String requestedProfile=profile,requestedEmbedding=embeddingId,requestedStream=streamId;
@@ -187,6 +189,73 @@ public final class ResidentService extends Service {
             }
         });
     }
+    public synchronized void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered) {
+        if(stopping||!visible||(!"talk".equals(activeTab)&&!"full".equals(activeTab)))return;
+        if(embeddingBusy.get()||!speechBusy.compareAndSet(false,true)){emit("talkRejected","Wait for the current engine task to finish");return;}
+        cancelled.set(false);talkRequestedNanos=System.nanoTime();
+        final long requested=talkRequestedNanos;final String stream=java.util.UUID.randomUUID().toString(),tab=activeTab;
+        speechWorker.execute(()->{
+            String outcome="Ready";boolean failed=false,clipReady=false;
+            try(PocketRecording recording=new PocketRecording(new File(getCacheDir(),"pocket-last.wav"))) {
+                if(cancelled.get())return;
+                PocketPrompt.prepare(text);
+                audioWritten=0;audioStartNanos=0;
+                publish(new JSONObject().put("type","speechStart").put("tab",tab).put("withFace",true).put("streamId",stream).put("message","Preparing Anna and LAM…"));
+                if(!"full".equals(tab))motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
+                if(cancelled.get())return;
+                if(lam==null)lam=new LamDriver(this);
+                final boolean lamWarm=lam.isWarm();final long pipelineStarted=System.nanoTime();
+                try(SpeechFacePipeline pipe=new SpeechFacePipeline(cancelled,()->{lam.warm();lam.reset();},lam::next,(pcm,face)->{
+                    if(cancelled.get())return;
+                    String ack=java.util.UUID.randomUUID().toString();CountDownLatch ready=new CountDownLatch(1);
+                    faceRun=ack;faceReady=ready;
+                    publish(face.put("prepared",true).put("withFace",true).put("tab",tab).put("streamId",stream).put("runId",ack));
+                    long deadline=SystemClock.elapsedRealtime()+10000;
+                    while(!cancelled.get()&&!ready.await(50,TimeUnit.MILLISECONDS))
+                        if(SystemClock.elapsedRealtime()>deadline)throw new IOException("Avatar did not accept the facial window");
+                    if(!cancelled.get())playSamples(pcm,24000);
+                })) {
+                    JSONObject speech=pocket.synthesize(text,threads,steps,chunkSize,precision,buffered,cancelled,message->emit("talkStage",message),(pcm,rate)->{
+                        recording.append(pcm,rate);pipe.accept(pcm,rate);
+                    });
+                    // finish propagates worker failures, including a failed renderer acknowledgement.
+                    if(speech!=null&&!cancelled.get()){recording.finish();clipReady=true;}
+                    pipe.finish();
+                    if(cancelled.get()||speech==null)return;
+                    AudioTrack track=audio;int underruns=track==null?0:track.getUnderrunCount();
+                    drainAudio();
+                    JSONObject metrics=pipe.metrics().put("type","talkMetrics").put("tab",tab)
+                        .put("lamWarm",lamWarm).put("pocket",speech).put("playbackMode",buffered?"buffered":"streaming")
+                        .put("playbackStartMs",audioStartNanos==0?-1:(audioStartNanos-requested)/1e6)
+                        .put("audioSeconds",speech.getDouble("audioSeconds")).put("underruns",underruns).put("cancelled",cancelled.get())
+                        .put("totalMs",(System.nanoTime()-requested)/1e6);
+                    metrics.put("firstFaceMs",metrics.getDouble("firstFaceMs")+(pipelineStarted-requested)/1e6);
+                    if("full".equals(tab))metrics.put("ardyProfile",profile).put("embeddingId",embeddingId);
+                    speech.put("source",tab).put("playbackMode",buffered?"buffered":"streaming")
+                        .put("playbackStartMs",metrics.getDouble("playbackStartMs")).put("underruns",underruns).put("cancelled",cancelled.get());
+                    saveReport("pocket-last.json",speech);saveReport(tab+"-last.json",metrics);publish(metrics);
+                }
+            }catch(Exception|LinkageError failure){failed=true;outcome="Pipeline error: "+(failure.getMessage()==null?failure.toString():failure.getMessage());}
+            finally {
+                faceReady=null;faceRun=null;
+                AudioTrack track=audio;audio=null;if(track!=null){try{track.stop();}catch(IllegalStateException ignored){}track.release();}
+                speechBusy.set(false);
+                if("full".equals(tab))pauseMotion();
+                try{publish(new JSONObject().put("type","speechEnd").put("tab",tab).put("withFace",true).put("streamId",stream)
+                    .put("clipReady",clipReady).put("message",!failed&&cancelled.get()?"Stopped":outcome));}catch(JSONException ignored){}
+                trimIfOverBudget();
+            }
+        });
+    }
+    private void saveReport(String name,JSONObject value) throws Exception {
+        try(FileOutputStream out=new FileOutputStream(new File(getCacheDir(),name))){out.write(value.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+    }
+    private void drainAudio() throws Exception {
+        AudioTrack track=audio;if(track==null||cancelled.get())return;
+        long remaining=Math.max(0,audioWritten-Integer.toUnsignedLong(track.getPlaybackHeadPosition()));
+        long deadline=SystemClock.elapsedRealtime()+remaining*1000/track.getSampleRate()+2000;
+        while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<audioWritten&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
+    }
     private void playSamples(float[] samples,int rate) throws Exception {
         if(cancelled.get())return;
         AudioTrack track=audio;boolean starting=track==null;
@@ -204,7 +273,11 @@ public final class ResidentService extends Service {
             if(count<0)throw new IOException("Audio playback write failed: "+count);
             offset+=count;audioWritten+=count;
             // Prime the track before starting to avoid an initial empty-buffer underrun.
-            if(starting&&count>0){synchronized(this){if(!cancelled.get()){track.play();audioStartNanos=System.nanoTime();starting=false;if("face".equals(activeTab))emit("faceStage","Playing Anna with LAM");else pocketStage("Anna is speaking");}}}
+            if(starting&&count>0){synchronized(this){if(!cancelled.get()){
+                track.play();audioStartNanos=System.nanoTime();starting=false;
+                if("talk".equals(activeTab)||"full".equals(activeTab))publish(new JSONObject().put("type","talkPlayback").put("tab",activeTab).put("playbackStartMs",(audioStartNanos-talkRequestedNanos)/1e6));
+                else if("face".equals(activeTab))emit("faceStage","Playing Anna with LAM");else pocketStage("Anna is speaking");
+            }}}
             if(count==0){if(starting)throw new IOException("Audio output accepted no initial samples");Thread.sleep(5);}
         }
     }

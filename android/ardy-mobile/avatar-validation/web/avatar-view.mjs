@@ -14,13 +14,15 @@ export async function createAvatarView() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   function fitViewport() {
     const top = document.querySelector('header').getBoundingClientRect().bottom + 12;
-    const panel=document.querySelector('#panel').hidden?document.querySelector('#face-panel'):document.querySelector('#panel');
+    const panel=document.querySelector('[role="tabpanel"]:not([hidden])');
     const bottom = panel.getBoundingClientRect().top - 10;
     canvas.style.top = `${top}px`;
     canvas.style.height = `${Math.max(100, bottom-top)}px`;
   }
   fitViewport(); window.addEventListener('resize',()=>{fitViewport();invalidate();});
-  document.querySelectorAll('#panel details,#face-panel details').forEach(d=>d.addEventListener('toggle',()=>{fitViewport();invalidate();}));
+  document.querySelectorAll('[role="tabpanel"] details').forEach(d=>d.addEventListener('toggle',()=>{fitViewport();invalidate();}));
+  const resize=new ResizeObserver(()=>{fitViewport();invalidate();});
+  document.querySelectorAll('[role="tabpanel"]').forEach(panel=>resize.observe(panel));
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
@@ -63,7 +65,7 @@ export async function createAvatarView() {
   const after = geometryStats();
   vrm.scene.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
   scene.add(vrm.scene); vrm.scene.updateMatrixWorld(true);
-  const faceDriver=createFaceDriver(vrm);let speaking=false;const faceSegments=[];
+  const faceDriver=createFaceDriver(vrm);let speaking=false,faceStream=null;const faceSegments=[];
   const position = name => vrm.humanoid.getRawBoneNode(name)?.getWorldPosition(new THREE.Vector3());
   const feet = ['leftFoot','leftToes','rightFoot','rightToes'].map(position).filter(Boolean);
   const alignment = { hipsHeightM: position('hips').y, floorOffsetM: Math.min(...feet.map(p => p.y)) };
@@ -107,7 +109,7 @@ export async function createAvatarView() {
     ...values[0], 0, ...values[1], 0, ...values[2], 0, 0, 0, 0, 1)).normalize();
   const rotations = motion.rotations.map(frame => frame.map(matrixQuaternion));
   const toMatrix = q => { const e = new THREE.Matrix4().makeRotationFromQuaternion(q).elements; return [[e[0],e[4],e[8]], [e[1],e[5],e[9]], [e[2],e[6],e[10]]]; };
-  const engineStatus=document.querySelector('#engine-status'), bank=document.querySelector('#bank');
+  const engineStatus=document.querySelector('#engine-status'), bank=document.querySelector('#bank');let restoredSelection=false;
   function requestMotion() {
     const horizon=liveProfile==='core40'?40:8;
     if(mode==='live'&&visible&&!pending&&!liveError&&!livePaused&&liveBuffer.remaining<=horizon+1&&window.Cleo) {
@@ -121,7 +123,8 @@ export async function createAvatarView() {
       const selected=bank.value||event.lastEmbedding;bank.replaceChildren();
       for(const item of event.bank) { const option=document.createElement('option');option.value=item.id;option.textContent=item.nickname||item.text;bank.append(option); }
       if([...bank.options].some(o=>o.value===selected))bank.value=selected;
-      if(mode!=='live'&&event.lastProfile)document.querySelector('#profile').value=event.lastProfile;
+      if(!restoredSelection&&event.lastProfile)document.querySelector('#profile').value=event.lastProfile;
+      restoredSelection=true;
       document.querySelector('#memory').value=String(event.memoryBudgetMiB);
       document.querySelector('#embed').disabled=!event.llmNative||!event.llmModel;
       engineStatus.textContent=`Ardy: ${event.core40?'Core-40 ready':'Core-40 needs models'} · ${event.core8?'Core-8 ready':'Core-8 needs models'}\nLLM2Vec: ${!event.llmNative?'native backend unavailable':event.llmModel?'model ready':'import compatible GGUF'} · Anna available`;
@@ -132,12 +135,16 @@ export async function createAvatarView() {
       pending=false;requestMotion();invalidate();
     } else if(event.type==='ready'||event.type==='configured') {pending=false;requestMotion();}
     else if(event.type==='face') {
+      if(!speaking||(faceStream&&event.streamId!==faceStream))return false;
       if(event.names?.length!==52||event.fps!==30||!Number.isFinite(event.startSeconds))throw new Error('Invalid LAM timeline');
+      if(!event.frames?.length)throw new Error('Empty LAM timeline');
       for(const frame of event.frames)if(frame.length!==52||frame.some(v=>!Number.isFinite(v)))throw new Error('Invalid LAM expression');
-      faceSegments.push(event);if(faceSegments.length>8)faceSegments.shift();invalidate();
+      const previous=faceSegments.at(-1);
+      if(previous&&event.startSeconds<previous.startSeconds+previous.frames.length/30-1e-5)throw new Error('Overlapping LAM windows');
+      faceSegments.push(event);if(faceSegments.length>8)throw new Error('LAM playback queue exceeded its bound');invalidate();return true;
     }
-    else if(event.type==='speechStart'&&event.withFace){speaking=true;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
-    else if(event.type==='speechEnd'){speaking=false;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
+    else if(event.type==='speechStart'&&event.withFace){speaking=true;faceStream=event.streamId??null;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
+    else if(event.type==='speechEnd'){stopFace();engineStatus.textContent=event.message;}
     else if(event.type==='embedding') {
       const option=document.createElement('option');option.value=event.record.id;option.textContent=event.record.nickname||event.record.text;
       if(![...bank.options].some(o=>o.value===option.value))bank.append(option);bank.value=option.value;engineStatus.textContent='Embedding cached';
@@ -148,11 +155,12 @@ export async function createAvatarView() {
     }
     fitViewport();
   };
-  document.querySelector('#live').onclick=()=>{
+  function startMotion(){
     const selected=document.querySelector('#profile').value;
     if(mode!=='live'||selected!==liveProfile||liveError){liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();setMode('live');}
     liveProfile=selected;liveError=false;livePaused=false;window.Cleo?.start(selected,bank.value,liveStream);requestMotion();invalidate();
-  };
+  }
+  document.querySelector('#live').onclick=startMotion;
   document.querySelector('#stop-motion').onclick=()=>{window.Cleo?.pause();livePaused=true;engineStatus.textContent='Motion paused';};
   document.querySelector('#embed').onclick=()=>{engineStatus.textContent='Creating a compatible embedding…';window.Cleo?.embed(document.querySelector('#motion-text').value);};
   document.querySelector('#import').onclick=()=>window.Cleo?.importModels();
@@ -167,7 +175,7 @@ export async function createAvatarView() {
     const workStarted = performance.now();
     const dt = Math.min((now-last)/1000, .05); last = now;
     const elapsed = Math.max(0,now - started)/1000;
-    const currentRoot = [0, standing, 0];
+    const currentRoot = [0, standing, 0];let bodyApplied=false;
     if(mode==='live') {
       const sample=liveBuffer.sample(liveError||livePaused?0:dt);
       if(sample) {
@@ -177,6 +185,7 @@ export async function createAvatarView() {
         a.quaternions??=a.rotations.map(matrixQuaternion);b.quaternions??=b.rotations.map(matrixQuaternion);
         const local=a.quaternions.map((q,j)=>toMatrix(q.clone().slerp(b.quaternions[j],alpha)));
         retarget.apply(joints,currentRoot,local);
+        bodyApplied=true;
       }
       requestMotion();
     } else if (mode === 'replay') {
@@ -192,6 +201,7 @@ export async function createAvatarView() {
       const local = bind.restJoints.map(() => [[1,0,0],[0,1,0],[0,0,1]]); local[0] = toMatrix(q);
       retarget.apply(joints, currentRoot, local);
     }
+    if(bodyApplied)faceControls.captureBodyPose();
     // Dynamics are opt-in so geometry/retargeting can first be checked deterministically.
     if(speaking&&faceSegments.length) {
       const time=window.Cleo?.playbackSeconds()??-1;
@@ -200,7 +210,7 @@ export async function createAvatarView() {
         const segment=faceSegments[0];
         const position=THREE.MathUtils.clamp((time-segment.startSeconds)*30,0,segment.frames.length-1);
         const a=Math.floor(position),b=Math.min(a+1,segment.frames.length-1),alpha=position-a;
-        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time);
+        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live');
       }
     }
     vrm.expressionManager?.update();
@@ -224,13 +234,14 @@ export async function createAvatarView() {
       fitViewport();
       console.log('CLEO_METRICS '+JSON.stringify(metrics)); samples=[];ticks=0;reportAt=now;
     }
-    if(speaking||mode==='replay'||mode==='turn'||physics||(mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
+    if((speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
   }
   const setVisible=value=>{
     visible=Boolean(value)&&!document.hidden;
     if(!visible){if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
+  function stopFace(){speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear();invalidate();}
   initialized=true;
-  return {event:eventHandler,setVisible,setMode,setFaceView,pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

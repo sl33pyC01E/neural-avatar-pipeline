@@ -1,46 +1,58 @@
-// Debug shell: Pocket is usable before any avatar module, geometry, or WebGL context loads.
-let currentTab='pocket',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false;
-const pocketStatus=document.querySelector('#pocket-status');
-const speak=document.querySelector('#speak');
-const faceStatus=document.querySelector('#face-status'),animateFace=document.querySelector('#animate-face');
+// Module shell. Welcome and isolated speech load no avatar or WebGL context.
+let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk';
+const $=selector=>document.querySelector(selector);
+const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel'};
+const usesAvatar=tab=>['face','talk','avatar','full'].includes(tab);
+const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
 try {
   const saved=JSON.parse(localStorage.getItem('cleo-pocket-settings')||'{}');
   for(const control of runtimeControls)if([...control.options].some(option=>option.value===saved[control.id]))control.value=saved[control.id];
-} catch { /* Keep valid defaults if Android reclaimed or invalidated stored settings. */ }
+} catch {}
 for(const control of runtimeControls)control.addEventListener('change',()=>{
   try{localStorage.setItem('cleo-pocket-settings',JSON.stringify(Object.fromEntries(runtimeControls.map(item=>[item.id,item.value]))));}catch{}
 });
-function faceButton(){animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';}
+function settings(){return [Number($('#threads').value),Number($('#steps').value),Number($('#chunk-size').value),$('#precision').value,$('#playback-mode').value==='buffered'];}
+function buttons(){
+  speak.disabled=speechBusy||!lastState;
+  animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';
+  for(const tab of ['talk','full'])$(`#${tab}-send`).disabled=speechBusy||!avatar||!lastState||currentTab!==tab;
+  for(const control of runtimeControls)control.disabled=speechBusy;
+}
+function describeSettings(tab){
+  const [threads,steps,chunk,precision,buffered]=settings(),face=avatar?.faceSettings();
+  $(`#${tab}-settings`).textContent=`${precision} · ${threads} CPU threads · ${steps} steps · chunk ${chunk}\n${buffered?'Prepared speech with shortened pauses':'Raw streaming with untrimmed pauses'} · rolling LAM\n`+
+    (face?`Eyes ${face.eyes}× · mouth ${face.mouth}× · head ${face.head}× · natural motion ${face.naturalMotion?'on':'off'}`:'');
+  if(tab==='full')$('#full-body').textContent=`${$('#profile').value} · ${$('#bank').selectedOptions[0]?.textContent||'Choose a cached motion in tab 5'}`;
+}
 window.validationState={ready:false,errors:[],tab:currentTab};
-function fail(error){const message=String(error?.stack||error);window.validationState.errors.push(message);pocketStatus.textContent=message;console.error(message);}
+function fail(error){const message=String(error?.stack||error);window.validationState.errors.push(message);pocketStatus.textContent=message;if(['talk','full'].includes(currentTab))$(`#${currentTab}-status`).textContent=message;console.error(message);}
 window.addEventListener('error',event=>fail(event.error||event.message));
 window.addEventListener('unhandledrejection',event=>fail(event.reason));
 
 async function selectTab(tab){
-  if(!['avatar','pocket','face'].includes(tab))return;
-  if(tab!==currentTab){window.Cleo?.quiet();avatar?.pause();}
+  if(!panels[tab])return;
+  if(tab!==currentTab){window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
   currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
   document.querySelectorAll('[data-tab]').forEach(button=>{
     const active=button.dataset.tab===tab;button.setAttribute('aria-selected',active);button.tabIndex=active?0:-1;
   });
-  document.querySelector('#panel').hidden=tab!=='avatar';
-  document.querySelector('#pocket-panel').hidden=tab!=='pocket';
-  document.querySelector('#face-panel').hidden=tab!=='face';
-  document.querySelector('canvas').hidden=tab==='pocket';
-  document.querySelector('#subtitle').textContent=tab==='pocket'?'Anna · isolated speech runtime':tab==='avatar'?'Drag to orbit · pinch to zoom':'LAM · last Anna clip';
-  faceButton();
-  avatar?.setVisible(false);
-  if(tab!=='pocket'){
+  for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
+  $('canvas').hidden=!usesAvatar(tab);
+  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy'}[tab];
+  buttons();avatar?.setVisible(false);
+  if(usesAvatar(tab)){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());
     avatar=await avatarLoading;
     if(lastState)avatar.event(lastState);
-    if(currentTab==='face')avatar.setMode('rest');
-    avatar.setFaceView(currentTab==='face');
-    avatar.setVisible(pageVisible&&currentTab!=='pocket');
-    faceButton();
+    if(['face','talk','full'].includes(currentTab))avatar.setMode('rest');
+    avatar.setFaceView(['face','talk'].includes(currentTab));
+    avatar.setVisible(pageVisible&&usesAvatar(currentTab));
+    if(['talk','full'].includes(currentTab))describeSettings(currentTab);
+    buttons();
   }
 }
+document.querySelectorAll('[data-open]').forEach(button=>button.onclick=()=>selectTab(button.dataset.open).catch(fail));
 document.querySelectorAll('[data-tab]').forEach(button=>{
   button.onclick=()=>selectTab(button.dataset.tab).catch(fail);
   button.onkeydown=event=>{
@@ -50,50 +62,72 @@ document.querySelectorAll('[data-tab]').forEach(button=>{
     event.preventDefault();tabs[next].focus();tabs[next].click();
   };
 });
-window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;avatar?.setVisible(pageVisible&&currentTab!=='pocket');};
+window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
 document.addEventListener('visibilitychange',()=>window.cleoVisible(!document.hidden));
 const ms=value=>value>=0?`${Math.round(value)} ms`:'—';
+const eventTab=event=>event.tab||((event.withFace||event.type==='face')?'face':'pocket');
 window.cleoEvent=event=>{
+  const tab=eventTab(event),status=tab==='pocket'?pocketStatus:tab==='face'?faceStatus:$(`#${tab}-status`);
   if(event.type==='state'){
     lastState=event;
-    if(!speechBusy){speak.disabled=false;pocketStatus.textContent=event.pocketStage?`Ready · last stage: ${event.pocketStage}`:'Ready for your speech test';}
-    if(!speechBusy)faceStatus.textContent=event.pocketClip?'Anna clip ready for facial animation.':'Generate an Anna clip in tab 2 first.';
-    faceButton();
-    window.Cleo?.tab(currentTab);
+    if(!speechBusy){pocketStatus.textContent=event.pocketStage?`Ready · last stage: ${event.pocketStage}`:'Ready for your speech test';faceStatus.textContent=event.pocketClip?'Anna clip ready for facial animation.':'Generate an Anna clip in tab 2 first.';}
+    buttons();window.Cleo?.tab(currentTab);
   }
   if(event.type==='speechStart'){
-    speechBusy=true;speak.disabled=true;(event.withFace?faceStatus:pocketStatus).textContent=event.message;faceButton();
-    document.querySelectorAll('#pocket-settings select').forEach(control=>control.disabled=true);
+    speechBusy=true;status.textContent=event.message;buttons();
+    if(['talk','full'].includes(tab))pipelineTab=tab;
+    if(tab==='full'&&currentTab==='full')avatar?.startMotion();
   }
-  if(['pocketStage','speechBusy','speechEnd'].includes(event.type))(event.withFace?faceStatus:pocketStatus).textContent=event.message;
+  if(['pocketStage','speechBusy','speechEnd'].includes(event.type))status.textContent=event.message;
   if(event.type==='faceStage')faceStatus.textContent=event.message;
-  if(event.type==='faceMetrics')document.querySelector('#face-metrics').textContent=`${event.cached?'Cached face':event.warm?'Warm LAM':'Cold LAM'} · ${event.frames} frames · ${ms(event.prepareMs)} preparation · ${ms(event.playbackStartMs)} to playback · ${event.audioSeconds.toFixed(2)} s audio · ${event.underruns} underruns`;
+  if(event.type==='talkStage')$(`#${pipelineTab}-status`).textContent=event.message;
+  if(event.type==='talkRejected'){speechBusy=false;$(`#${pipelineTab}-status`).textContent=event.message;buttons();}
+  if(event.type==='talkPlayback'){
+    $(`#${tab}-status`).textContent='Speaking';$(`#${tab}-latency`).textContent=`Send → playback: ${ms(event.playbackStartMs)}`;
+  }
+  if(event.type==='talkMetrics'){
+    const p=event.pocket;$(`#${tab}-latency`).textContent=`Send → playback: ${ms(event.playbackStartMs)} · ${event.underruns} underruns`;
+    $(`#${tab}-metrics`).textContent=`Pocket ${p.warm?'warm':'cold'} · load ${ms(p.loadMs)} · synthesis ${ms(p.computeMs)}\nLAM ${event.lamWarm?'warm':'cold'} · load ${ms(event.lamLoadMs)} · compute ${ms(event.lamComputeMs)}\nFirst face ${ms(event.firstFaceMs)} · ${event.faceFrames} frames · ${event.audioSeconds.toFixed(2)} s audio\nComplete ${ms(event.totalMs)} (includes playback)`;
+    window.validationState.talkMetrics=event;
+  }
+  if(event.type==='faceMetrics')$('#face-metrics').textContent=`${event.cached?'Cached face':event.warm?'Warm LAM':'Cold LAM'} · ${event.frames} frames · ${ms(event.prepareMs)} preparation · ${ms(event.playbackStartMs)} to playback · ${event.audioSeconds.toFixed(2)} s audio · ${event.underruns} underruns`;
   if(event.type==='speechEnd'){
-    speechBusy=false;speak.disabled=false;document.querySelectorAll('#pocket-settings select').forEach(control=>control.disabled=false);
-    if(!event.withFace){lastState={...lastState,pocketClip:Boolean(lastState?.pocketClip)||event.message==='Anna ready'};}
-    faceButton();
+    speechBusy=false;
+    if(event.clipReady||(!event.withFace&&event.message==='Anna ready'))lastState={...lastState,pocketClip:true};
+    if(tab==='full')avatar?.pause();buttons();
   }
   if(event.type==='pocketMetrics'){
-    document.querySelector('#first-audio').textContent=ms(event.firstChunkMs);
-    document.querySelector('#model-load').textContent=ms(event.loadMs)+(event.warm?' · warm':' · cold');
-    document.querySelector('#synthesis-speed').textContent=event.computeRtf>=0?`${event.computeRtf.toFixed(2)} RTF`:'—';
-    document.querySelector('#audio-duration').textContent=`${event.audioSeconds.toFixed(2)} s${event.cancelled?' · stopped':''}`;
-    document.querySelector('#playback-start').textContent=ms(event.playbackStartMs);
-    document.querySelector('#underruns').textContent=event.underruns??'—';
-    window.validationState.pocketMetrics=event;
+    $('#first-audio').textContent=ms(event.firstChunkMs);$('#model-load').textContent=ms(event.loadMs)+(event.warm?' · warm':' · cold');
+    $('#synthesis-speed').textContent=event.computeRtf>=0?`${event.computeRtf.toFixed(2)} RTF`:'—';$('#audio-duration').textContent=`${event.audioSeconds.toFixed(2)} s${event.cancelled?' · stopped':''}`;
+    $('#playback-start').textContent=ms(event.playbackStartMs);$('#underruns').textContent=event.underruns??'—';window.validationState.pocketMetrics=event;
   }
-  if(!['pocketStage','pocketMetrics','speechStart','speechEnd','speechBusy'].includes(event.type)||event.withFace)avatar?.event(event);
-  if(event.type==='face'&&event.prepared&&currentTab==='face'&&avatar)window.Cleo?.faceReady(event.runId);
+  if(currentTab==='full'&&event.type==='motion')$('#full-body').textContent=`${event.profile} · ${ms(event.generationMs)} per motion batch`;
+  if(currentTab==='full'&&event.type==='motionError')$('#full-body').textContent=`Ardy: ${event.message}`;
+  const facial=event.withFace||event.type==='face';
+  if(facial&&tab!==currentTab)return;
+  let accepted;
+  if(!['pocketStage','pocketMetrics','speechStart','speechEnd','speechBusy'].includes(event.type)||facial)accepted=avatar?.event(event);
+  if(event.type==='face'&&event.prepared&&accepted===true)window.Cleo?.faceReady(event.runId);
 };
 speak.onclick=()=>{
-  const text=document.querySelector('#speech-text').value.trim();
-  if(!text){pocketStatus.textContent='Enter something for Anna to say.';return;}
+  const text=$('#speech-text').value.trim();if(!text){pocketStatus.textContent='Enter something for Anna to say.';return;}
   if(!window.Cleo){pocketStatus.textContent='Speech runs in the Android app.';return;}
-  pocketStatus.textContent='Starting PocketTTS…';
-  window.Cleo.speak(text,Number(document.querySelector('#threads').value),Number(document.querySelector('#steps').value),Number(document.querySelector('#chunk-size').value),document.querySelector('#precision').value,document.querySelector('#playback-mode').value==='buffered');
+  pocketStatus.textContent='Starting PocketTTS…';window.Cleo.speak(text,...settings());
 };
-document.querySelector('#quiet').onclick=()=>{window.Cleo?.quiet();pocketStatus.textContent='Stopping at the next audio callback…';};
+$('#quiet').onclick=()=>{window.Cleo?.quiet();pocketStatus.textContent='Stopping at the next audio callback…';};
 animateFace.onclick=()=>{if(!animateFace.disabled){faceStatus.textContent='Preparing LAM…';window.Cleo?.animateLastClip();}};
-document.querySelector('#stop-face').onclick=()=>{window.Cleo?.quiet();};
+$('#stop-face').onclick=()=>{window.Cleo?.quiet();};
+for(const tab of ['talk','full']){
+  $(`#${tab}-form`).onsubmit=event=>{
+    event.preventDefault();if(speechBusy||!avatar||currentTab!==tab)return;
+    const text=$(`#${tab}-text`).value.trim();if(!text){$(`#${tab}-status`).textContent='Enter something for Cleopatra to say.';return;}
+    if(!window.Cleo){$(`#${tab}-status`).textContent='Speech runs in the Android app.';return;}
+    if(tab==='full'&&!$('#bank').value){$('#full-status').textContent='Select a cached motion in tab 5 first.';return;}
+    $(`#${tab}-text`).blur();pipelineTab=tab;speechBusy=true;buttons();describeSettings(tab);
+    $(`#${tab}-status`).textContent='Starting…';$(`#${tab}-latency`).textContent='Send → playback: measuring…';
+    window.Cleo.speakWithFace(text,...settings());
+  };
+  $(`#${tab}-stop`).onclick=()=>{window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();$(`#${tab}-status`).textContent='Stopping…';};
+}
 window.debugTabs={select:selectTab,current:()=>currentTab};
-selectTab('pocket').catch(fail);window.Cleo?.state();
+selectTab('welcome').catch(fail);window.Cleo?.state();
