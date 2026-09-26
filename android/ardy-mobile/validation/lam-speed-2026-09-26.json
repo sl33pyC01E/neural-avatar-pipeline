@@ -1,0 +1,17 @@
+{
+  "cachedReplayMs": 12.0278,
+  "limitation": "Shared production LAM inference and timeline code; Android audio clock and perceptual lip-sync require the user test.",
+  "cachedTimelineUnchanged": true,
+  "frameAlignedTail": true,
+  "maxJawOpen": 0.25110289454460144,
+  "frames": 89,
+  "pcmAndModelChangesMissCache": true,
+  "phoneTest": false,
+  "audioSamples": 70613,
+  "seconds": 1.0753409,
+  "cancelBeforeInference": true,
+  "audioUnmodified": true,
+  "cacheBoundedAndReleasable": true,
+  "passed": true,
+  "device": "Windows CPU"
+}

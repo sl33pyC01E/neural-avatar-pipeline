@@ -3,6 +3,14 @@ let currentTab='pocket',pageVisible=!document.hidden,avatar,avatarLoading,lastSt
 const pocketStatus=document.querySelector('#pocket-status');
 const speak=document.querySelector('#speak');
 const faceStatus=document.querySelector('#face-status'),animateFace=document.querySelector('#animate-face');
+const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
+try {
+  const saved=JSON.parse(localStorage.getItem('cleo-pocket-settings')||'{}');
+  for(const control of runtimeControls)if([...control.options].some(option=>option.value===saved[control.id]))control.value=saved[control.id];
+} catch { /* Keep valid defaults if Android reclaimed or invalidated stored settings. */ }
+for(const control of runtimeControls)control.addEventListener('change',()=>{
+  try{localStorage.setItem('cleo-pocket-settings',JSON.stringify(Object.fromEntries(runtimeControls.map(item=>[item.id,item.value]))));}catch{}
+});
 function faceButton(){animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';}
 window.validationState={ready:false,errors:[],tab:currentTab};
 function fail(error){const message=String(error?.stack||error);window.validationState.errors.push(message);pocketStatus.textContent=message;console.error(message);}
@@ -59,7 +67,7 @@ window.cleoEvent=event=>{
   }
   if(['pocketStage','speechBusy','speechEnd'].includes(event.type))(event.withFace?faceStatus:pocketStatus).textContent=event.message;
   if(event.type==='faceStage')faceStatus.textContent=event.message;
-  if(event.type==='faceMetrics')document.querySelector('#face-metrics').textContent=`${event.frames} frames · ${(event.prepareMs/1000).toFixed(2)} s preparation · ${event.audioSeconds.toFixed(2)} s audio · ${event.underruns} underruns`;
+  if(event.type==='faceMetrics')document.querySelector('#face-metrics').textContent=`${event.cached?'Cached face':event.warm?'Warm LAM':'Cold LAM'} · ${event.frames} frames · ${ms(event.prepareMs)} preparation · ${ms(event.playbackStartMs)} to playback · ${event.audioSeconds.toFixed(2)} s audio · ${event.underruns} underruns`;
   if(event.type==='speechEnd'){
     speechBusy=false;speak.disabled=false;document.querySelectorAll('#pocket-settings select').forEach(control=>control.disabled=false);
     if(!event.withFace){lastState={...lastState,pocketClip:Boolean(lastState?.pocketClip)||event.message==='Anna ready'};}

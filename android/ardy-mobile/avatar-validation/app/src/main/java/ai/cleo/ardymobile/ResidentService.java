@@ -30,6 +30,7 @@ public final class ResidentService extends Service {
     private String loadedProfile;
     private PocketAnna pocket;
     private LamDriver lam;
+    private final LamTimelineCache faceCache=new LamTimelineCache();
     private volatile CountDownLatch faceReady;
     private volatile String faceRun;
     private volatile String activeTab="pocket";
@@ -85,7 +86,9 @@ public final class ResidentService extends Service {
         activeTab=value;stopSpeech();pauseMotion();
         // Audio/face tabs release motion; LAM is instantiated only by the user's tab 3 action.
         if(!"avatar".equals(value))motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});
-        if(!"face".equals(value))speechWorker.execute(()->{if(lam!=null)lam.close();});
+        // Pocket and LAM can remain resident together; tab switches never run inference.
+        // Pressure/budget trims still release both on the serialized speech worker.
+        trimIfOverBudget();
     }
     public synchronized void configureMotion(String profile,String embeddingId,String streamId) {
         if(!"avatar".equals(activeTab)||stopping)return;
@@ -219,18 +222,28 @@ public final class ResidentService extends Service {
                 publish(new JSONObject().put("type","speechStart").put("withFace",true).put("message","Preparing LAM from the last Anna clip…"));
                 motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
                 if(cancelled.get())return;
-                pocket.close();
-                float[] clip=PocketRecording.readCompleted(new File(getCacheDir(),"pocket-last.wav"));
                 long started=System.nanoTime();
+                float[] clip=PocketRecording.readCompleted(new File(getCacheDir(),"pocket-last.wav"));
                 if(lam==null)lam=new LamDriver(this);
-                lam.warm();lam.reset();
-                JSONObject timeline=LamTimeline.build(clip,cancelled,lam::next,message->emit("faceStage",message));
+                boolean warm=lam.isWarm();
+                byte[] key=LamTimelineCache.key(clip,lam.cacheIdentity());
+                JSONObject timeline=faceCache.get(key);boolean cached=timeline!=null;
+                double loadMs=0,computeMs=0;
+                if(!cached) {
+                    long loading=System.nanoTime();lam.warm();loadMs=(System.nanoTime()-loading)/1e6;
+                    if(cancelled.get())return;
+                    lam.reset();long computing=System.nanoTime();
+                    timeline=LamTimeline.build(clip,cancelled,lam::next,message->emit("faceStage",message));
+                    computeMs=(System.nanoTime()-computing)/1e6;
+                    if(cancelled.get()||timeline==null)return;
+                    faceCache.put(key,clip,timeline);
+                }
                 if(cancelled.get()||timeline==null)return;
                 double prepareMs=(System.nanoTime()-started)/1e6;
                 String run=java.util.UUID.randomUUID().toString();
                 CountDownLatch ready=new CountDownLatch(1);faceRun=run;faceReady=ready;
                 publish(timeline.put("runId",run));
-                emit("faceStage","Face prepared · waiting for avatar");
+                emit("faceStage",cached?"Reusing prepared face · waiting for avatar":"Face prepared · waiting for avatar");
                 if(!ready.await(10,TimeUnit.SECONDS)&&!cancelled.get())throw new IOException("Avatar did not accept the facial timeline");
                 if(cancelled.get())return;
                 audioWritten=0;audioStartNanos=0;emit("faceStage","Playing Anna with LAM");
@@ -242,8 +255,12 @@ public final class ResidentService extends Service {
                     long deadline=SystemClock.elapsedRealtime()+remaining*1000/24000+2000;
                     while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<audioWritten&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
                 }
-                publish(new JSONObject().put("type","faceMetrics").put("prepareMs",prepareMs).put("frames",timeline.getJSONArray("frames").length())
-                    .put("audioSeconds",clip.length/24000.0).put("underruns",underruns).put("cancelled",cancelled.get()));
+                JSONObject metrics=new JSONObject().put("type","faceMetrics").put("prepareMs",prepareMs).put("frames",timeline.getJSONArray("frames").length())
+                    .put("cached",cached).put("warm",warm).put("loadMs",loadMs).put("computeMs",computeMs)
+                    .put("playbackStartMs",audioStartNanos==0?-1:(audioStartNanos-started)/1e6)
+                    .put("audioSeconds",clip.length/24000.0).put("underruns",underruns).put("cancelled",cancelled.get());
+                try(FileOutputStream report=new FileOutputStream(new File(getCacheDir(),"lam-last.json"))){report.write(metrics.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+                publish(metrics);
             }catch(Exception|LinkageError failure){outcome="LAM error: "+(failure.getMessage()==null?failure.toString():failure.getMessage());}
             finally {
                 faceReady=null;faceRun=null;
@@ -282,10 +299,11 @@ public final class ResidentService extends Service {
     private File checkpoint(){return new File(getFilesDir(),"ardy-state/"+loadedProfile+".bin");}
     private void saveMotion(){if(sampler!=null)try{sampler.save(checkpoint());}catch(IOException failure){emit("stateWarning","Could not save motion context");}}
     private void trimIfOverBudget(){if(Debug.getPss()/1024>budgetMiB())trim();}
-    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(()->{pocket.close();if(lam!=null)lam.close();});}
+    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(this::releaseSpeechSessions);}
+    private void releaseSpeechSessions(){pocket.close();if(lam!=null)lam.close();faceCache.clear();}
     private void releaseWarmSessions() throws Exception {
         motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
-        speechWorker.submit(()->{pocket.close();if(lam!=null)lam.close();}).get();
+        speechWorker.submit(this::releaseSpeechSessions).get();
     }
     @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
@@ -298,7 +316,7 @@ public final class ResidentService extends Service {
     private void publish(JSONObject message){main.post(()->{Listener current=listener;if(current!=null)current.event(message);});}
     @Override public void onDestroy() {
         stopping=true;stopMotion();stopSpeech();
-        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(()->{pocket.close();if(lam!=null)lam.close();});
+        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(this::releaseSpeechSessions);
         motionWorker.shutdown();speechWorker.shutdown();embeddingWorker.shutdownNow();listener=null;super.onDestroy();
     }
 }

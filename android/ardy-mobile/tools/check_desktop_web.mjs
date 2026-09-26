@@ -55,7 +55,14 @@ try {
   assert.equal(await evaluate('window.debugTabs.current()'),'pocket');
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   await evaluate('document.querySelector("#speak").click()');await sleep(150);
-  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,10,15,'fp32',true],'Pocket quality settings did not reach native bridge');
+  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,10,15,'mixed',true],'Pocket speed settings did not reach native bridge');
+  await evaluate('document.querySelector("#precision").value="fp32";document.querySelector("#precision").dispatchEvent(new Event("change"));document.querySelector("#speak").click()');await sleep(150);
+  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,10,15,'fp32',true],'Approved quality baseline is not available');
+  assert.equal(await evaluate('JSON.parse(localStorage.getItem("cleo-pocket-settings")).precision'),'fp32');
+  await call('Page.reload');
+  for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
+  assert.equal(await evaluate('document.querySelector("#precision").value'),'fp32','Selected baseline did not persist');
+  await evaluate('document.querySelector("#precision").value="mixed";document.querySelector("#precision").dispatchEvent(new Event("change"));document.querySelector("#speak").click()');await sleep(150);
   assert.equal(await evaluate('document.querySelector("#synthesis-speed").textContent'),'0.40 RTF');
   assert(await evaluate('!window.avatarValidation'),'Pocket speech initialized the avatar');
   const pocketImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'pocket-tab.png'),Buffer.from(pocketImage.data,'base64'));
@@ -121,7 +128,7 @@ try {
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
-    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
+    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 } finally {

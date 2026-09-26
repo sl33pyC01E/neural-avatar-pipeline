@@ -4,10 +4,54 @@ The user tests on the phone; the agent reads logs, builds, and installs only.
 Current target: reliable, fast **Anna** speech in tab 2, independently of VRM,
 Ardy, LLM2Vec inference, and LAM. The user also requested the working LAM tab in this build.
 
-## Current quality correction — 0.3.1, version code 5
+## Speed checkpoint — 0.3.2, version code 6
+
+The user confirmed that both speech and face work in 0.3.1 and requested more speed.
+The last user-generated phone report recorded **FP32 / 10 steps / 2 threads / warm**:
+1,661.6 ms generation, 2.761 seconds final audio, 0.602 RTF, 1,680.5 ms to the
+playback-start call, and zero underruns. This was read from `cache/pocket-last.json`;
+the agent did not initiate a phone test.
+
+The new default **Faster · INT8 LM / FP32 audio** quantizes only `lm_main`.
+The flow model, audio decoder, full repaired Anna conditioning, 10 flow steps,
+seed, text handling, pause shortening and playback path remain as before.
+The approved **Full precision** setting and **All INT8** comparison remain available.
+Model/runtime selections now persist; selecting a different precision or thread
+count still reloads Pocket. The new mixed profile requires the user's listening
+and phone-speed test; it is not numerically identical to FP32.
+
+A two-run Windows CPU comparison of the same prompt measured warm generation:
+FP32 1.857 s, mixed 1.173 s, all INT8 0.906 s. The generated clips were 2.761,
+2.942 and 2.918 seconds respectively, so this is an end-to-end comparison, not
+an equal-latent-count kernel benchmark. Warm mixed was about 37% less generation
+time in this check. These are **desktop** results, not predictions for the phone.
+See `validation/pocket-speed-cpu-2026-09-26.json`.
+
+Pocket and LAM now stay warm across tab switches while the memory budget allows.
+Tab 2 still runs no LAM or avatar inference/rendering. Inference remains serialized
+on the speech worker. Memory pressure, over-budget trimming, embedding creation
+and Stop release sessions; they do no polling or model work while idle.
+
+LAM keeps one prepared timeline for clips up to two minutes. Its key includes
+every PCM sample and the model/metadata/postprocessing revision. Replaying the same
+clip or changing amplitudes reuses that timeline without LAM inference. A changed
+clip/model misses; memory trimming clears it. The first play of new audio still
+runs the unchanged LAM window and postprocessor. The cache is memory-only and
+does not survive process death. Timing now records cached/warm status, loading,
+compute and playback start in `cache/lam-last.json`.
+
+The actual shared LAM path produced 89 frames for mixed Anna on desktop CPU;
+cached lookup and parsing took 12 ms versus 1.075 s for the cold LAM check.
+Tests verify identical transported frame values, changed-PCM/model invalidation,
+independent per-playback metadata, the size bound and pressure clearing.
+The browser check preserves the playback-clock, readiness and amplitude checks
+and checks persistent settings and access to the approved speech baseline.
+
+## Quality correction — 0.3.1, version code 5
 
 The user confirmed that 0.3.0 produces audio, but reported slow, unnatural cadence
-and an often random first syllable. **Perceptual quality is not yet confirmed.**
+and an often random first syllable. After the correction below, the user confirmed
+that speech and LAM face playback both work. Further speed profiles need listening tests.
 
 Two concrete defects were found while checking this report:
 
@@ -26,7 +70,7 @@ Two concrete defects were found while checking this report:
    paths. The prepared-clip mode now captures and plays the returned audio itself.
    Raw streaming remains explicitly labeled as untrimmed and sets silence scale 1.
 
-The default quality baseline uses FP32 / 10 flow steps / decoder chunk 15 / two
+The approved quality baseline uses FP32 / 10 flow steps / decoder chunk 15 / two
 CPU threads / seed 42, with the full clip prepared before playback. INT8 uses the
 same repaired encoder and is available for an otherwise identical comparison.
 The 10-step baseline follows the [January export wrapper](https://huggingface.co/KevinAHM/pocket-tts-onnx/blob/355aac517813b2915a662801f8a3a31a2304aa4d/pocket_tts_onnx.py);
@@ -81,13 +125,14 @@ replace the user's Android synthesis/playback test.
 - Tab 2 never initializes LAM. It starts without fetching VRM geometry or loading
   the avatar JS module; visiting it pauses motion, closes warm Ardy sessions and
   stops avatar rendering. An already-running embedding must finish before speech.
-- The APK includes the 402,298,879-byte LAM model for tab 3. Tab 2 never loads it.
+- The APK includes the 402,298,879-byte LAM model for tab 3. Tab 2 never loads it;
+  an already-used LAM session can remain warm without executing.
 - Metrics distinguish model preparation, first decoded chunk, generated audio
   duration, and generation time excluding the synchronous playback callback.
   `computeRtf` excludes model loading and AudioTrack waiting; cold voice encoding
   remains part of generation. First chunk is not a hardware audible-latency measurement.
 - CPU threads (1/2/4/6), flow steps (2/3/5/10) and decoder chunks (4/8/15) are exposed
-  for user comparisons. Current defaults are 2 threads / 10 steps / 15 decoder frames.
+  for user comparisons. Defaults are mixed precision / 2 threads / 10 steps / 15 decoder frames.
   A lower step count may reduce speech quality; no setting is claimed fastest yet.
 
 [Pocket's pinned implementation](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.8/sherpa-onnx/csrc/offline-tts-pocket-impl.h)
@@ -102,14 +147,14 @@ quality. The present fix does not claim GPU/NPU offload or final phone performan
 
 ## LAM tab and independent amplitudes
 
-Tab 3 replays the last completed Pocket WAV through LAM. Pocket is released before
-LAM loads, and Ardy is paused/released. `LamWindow` runs the verified 64-frame,
+Tab 3 replays the last completed Pocket WAV through LAM. Pocket can remain warm,
+and Ardy is paused/released. `LamWindow` runs the verified 64-frame,
 24 kHz-to-16 kHz export on CPU, followed by the existing silence/blending/smoothing/
 symmetry/blink postprocessor. `LamTimeline` analyzes one-second blocks; only the
 final analysis block is padded to the 800-sample (30 fps) boundary. Playback uses
 the unmodified original PCM. The complete face timeline is prepared and acknowledged
 by the renderer before playback starts, then sampled against AudioTrack's clock.
-Stop/tab changes/backgrounding cancel playback; non-face tabs release the LAM session.
+Stop/tab changes/backgrounding cancel playback; tab changes retain warm sessions.
 This first prepared-clip route does not claim live LAM inference or phone lip-sync qualification.
 
 The Face Lab's existing head/neck natural-motion equations and default gains are

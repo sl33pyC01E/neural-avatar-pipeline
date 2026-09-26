@@ -41,7 +41,11 @@ machine. The user's Android test found a Sherpa callback ABI crash. The replacem
 passed a matching JVM regression and packaged DEX check. The user's next test
 confirmed speech but found poor cadence and onset quality. Version 0.3.1 repairs a
 traced encoder that cropped Anna to 1.04 seconds and plays finalized pause-shortened
-audio by default; quality still requires the user's listening test. See
+audio by default. The user confirmed that both speech and LAM playback work.
+Version 0.3.2 adds mixed-precision Pocket (INT8 language model, FP32 flow/decoder),
+keeps the approved FP32 baseline selectable, retains warm speech/face sessions
+across tabs and caches the last prepared LAM timeline. Speed-profile listening
+and phone timing remain the user's test. See
 [Pocket debug notes](../POCKET_DEBUG.md). The agent did not launch the phone app.
 
 ## Build

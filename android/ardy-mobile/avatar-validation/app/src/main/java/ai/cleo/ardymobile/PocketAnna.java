@@ -24,7 +24,7 @@ public final class PocketAnna implements AutoCloseable {
         "lm_flow.onnx","lm_main.onnx","decoder.onnx"};
     public PocketAnna(Context context) { this.context=context.getApplicationContext(); }
     public void warm(int threads,String precision) throws Exception {
-        if(!precision.equals("fp32")&&!precision.equals("int8"))throw new IllegalArgumentException("Invalid Pocket precision");
+        PocketModels.file("lm_main",precision); // Validate before releasing a working engine.
         if(engine!=null&&loadedThreads==threads&&precision.equals(loadedPrecision)) return;
         close();
         File root=new File(context.getFilesDir(),"pocket-tts");
@@ -53,9 +53,8 @@ public final class PocketAnna implements AutoCloseable {
         }
         try(FileOutputStream out=new FileOutputStream(installedManifest)){out.write(bundled.getBytes(StandardCharsets.UTF_8));out.getFD().sync();}
         OfflineTtsPocketModelConfig pocket=new OfflineTtsPocketModelConfig();
-        String suffix=precision.equals("int8")?".int8.onnx":".onnx";
-        pocket.setLmFlow(new File(root,"lm_flow"+suffix).getPath()); pocket.setLmMain(new File(root,"lm_main"+suffix).getPath());
-        pocket.setEncoder(new File(root,"encoder.onnx").getPath()); pocket.setDecoder(new File(root,"decoder"+suffix).getPath());
+        pocket.setLmFlow(new File(root,PocketModels.file("lm_flow",precision)).getPath()); pocket.setLmMain(new File(root,PocketModels.file("lm_main",precision)).getPath());
+        pocket.setEncoder(new File(root,"encoder.onnx").getPath()); pocket.setDecoder(new File(root,PocketModels.file("decoder",precision)).getPath());
         pocket.setTextConditioner(new File(root,FILES[4]).getPath()); pocket.setVocabJson(new File(root,FILES[5]).getPath());
         pocket.setTokenScoresJson(new File(root,FILES[6]).getPath()); pocket.setVoiceEmbeddingCacheCapacity(1);
         OfflineTtsModelConfig model=new OfflineTtsModelConfig(); model.setPocket(pocket); model.setNumThreads(threads); model.setProvider("cpu");

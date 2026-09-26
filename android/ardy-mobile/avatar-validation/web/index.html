@@ -39,23 +39,24 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <div id="engine-status">Connecting local engines…</div>
 </div></details></section>
 <section id="pocket-panel" role="tabpanel" aria-labelledby="tab-pocket">
-<span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Quality comparison · CPU · repeatable seed 42</p>
+<span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Speed tuning · CPU · repeatable seed 42</p>
 <textarea id="speech-text" maxlength="2000" aria-label="Speech text" placeholder="Something for Anna to say">Hello. I'm Cleopatra. It's good to meet you.</textarea>
 <div class="row"><button id="speak" disabled>Speak</button><button id="quiet">Stop voice</button></div>
 <div id="pocket-status" role="status" aria-live="polite">Ready for your speech test</div>
 <dl class="metrics"><div><dt>First decoded chunk</dt><dd id="first-audio">—</dd></div><div><dt>Model preparation</dt><dd id="model-load">—</dd></div><div><dt>Synthesis / audio duration</dt><dd id="synthesis-speed">—</dd></div><div><dt>Generated audio</dt><dd id="audio-duration">—</dd></div><div><dt>Playback started</dt><dd id="playback-start">—</dd></div><div><dt>Playback underruns</dt><dd id="underruns">—</dd></div></dl>
 <p class="hint">RTF below 1 means generation is faster than the audio duration. Playback waiting is excluded; first chunk includes model preparation. The second run reuses the warm model and Anna's cached voice.</p>
 <details id="pocket-settings" open><summary>Quality and runtime</summary><div class="row">
-<label>Models<select id="precision"><option value="fp32" selected>Full precision · reference</option><option value="int8">INT8 · comparison</option></select></label>
+<label>Models<select id="precision"><option value="mixed" selected>Faster · INT8 LM / FP32 audio</option><option value="fp32">Full precision · approved baseline</option><option value="int8">All INT8 · speed comparison</option></select></label>
 <label>Playback<select id="playback-mode"><option value="buffered" selected>Prepare whole clip</option><option value="streaming">Raw stream · untrimmed pauses</option></select></label>
 <label>CPU threads<select id="threads"><option>1</option><option selected>2</option><option>4</option><option>6</option></select></label>
 <label>Flow steps<select id="steps"><option>2</option><option>3</option><option>5</option><option selected>10</option></select></label>
 <label>Decoder chunk<select id="chunk-size"><option>4</option><option>8</option><option selected>15</option></select></label></div>
-<p class="hint">Start with these defaults for quality. The prepared clip includes Sherpa's pause shortening and plays after generation finishes. Then change only Models to compare INT8. Raw streaming bypasses pause shortening and can stall between phrases. Changing models or threads reloads the engine.</p>
+<p class="hint">Faster quantizes only the language model; flow and audio decoding stay at full precision with 10 steps by default. Compare its sound with the approved full-precision baseline. All INT8 and fewer flow steps may trade quality for speed. Settings save automatically.</p>
+<p class="hint">Prepared clips keep pause shortening. Raw streaming has untrimmed pauses and can stall between phrases. Changing models or threads reloads Pocket; switching tabs keeps used speech and face engines warm while memory allows.</p>
 <p class="hint">Keeps only the latest completed generated clip and timing report in the app's local cache for diagnosis. No microphone recording.</p></details>
 </section>
 <section id="face-panel" role="tabpanel" aria-labelledby="tab-face" hidden><span class="badge">LAM · audio to face</span><h2>Anna → Cleopatra</h2>
-<p>Generate speech in tab 2, then replay that exact clip with LAM facial expressions here. Face motion is prepared first and follows the audio playback clock.</p>
+<p>Generate speech in tab 2, then replay that exact clip with LAM facial expressions here. Replays reuse the prepared face while cached; amplitude changes need no new inference. Face motion follows the audio playback clock.</p>
 <div class="row"><button id="animate-face" disabled>Play last Anna clip with face</button><button id="stop-face">Stop</button></div>
 <div id="face-status" role="status" aria-live="polite">Generate an Anna clip in tab 2 first.</div>
 <p id="face-metrics" class="hint"></p>

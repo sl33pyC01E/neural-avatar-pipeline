@@ -12,11 +12,21 @@ public final class LamDriver implements AutoCloseable {
     private LamWindow engine;
     private JSONObject metadata;
     public LamDriver(Context context){this.context=context.getApplicationContext();}
-    public void warm() throws Exception {
-        if(engine!=null)return;
+    private void readMetadata() throws Exception {
+        if(metadata!=null)return;
         String manifest;
         try(InputStream in=context.getAssets().open("lam/manifest.json")){manifest=new String(Embeddings.read(in),StandardCharsets.UTF_8);}
         metadata=new JSONObject(manifest);
+    }
+    public String cacheIdentity() throws Exception {
+        readMetadata();
+        // Bump this revision when windowing or LamPostprocess changes. Gains run after this cache.
+        return "lam-timeline-v1-mono24k-window64-hop30:"+metadata.toString();
+    }
+    public boolean isWarm(){return engine!=null;}
+    public void warm() throws Exception {
+        if(engine!=null)return;
+        readMetadata();
         File root=new File(context.getFilesDir(),"lam");if(!root.isDirectory()&&!root.mkdirs())throw new IOException("Cannot prepare LAM");
         File model=new File(root,"lam-window64-24k.onnx");
         File stamp=new File(root,"sha256.txt");String installed="";

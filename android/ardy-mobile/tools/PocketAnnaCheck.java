@@ -4,15 +4,16 @@ import java.nio.file.*;
 import java.util.*;
 import ai.cleo.ardymobile.PocketPrompt;
 import ai.cleo.ardymobile.PocketRecording;
+import ai.cleo.ardymobile.PocketModels;
 
 public class PocketAnnaCheck {
     public static void main(String[] args) throws Exception {
         Path root=Path.of(args[0]);
-        String precision=args.length>2?args[2]:"fp32",suffix=precision.equals("int8")?".int8.onnx":".onnx";
+        String precision=args.length>2?args[2]:"fp32";
         int steps=args.length>3?Integer.parseInt(args[3]):10;
         OfflineTtsPocketModelConfig pocket=OfflineTtsPocketModelConfig.builder()
-            .setLmFlow(root.resolve("lm_flow"+suffix).toString()).setLmMain(root.resolve("lm_main"+suffix).toString())
-            .setEncoder(root.resolve("encoder.onnx").toString()).setDecoder(root.resolve("decoder"+suffix).toString())
+            .setLmFlow(root.resolve(PocketModels.file("lm_flow",precision)).toString()).setLmMain(root.resolve(PocketModels.file("lm_main",precision)).toString())
+            .setEncoder(root.resolve("encoder.onnx").toString()).setDecoder(root.resolve(PocketModels.file("decoder",precision)).toString())
             .setTextConditioner(root.resolve("text_conditioner.onnx").toString()).setVocabJson(root.resolve("vocab.json").toString())
             .setTokenScoresJson(root.resolve("token_scores.json").toString()).build();
         OfflineTts tts=new OfflineTts(OfflineTtsConfig.builder().setModel(OfflineTtsModelConfig.builder().setPocket(pocket).setNumThreads(2).build()).build());
@@ -21,6 +22,8 @@ public class PocketAnnaCheck {
             GenerationConfig config=new GenerationConfig(); config.setReferenceAudio(reference.getSamples());config.setReferenceSampleRate(reference.getSampleRate());config.setNumSteps(steps);
             config.setSilenceScale(0.2f);
             config.setExtra(Map.of("temperature","0.7","seed","42","chunk_size","15","max_char_in_sentence","200","min_char_in_sentence","30","max_reference_audio_len",Float.toString(reference.getSamples().length/(float)reference.getSampleRate())));
+            int repeats=args.length>5?Integer.parseInt(args[5]):1;
+            for(int run=0;run<repeats;run++) {
             long started=System.nanoTime();
             java.util.ArrayList<float[]> chunks=new java.util.ArrayList<>();
             GeneratedAudio audio=tts.generateWithConfigAndCallback(PocketPrompt.prepare(args.length>4?args[4]:"Hello. I'm Cleopatra. It's good to meet you."),config,(OfflineTtsCallback)samples -> {chunks.add(samples);return 1;});
@@ -39,7 +42,8 @@ public class PocketAnnaCheck {
                 if(read[0]!=audio.getSamples().length)throw new AssertionError("Buffered playback lost samples");
             }
             double rawSeconds=chunks.stream().mapToInt(v->v.length).sum()/(double)audio.getSampleRate();
-            System.out.printf(Locale.ROOT,"{\"passed\":true,\"voice\":\"anna\",\"precision\":\"%s\",\"steps\":%d,\"device\":\"Windows CPU\",\"sampleRate\":%d,\"durationSeconds\":%.3f,\"rawCallbackSeconds\":%.3f,\"generationSeconds\":%.3f,\"rtf\":%.3f,\"rms\":%.5f,\"peak\":%.5f,\"bufferedPcmBitExact\":true,\"qualityVerified\":false}%n",precision,steps,audio.getSampleRate(),duration,rawSeconds,seconds,seconds/duration,rms,peak);
+            System.out.printf(Locale.ROOT,"{\"passed\":true,\"voice\":\"anna\",\"precision\":\"%s\",\"steps\":%d,\"run\":%d,\"device\":\"Windows CPU\",\"sampleRate\":%d,\"durationSeconds\":%.3f,\"rawCallbackSeconds\":%.3f,\"generationSeconds\":%.3f,\"rtf\":%.3f,\"rms\":%.5f,\"peak\":%.5f,\"bufferedPcmBitExact\":true,\"qualityVerified\":false}%n",precision,steps,run,audio.getSampleRate(),duration,rawSeconds,seconds,seconds/duration,rms,peak);
+            }
         } finally { tts.release(); }
     }
 }
