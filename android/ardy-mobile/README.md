@@ -17,9 +17,11 @@ The target avatar is `Zome_Cleopatra_v1.vrm`.
 ## Current implementation instructions
 
 The user approved the avatar appearance and controls on 2026-09-25. Keep them.
-The user explicitly does not want active tests on their phone. Perform further
-builds and validation on the development machine; do not launch phone apps,
-run phone benchmarks, or automate phone controls without a new explicit request.
+On 2026-09-26 the user clarified: **the agent may install; the user tests**.
+Build and validate on the development machine, then install the separate
+checkpoint and provision verified models. Do not launch phone apps, run phone
+inference/benchmarks, play audio, or automate phone controls. The user launches
+the installed app and reports the results. Keep the original Ardy installation.
 
 Next connect Ardy Core-8/Core-40 and the recovered on-device LLM2Vec backend,
 then PocketTTS with **Anna**, followed by the **LAM facial-expression driver**.
@@ -155,6 +157,6 @@ and postprocessing. See the checkpoint README for build steps and exact limits.
 
 Remaining acceptance gates are combined Android runtime qualification, perceptual
 motion/speech/face tuning, memory/thermal behavior and any selected accelerator.
-The user currently prohibits active phone testing; do not run these gates until
-explicitly authorized. Preserve this branch and the original installation, then
+The user performs the phone tests; installation permission does not authorize
+the agent to run these gates. Preserve this branch and the original installation, then
 save the qualified clean Ardy baseline before creating the separate product repo.

@@ -1,0 +1,47 @@
+{
+  "versionName": "0.2.1-cleopatra-native",
+  "versionCode": 3,
+  "apkSha256": "e497cbd75cdb649811b2d194bbe151357f1f691e638f13b53f8955d276a9a89d",
+  "apkBytes": 714170026,
+  "nativeLibraries": [
+    "lib/arm64-v8a/libardy_llm2vec.so",
+    "lib/arm64-v8a/libonnxruntime.so",
+    "lib/arm64-v8a/libonnxruntime4j_jni.so",
+    "lib/arm64-v8a/libsherpa-onnx-jni.so"
+  ],
+  "llm2vecNativeMatchesInstalled": true,
+  "assembleDebug": "passed",
+  "lintDebug": {
+    "errors": 0,
+    "warnings": 3
+  },
+  "apkSignatureV2": "verified",
+  "installerFailureBoundaryChecks": 5,
+  "desktopRegressionReport": "desktop-web-2026-09-26.json",
+  "installationReport": "installation-2026-09-26.json",
+  "phoneInstalled": true,
+  "allFiveModelsProvisionedAndVerified": true,
+  "phoneAppLaunchedByAgent": false,
+  "phoneInferenceTestByAgent": false,
+  "sourceFingerprints": {
+    "avatar-validation/app/src/main/java/ai/cleo/ardyavatarvalidation/MainActivity.java": "7742b6e28ae9a5a3a0026ea8a65add104de95abbfc7ea0a2f1d62e5c2ced7cb6",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/ArdyModelProfile.java": "462f4722e68071863d3d28593a17300b36931e4e1d54133e565035058b22d027",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/ArdyRuntimeData.java": "7c5b7637b512602eab6547ea9bf6af06707398c36efc911342fc44d25e717fc1",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/ArdySampler.java": "8ca07f166a1767c7cb27231b3d32592de2b06a88d9fc3c5ec3422dc34c73f051",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/Embeddings.java": "1ea20a61ed01381458c80b67fdec72dbddd95912e507f4b3311174d26d475828",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/LamDriver.java": "dbc0f1b5404299a80bc1bba5581216fe19551f19eaf967e27f06b839ce3dd78b",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/LamPostprocess.java": "96f5b5941bcc4dc971f477498d894ff0989d1b1e7e0f5571d008e9509c88897a",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/ModelImporter.java": "73fce7a6c055a7d049f7675429442b5e7e87a0d7d7bbabdb33b74c43f2bd1721",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/NativeLlm2Vec.java": "f69777a370b31d38cfe48651c9f0613c6c72beea488678c145a7ac864436372d",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/PocketAnna.java": "c77e2d693031e518a530bbec4bfc461e0d7c86ecbe08b298bb09c526e40c576d",
+    "avatar-validation/app/src/main/java/ai/cleo/ardymobile/ResidentService.java": "59ebcf99d7c463472c5393f5e3a1c72a5643876fc593d5501e5bba979a2e67b1",
+    "avatar-validation/web/index.html": "7d2b68479094d856b65a742cdaba0facc4531a61e921fbd21bbba6f882cf26cd",
+    "avatar-validation/web/main.mjs": "259022bc5e70914ec69c1c4688cff8c9f7aa25e6571c94ddbe14b7a828921a7a",
+    "avatar-validation/web/motion-buffer.mjs": "213f7fe8f3f0ba1573666927ac79d79dd4960932522fbc6dc7b471536b6b6064"
+  },
+  "limitations": [
+    "The user performs native runtime, audio, motion and facial tests.",
+    "GPU/NPU execution and combined phone performance remain unqualified.",
+    "Ardy/LLM2Vec models are provisioned separately from the APK; this is still a checkpoint package."
+  ]
+}

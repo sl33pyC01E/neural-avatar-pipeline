@@ -25,9 +25,10 @@ facial animation. The renderer and camera controls remain the approved version.
 Live motion uses bounded consecutive horizons, not repeated clips. Preview replay
 still deliberately wraps its recovered clip. Display fps is not inference speed.
 
-Ardy and the compatible 4.6 GB GGUF are imported by content hash through Android's
+Ardy and the compatible 4.6 GB GGUF can be imported by content hash through Android's
 file picker; their private files in the original package cannot be opened by this
-separate app. Import copies and verifies selected files without changing originals.
+separate app. The authorized developer installer can also provision them through
+ADB without launching either app. Both paths copy and verify files without changing originals.
 The APK bundles Cleopatra, the embedding bank, Pocket/Anna and the exported LAM
 model. **This is not yet the fully self-contained Cleopatra product APK.**
 
@@ -75,8 +76,9 @@ Three-VRM loader, substituting empty textures only for the CPU-only test:
 - compares every rendered skinned vertex index before/after vertex compaction;
 - checks that hips, chest, and head retain a 180-degree source turn.
 
-**Do not run active phone tests, launch apps, install builds, or automate phone
-controls without a new explicit user request.** `check_device.mjs` is retained
+**The agent may install; the user tests** (clarified 2026-09-26). Do not launch
+phone apps, run inference, play audio, benchmark, or automate phone controls.
+`check_device.mjs` is retained
 only as historical tooling; its mode/timing assumptions predate idle rendering.
 
 Current checks and reports live in `../validation`:
@@ -124,6 +126,29 @@ The shared desktop facial mapping is extracted verbatim with a checksum. LAM use
 the original 64-frame context, silence/blending/SG/symmetry processing and separate
 random blinks. Its exported sinc resampler differs from the desktop librosa/soxr
 resampler; perceptual and device synchronization qualification remains necessary.
+
+Motion events include a per-view stream identifier and profile. Late batches and
+errors from an old profile/view cannot enter the current playback buffer; pausing
+keeps the identifier and rolling history. Embedding/import work temporarily blocks
+new speech requests so the large GGUF load does not race a speech-session reload.
+
+## Install for the user's test
+
+`tools/install_checkpoint.py` verifies the APK package, installs only the separate
+checkpoint, and copies inventoried Ardy/LLM2Vec weights directly between the two
+private app directories using `run-as`. Every copied file is verified by size and
+SHA-256 before activation. Unexpected existing model files are left untouched.
+The original app version and files are preserved. This tool never starts an app.
+
+From `android/ardy-mobile`:
+
+```powershell
+python tools/install_checkpoint.py --adb "PATH/TO/adb.exe" --transport TRANSPORT_ID --aapt2 "PATH/TO/aapt2.exe" --apk avatar-validation/app/build/outputs/apk/debug/app-debug.apk --report validation/installation-DATE.json
+```
+
+The user opens **Cleopatra · Avatar Check**, expands **Motion & voice**, selects
+a cached description and Core-40, and starts motion. New text uses **Cache embedding**;
+Anna and LAM use **Speak**. Installation and checksums are not inference qualification.
 
 The matching signing key is still required to replace the original Ardy Mobile
 package. Never uninstall it or clear its model/embedding storage. GPU/NPU routes

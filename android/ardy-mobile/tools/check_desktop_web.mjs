@@ -39,13 +39,13 @@ try {
   await call('Runtime.enable');await call('Log.enable');await call('Page.enable');
   await call('Emulation.setDeviceMetricsOverride',{width:412,height:915,deviceScaleFactor:1,mobile:true});
   await call('Page.addScriptToEvaluateOnNewDocument',{source:`
-    const source=${JSON.stringify(motion)};let cursor=0,run=false,paused=false;
+    const source=${JSON.stringify(motion)};let cursor=0,run=false,paused=false,currentProfile='core40',currentStream='';
     window.bridgeRequests=0;window.testClock=0;
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
     window.Cleo={state(){emit({type:'state',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
-      start(){if(!run)cursor=0;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
-      next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=40;if(start+count>source.joints.length)return false;cursor+=count;
-        emit({type:'motion',startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)});return true;},
+      start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
+      next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
+        const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
       playbackSeconds(){return window.testClock;},embed(){},speak(){},quiet(){},memoryBudget(){},importModels(){}};`});
   await call('Page.navigate',{url});
   let ready;
@@ -55,6 +55,15 @@ try {
   assert(/swiftshader/i.test(graphics),'CPU renderer not selected: '+graphics);
   await evaluate("document.querySelector('details').open=true;document.querySelector('#live').click()");await sleep(1800);
   assert(await evaluate('window.bridgeRequests')>0,'Motion requests missing');
+  await evaluate(`window.oldBatch=window.lastBatch;window.oldStream=window.lastStartedStream;
+    document.querySelector('#profile').value='core8';document.querySelector('#live').click();
+    window.cleoEvent(window.oldBatch);window.cleoEvent({type:'motionError',streamId:window.oldStream,message:'STALE FAILURE'});`);
+  await sleep(350);
+  assert(await evaluate('window.lastStartedStream!==window.oldStream'),'Profile switch reused the old stream');
+  assert(!/gap|STALE FAILURE/.test(await evaluate('document.querySelector("#engine-status").textContent')),'Stale profile result corrupted the new stream');
+  const resumedStream=await evaluate('window.lastStartedStream');
+  await evaluate("document.querySelector('#stop-motion').click();document.querySelector('#live').click()");
+  assert.equal(await evaluate('window.lastStartedStream'),resumedStream,'Pause/resume discarded motion context');
   const finite=await evaluate('(()=>{let valid=true;window.avatarValidation.vrm.scene.traverse(n=>{valid&&=n.matrixWorld.elements.every(Number.isFinite)});return valid})()');assert(finite);
   await evaluate('window.cleoVisible(false)');await sleep(100);
   const hidden=await evaluate('[window.avatarValidation.renderer.info.render.frame,window.bridgeRequests]');await sleep(350);
@@ -72,7 +81,8 @@ try {
   const bounds=await evaluate('(()=>{const c=document.querySelector("canvas").getBoundingClientRect(),p=document.querySelector("#panel").getBoundingClientRect();return {canvasHeight:c.height,canvasBottom:c.bottom,panelTop:p.top}})()');
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
-    realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,bounds,
+    realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
+    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 } finally {

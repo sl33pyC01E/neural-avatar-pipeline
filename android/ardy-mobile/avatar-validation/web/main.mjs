@@ -82,10 +82,10 @@ async function start() {
   let physics = false;
   document.querySelector('#physics').onclick = e => { physics = !physics; vrm.springBoneManager?.setInitState(); e.target.setAttribute('aria-pressed', physics); invalidate(); };
   let mode = 'replay', started = performance.now();
-  const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false;
+  const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false,liveStream='';
   function setMode(value) {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
-    if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;}
+    if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;liveStream='';}
     mode = value; started = performance.now(); retarget.reset(); vrm.springBoneManager?.setInitState();
     if(value==='rest')status.textContent=`Rest pose · display sleeps until input\n${after.vertices.toLocaleString()} vertices`;
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
@@ -106,6 +106,8 @@ async function start() {
     }
   }
   window.cleoEvent=event=>{
+    // A queued native result may arrive after a profile switch or a recreated WebView.
+    if((event.type==='motion'||event.type==='motionError')&&event.streamId!==liveStream)return;
     if(event.type==='state') {
       const selected=bank.value||event.lastEmbedding;bank.replaceChildren();
       for(const item of event.bank) { const option=document.createElement('option');option.value=item.id;option.textContent=item.nickname||item.text;bank.append(option); }
@@ -113,9 +115,9 @@ async function start() {
       if(mode!=='live'&&event.lastProfile)document.querySelector('#profile').value=event.lastProfile;
       document.querySelector('#memory').value=String(event.memoryBudgetMiB);
       document.querySelector('#embed').disabled=!event.llmNative||!event.llmModel;
-      engineStatus.textContent=`Ardy: ${event.core40?'Core-40 ready':'Core-40 needs models'} · ${event.core8?'Core-8 ready':'Core-8 needs models'}\nLLM2Vec: ${event.llmModel?'model ready':'import compatible GGUF'} · Anna available`;
+      engineStatus.textContent=`Ardy: ${event.core40?'Core-40 ready':'Core-40 needs models'} · ${event.core8?'Core-8 ready':'Core-8 needs models'}\nLLM2Vec: ${!event.llmNative?'native backend unavailable':event.llmModel?'model ready':'import compatible GGUF'} · Anna available`;
     } else if(event.type==='motion') {
-      if(mode!=='live')return;
+      if(mode!=='live'||event.profile!==liveProfile)return;
       try{liveBuffer.append(event);engineStatus.textContent=`${liveProfile} · ${(event.generationMs/1000).toFixed(2)} s generation · ${(liveBuffer.remaining/20).toFixed(1)} s buffered`;}
       catch(error){liveError=true;window.Cleo?.stop();engineStatus.textContent=error.message;}
       pending=false;requestMotion();invalidate();
@@ -136,8 +138,8 @@ async function start() {
   };
   document.querySelector('#live').onclick=()=>{
     const selected=document.querySelector('#profile').value;
-    if(mode!=='live'||selected!==liveProfile||liveError){liveBuffer.clear();pending=false;setMode('live');}
-    liveProfile=selected;liveError=false;livePaused=false;window.Cleo?.start(selected,bank.value);requestMotion();invalidate();
+    if(mode!=='live'||selected!==liveProfile||liveError){liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();setMode('live');}
+    liveProfile=selected;liveError=false;livePaused=false;window.Cleo?.start(selected,bank.value,liveStream);requestMotion();invalidate();
   };
   document.querySelector('#stop-motion').onclick=()=>{window.Cleo?.pause();livePaused=true;engineStatus.textContent='Motion paused';};
   document.querySelector('#embed').onclick=()=>{engineStatus.textContent='Creating a compatible embedding…';window.Cleo?.embed(document.querySelector('#motion-text').value);};

@@ -23,7 +23,7 @@ public final class ResidentService extends Service {
     private final AtomicBoolean cancelled=new AtomicBoolean();
     private volatile Listener listener;
     private volatile boolean visible,stopping,motionPaused;
-    private volatile String profile="core40",embeddingId;
+    private volatile String profile="core40",embeddingId,streamId;
     private volatile long epoch;
     private volatile AudioTrack audio;
     private ArdySampler sampler;
@@ -73,10 +73,11 @@ public final class ResidentService extends Service {
     private boolean modelsPresent(String id) {
         File root=new File(getFilesDir(),"ardy-models/"+id+"-onnx");return new File(root,"denoiser.onnx").isFile()&&new File(root,"decoder.onnx").isFile();
     }
-    public synchronized void configureMotion(String profile,String embeddingId) {
+    public synchronized void configureMotion(String profile,String embeddingId,String streamId) {
         if(!"core8".equals(profile)&&!"core40".equals(profile)){error(new IllegalArgumentException("Unknown Ardy profile"));return;}
-        boolean newRun=this.embeddingId==null||!this.profile.equals(profile);
-        this.profile=profile;this.embeddingId=embeddingId;motionPaused=false;
+        if(streamId==null||streamId.isEmpty()||streamId.length()>128){error(new IllegalArgumentException("Invalid motion stream"));return;}
+        boolean newRun=this.embeddingId==null||!this.profile.equals(profile)||!streamId.equals(this.streamId);
+        this.profile=profile;this.embeddingId=embeddingId;this.streamId=streamId;motionPaused=false;
         getSharedPreferences("runtime",MODE_PRIVATE).edit().putString("profile",profile).putString("embedding",embeddingId).apply();
         if(newRun){epoch++;heldMotion=null;}
         emit("configured","Motion ready");
@@ -87,10 +88,10 @@ public final class ResidentService extends Service {
         if(stopping||!visible||motionPaused||embeddingId==null||embeddingBusy.get())return false;
         if(heldMotion!=null) { JSONObject held=heldMotion;heldMotion=null;publish(held);return true; }
         if(!motionBusy.compareAndSet(false,true))return false;
-        final long requestedEpoch=epoch;final String requestedProfile=profile,requestedEmbedding=embeddingId;
+        final long requestedEpoch=epoch;final String requestedProfile=profile,requestedEmbedding=embeddingId,requestedStream=streamId;
         motionWorker.execute(()->{
             try {
-                if(!visible||stopping)return;
+                if(!visible||stopping||epoch!=requestedEpoch)return;
                 if(sampler==null||!requestedProfile.equals(loadedProfile)) {
                     if(sampler!=null){saveMotion();sampler.close();}
                     sampler=new ArdySampler(this,requestedProfile);loadedProfile=requestedProfile;
@@ -99,7 +100,7 @@ public final class ResidentService extends Service {
                 // A new sampler restores durable history; pause/resume keeps its live history.
                 ArdySampler.Settings settings=new ArdySampler.Settings();settings.constrainRoot=false;
                 ArdySampler.Batch result=sampler.next(embeddings.load(requestedEmbedding),settings);
-                JSONObject message=new JSONObject().put("type","motion").put("startFrame",result.startFrame).put("frames",result.frames)
+                JSONObject message=new JSONObject().put("type","motion").put("streamId",requestedStream).put("profile",requestedProfile).put("startFrame",result.startFrame).put("frames",result.frames)
                     .put("jointCount",result.jointCount).put("fps",result.fps).put("joints",new JSONArray(result.joints))
                     .put("roots",new JSONArray(result.roots)).put("rotations",new JSONArray(result.rotations)).put("generationMs",result.elapsedMs);
                 synchronized(this) {
@@ -107,12 +108,15 @@ public final class ResidentService extends Service {
                         if(!visible||listener==null)heldMotion=message;else publish(message);
                     }
                 }
-            }catch(Exception failure){emit("motionError",failure.getMessage()==null?failure.toString():failure.getMessage());}
+            }catch(Exception failure){
+                try{publish(new JSONObject().put("type","motionError").put("streamId",requestedStream)
+                    .put("message",failure.getMessage()==null?failure.toString():failure.getMessage()));}catch(JSONException ignored){}
+            }
             finally{motionBusy.set(false);emit("ready","");trimIfOverBudget();}
         });
         return true;
     }
-    public void createEmbedding(String text) {
+    public synchronized void createEmbedding(String text) {
         if(stopping||!visible||!embeddingBusy.compareAndSet(false,true))return;
         embeddingWorker.execute(()->{
             try {
@@ -123,8 +127,10 @@ public final class ResidentService extends Service {
             finally{embeddingBusy.set(false);emit("ready","");trimIfOverBudget();}
         });
     }
-    public void speak(String text) {
-        if(stopping||!visible||!speechBusy.compareAndSet(false,true))return;
+    public synchronized void speak(String text) {
+        if(stopping||!visible)return;
+        if(embeddingBusy.get()){emit("speechBusy","Wait for the embedding or model import to finish");return;}
+        if(!speechBusy.compareAndSet(false,true)){emit("speechBusy","Anna is already speaking or preparing speech");return;}
         cancelled.set(false);
         speechWorker.execute(()->{
             try {
@@ -184,7 +190,7 @@ public final class ResidentService extends Service {
             return Math.min(audioWritten,Math.max(0,frames))/track.getSampleRate();
         }catch(IllegalStateException ignored){return -1;}
     }
-    public void importModels(Uri[] uris) {
+    public synchronized void importModels(Uri[] uris) {
         if(stopping||!embeddingBusy.compareAndSet(false,true))return;
         embeddingWorker.execute(()->{
             try{for(Uri uri:uris){if(stopping)break;emit("import","Copying and verifying model…");String name=ModelImporter.copy(this,uri);emit("import","Imported "+name);}state();}

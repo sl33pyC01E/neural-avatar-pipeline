@@ -88,7 +88,7 @@ public final class MainActivity extends Activity implements ResidentService.List
     }
     public final class Bridge {
         @JavascriptInterface public void state(){if(engines!=null)engines.state();}
-        @JavascriptInterface public void start(String profile,String embedding){if(engines!=null)engines.configureMotion(profile,embedding);}
+        @JavascriptInterface public void start(String profile,String embedding,String stream){if(engines!=null)engines.configureMotion(profile,embedding,stream);}
         @JavascriptInterface public boolean next(){return engines!=null&&engines.nextMotion();}
         @JavascriptInterface public void stop(){if(engines!=null)engines.stopMotion();}
         @JavascriptInterface public void pause(){if(engines!=null)engines.pauseMotion();}
