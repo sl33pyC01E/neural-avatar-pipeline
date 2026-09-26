@@ -86,8 +86,38 @@ verifiable without adding them to this source repository.
 
 The installed signing certificate differs from the currently available desktop
 and Spark default debug certificates. Before updating the installed package,
-recover the matching signing key or agree on a separate test package. Do not
+recover the matching signing key. The separate avatar validation package below
+is available for reversible device testing in the meantime. Do not
 uninstall the working app or clear its model/embedding storage.
+
+## Desktop retargeting reference and phone checkpoint
+
+The shared Unified/Zome/Ardy reference is `retargetting/motion-control.js`:
+`captureVrmRig`, `applyVrmNormalizedJoints`, and `vrmRootHeight`. Its body-facing
+fix is documented in `retargetting/MOTION_DRIVE_EXPERIMENTS.md`. The original
+checkout's unrelated capture additions are not copied into this worktree.
+
+Inspection found that the recovered APK's `ArdySkinView.updateVrmMesh` only adds
+weighted joint-position displacements to rest vertices and leaves normals
+unchanged. It never applies bone rotation or inverse-bind skin matrices. The
+sampler computes local source rotations, but its result discards them before
+the VRM renderer. This explains a concrete missing part of the mobile port;
+replacing the avatar payload alone cannot fix it.
+
+[`avatar-validation`](avatar-validation/README.md) is now a buildable offline
+Android checkpoint using Cleopatra's full VRM and the actual desktop retargeter.
+It was installed on the S25 Ultra as **Cleopatra · Avatar Check**. CPU checks
+passed all 64 recovered motion frames and all 53 humanoid bones with exactly
+matching original Zome/Cleopatra transforms. Compaction reduced drawable vertices
+from 253,533 to 144,860 with zero change in tested skinned positions. The original
+49.6 MB asset remains essentially the same size on disk; the meaningful reduction
+is the runtime geometry, not a claimed texture or APK compression.
+
+Initial phone replay settled around 120 display fps with approximately 3 ms
+CPU frame p95. This is short-run replay evidence, not a new combined inference
+benchmark or a claim that the final app is fully tuned. Live generation,
+long-run thermals, dynamic clothing/hair, foot contact and rolling continuity
+still require integration and device qualification.
 
 ## Next implementation checkpoints
 

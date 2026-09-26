@@ -1,0 +1,92 @@
+{
+  "deviceModel": "SM-S938U",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "apkSha256": "5fecbfd98985d317a57a771cc80fbd70256cd516470f6bae30188dd552d79dc6",
+  "apkBytes": 50485603,
+  "purpose": "Short foreground replay renderer check; no inference connected",
+  "geometry": {
+    "geometries": 24,
+    "vertices": 144860
+  },
+  "provenance": {
+    "purpose": "Offline avatar validation; no on-device inference benchmark",
+    "avatar": {
+      "source": "Zome_Cleopatra_v1.vrm",
+      "sha256": "9120c484fe2781e8e3dbbb56f5b0b3a00e94db0d34bce7512d4d22275593534f",
+      "sourceBytes": 49594304,
+      "packedSha256": "3c4aa8cd1f284917daf15d1161ba9b7971e069ce54490b143cb30b7ff877c79c",
+      "packedBytes": 49594208
+    },
+    "apkSha256": "8966e82f82334fbdb258a9cb755de3311e289f17599e1232ed8cdbe6bd72b23a",
+    "clipSha256": "96689765696c81aae70f6d3ad0bb9be56e624c17d15af7362f7d91ac8f8a1ec2",
+    "retargetSource": "retargetting/motion-control.js",
+    "retargetCoreSha256": "889686649b95620fcc15f2c19082ad93777039c7cb146da27712e2f6c5dcab78",
+    "dependencies": {
+      "three": "0.165.0",
+      "@pixiv/three-vrm": "3.5.3"
+    }
+  },
+  "windows": [
+    {
+      "mode": "replay",
+      "displayFps": 97.63737545403045,
+      "cpuFrameP50Ms": 2,
+      "cpuFrameP95Ms": 3,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 119.8202695956066,
+      "cpuFrameP50Ms": 2.3999998569488525,
+      "cpuFrameP95Ms": 3.299999952316284,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 120.14910470611727,
+      "cpuFrameP50Ms": 2.3000001907348633,
+      "cpuFrameP95Ms": 3,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 119.80830670926521,
+      "cpuFrameP50Ms": 2.200000047683716,
+      "cpuFrameP95Ms": 3,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 120.14510600059903,
+      "cpuFrameP50Ms": 2.3999998569488525,
+      "cpuFrameP95Ms": 3,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 120.14910470611734,
+      "cpuFrameP50Ms": 2.299999952316284,
+      "cpuFrameP95Ms": 3,
+      "calls": 44,
+      "triangles": 132743
+    },
+    {
+      "mode": "replay",
+      "displayFps": 120.15710291572354,
+      "cpuFrameP50Ms": 2.3999998569488525,
+      "cpuFrameP95Ms": 2.9000000953674316,
+      "calls": 44,
+      "triangles": 132743
+    }
+  ],
+  "limits": [
+    "Initial window includes startup; later windows show steady replay.",
+    "Full visual mode sweep paused when the user returned to ChatGPT.",
+    "No GPU duration, live inference, thermals, or rolling continuity benchmark."
+  ]
+}

@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ai.cleo.ardyavatarvalidation'
+    compileSdk 36
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    defaultConfig {
+        applicationId 'ai.cleo.ardyavatarvalidation'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-cleopatra-replay'
+    }
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
+    androidResources { noCompress += ['vrm'] }
+}
+
+tasks.register('checkAvatarPayload') {
+    doLast {
+        if (!layout.buildDirectory.file('generated/avatarAssets/provenance.json').get().asFile.exists()) {
+            throw new GradleException('Run tools/prepare_avatar_validation.py before building.')
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'checkAvatarPayload' }
