@@ -20,6 +20,7 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.metrics dt{font-size:12px;color:#aec5bc}.metrics dd{margin:3px 0;font-size:18px;font-variant-numeric:tabular-nums}
 #pocket-status{white-space:pre-wrap;margin:14px 0;font-size:14px;line-height:1.5}#pocket-settings label{display:flex;flex:1;flex-direction:column;gap:5px;font-size:12px}
 .hint{font-size:12px;line-height:1.5;color:#aec5bc}.badge{display:inline-block;font-size:12px;border:1px solid #49785f;border-radius:20px;padding:4px 8px;margin:0 0 12px}
+.face-gain{display:grid;grid-template-columns:75px 1fr 48px;gap:8px;align-items:center;margin:10px 0;font-size:13px}.face-gain input{width:100%;padding:0}.face-gain output{text-align:right}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 <canvas id="scene" hidden></canvas>
@@ -38,18 +39,31 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <div id="engine-status">Connecting local engines…</div>
 </div></details></section>
 <section id="pocket-panel" role="tabpanel" aria-labelledby="tab-pocket">
-<span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Sherpa ONNX · INT8 models · CPU</p>
+<span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Quality comparison · CPU · repeatable seed 42</p>
 <textarea id="speech-text" maxlength="2000" aria-label="Speech text" placeholder="Something for Anna to say">Hello. I'm Cleopatra. It's good to meet you.</textarea>
 <div class="row"><button id="speak" disabled>Speak</button><button id="quiet">Stop voice</button></div>
 <div id="pocket-status" role="status" aria-live="polite">Ready for your speech test</div>
-<dl class="metrics"><div><dt>First audio chunk</dt><dd id="first-audio">—</dd></div><div><dt>Model preparation</dt><dd id="model-load">—</dd></div><div><dt>Synthesis / audio duration</dt><dd id="synthesis-speed">—</dd></div><div><dt>Generated audio</dt><dd id="audio-duration">—</dd></div></dl>
+<dl class="metrics"><div><dt>First decoded chunk</dt><dd id="first-audio">—</dd></div><div><dt>Model preparation</dt><dd id="model-load">—</dd></div><div><dt>Synthesis / audio duration</dt><dd id="synthesis-speed">—</dd></div><div><dt>Generated audio</dt><dd id="audio-duration">—</dd></div><div><dt>Playback started</dt><dd id="playback-start">—</dd></div><div><dt>Playback underruns</dt><dd id="underruns">—</dd></div></dl>
 <p class="hint">RTF below 1 means generation is faster than the audio duration. Playback waiting is excluded; first chunk includes model preparation. The second run reuses the warm model and Anna's cached voice.</p>
-<details id="pocket-settings"><summary>Runtime tuning</summary><div class="row">
+<details id="pocket-settings" open><summary>Quality and runtime</summary><div class="row">
+<label>Models<select id="precision"><option value="fp32" selected>Full precision · reference</option><option value="int8">INT8 · comparison</option></select></label>
+<label>Playback<select id="playback-mode"><option value="buffered" selected>Prepare whole clip</option><option value="streaming">Raw stream · untrimmed pauses</option></select></label>
 <label>CPU threads<select id="threads"><option>1</option><option selected>2</option><option>4</option><option>6</option></select></label>
-<label>Flow steps<select id="steps"><option>2</option><option>3</option><option selected>5</option></select></label>
-<label>Decoder chunk<select id="chunk-size"><option>4</option><option selected>8</option><option>15</option></select></label></div>
-<p class="hint">Fewer flow steps can reduce generation time and speech quality. Changing threads reloads the model. Decoder chunks affect audio delivery; they do not make the language model stream token by token.</p></details>
+<label>Flow steps<select id="steps"><option>2</option><option>3</option><option>5</option><option selected>10</option></select></label>
+<label>Decoder chunk<select id="chunk-size"><option>4</option><option>8</option><option selected>15</option></select></label></div>
+<p class="hint">Start with these defaults for quality. The prepared clip includes Sherpa's pause shortening and plays after generation finishes. Then change only Models to compare INT8. Raw streaming bypasses pause shortening and can stall between phrases. Changing models or threads reloads the engine.</p>
+<p class="hint">Keeps only the latest completed generated clip and timing report in the app's local cache for diagnosis. No microphone recording.</p></details>
 </section>
-<section id="face-panel" role="tabpanel" aria-labelledby="tab-face" hidden><span class="badge">Next step</span><h2>LAM facial driver</h2><p>After PocketTTS passes, use its audio to drive Cleopatra's face here. LAM is inactive in this build's speech path.</p></section>
+<section id="face-panel" role="tabpanel" aria-labelledby="tab-face" hidden><span class="badge">LAM · audio to face</span><h2>Anna → Cleopatra</h2>
+<p>Generate speech in tab 2, then replay that exact clip with LAM facial expressions here. Face motion is prepared first and follows the audio playback clock.</p>
+<div class="row"><button id="animate-face" disabled>Play last Anna clip with face</button><button id="stop-face">Stop</button></div>
+<div id="face-status" role="status" aria-live="polite">Generate an Anna clip in tab 2 first.</div>
+<p id="face-metrics" class="hint"></p>
+<details id="face-settings"><summary>Eye, mouth and head amplitude</summary>
+<label class="face-gain">Eyes<input id="face-eyes" type="range" min="0" max="2" step="0.01" value="1.55"><output id="face-eyes-value">1.55×</output></label>
+<label class="face-gain">Mouth<input id="face-mouth" type="range" min="0" max="2.5" step="0.01" value="0.57"><output id="face-mouth-value">0.57×</output></label>
+<label class="face-gain">Head<input id="face-head" type="range" min="0" max="2" step="0.01" value="1"><output id="face-head-value">1.00×</output></label>
+<label><input type="checkbox" id="face-natural" checked> Natural head and eye motion</label>
+<p id="face-driver-info" class="hint">Loading avatar driver mapping…</p><p class="hint">Controls save automatically. Zero turns that movement off. LAM supplies facial expressions; head motion is a separate procedural overlay.</p></details></section>
 <script type="module" src="./main.mjs"></script>
 </html>

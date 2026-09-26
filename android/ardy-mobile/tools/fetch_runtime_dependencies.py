@@ -36,8 +36,8 @@ def main():
             temporary.replace(destination)
         print('Verified '+entry['name'],flush=True)
     if not args.verify_only:
-        archive=directory/'sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2'
-        with tarfile.open(archive,'r:bz2') as package:package.extractall(directory,filter='data')
+        for name in ('sherpa-onnx-pocket-tts-int8-2026-01-26','sherpa-onnx-pocket-tts-2026-01-26'):
+            with tarfile.open(directory/(name+'.tar.bz2'),'r:bz2') as package:package.extractall(directory,filter='data')
         shutil.copyfile(directory/'anna.wav',directory/'sherpa-onnx-pocket-tts-int8-2026-01-26/anna.wav')
 
 

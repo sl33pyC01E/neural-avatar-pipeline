@@ -1,6 +1,12 @@
 {
   "files": [
     {
+      "name": "sherpa-onnx-pocket-tts-2026-01-26.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-2026-01-26.tar.bz2",
+      "bytes": 168148625,
+      "sha256": "61422a478ef09d9b2c067261fb822e11786e0c86842c76d8633b7069968be7b5"
+    },
+    {
       "name": "sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
       "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
       "bytes": 38691998,

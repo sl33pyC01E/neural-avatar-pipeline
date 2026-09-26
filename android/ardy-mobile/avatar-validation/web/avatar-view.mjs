@@ -4,6 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from './vendor/three-vrm.module.js';
 import { createRetargeter } from './retarget.mjs';
 import { MotionBuffer } from './motion-buffer.mjs';
 import { createFaceDriver } from './face.mjs';
+import { createFaceControls } from './face-controls.mjs';
 
 const status = document.querySelector('#status');
 const canvas = document.querySelector('canvas');
@@ -19,7 +20,7 @@ export async function createAvatarView() {
     canvas.style.height = `${Math.max(100, bottom-top)}px`;
   }
   fitViewport(); window.addEventListener('resize',()=>{fitViewport();invalidate();});
-  document.querySelectorAll('#panel details').forEach(d=>d.addEventListener('toggle',()=>{fitViewport();invalidate();}));
+  document.querySelectorAll('#panel details,#face-panel details').forEach(d=>d.addEventListener('toggle',()=>{fitViewport();invalidate();}));
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
@@ -68,6 +69,23 @@ export async function createAvatarView() {
   const alignment = { hipsHeightM: position('hips').y, floorOffsetM: Math.min(...feet.map(p => p.y)) };
   const retarget = createRetargeter(vrm, bind, alignment);
   retarget.reset();
+  const faceControls=createFaceControls(vrm,faceDriver);
+  let faceView=false,bodyCamera,faceCamera;
+  function setFaceView(value) {
+    if(faceView===value)return;
+    const current={yaw,pitch,radius,y:target.y};
+    if(value){bodyCamera=current;faceCamera??={yaw:.05,pitch:1.5,radius:.62,y:position('head').y-.02};}
+    else faceCamera=current;
+    const next=value?faceCamera:bodyCamera;({yaw,pitch,radius}=next);target.y=next.y;faceView=value;invalidate();
+  }
+  for(const key of ['eyes','mouth','head']) {
+    const slider=document.querySelector(`#face-${key}`),output=document.querySelector(`#face-${key}-value`);
+    slider.value=faceControls.settings[key];output.textContent=`${Number(slider.value).toFixed(2)}×`;
+    slider.oninput=()=>{faceControls.set(key,Number(slider.value));output.textContent=`${Number(slider.value).toFixed(2)}×`;invalidate();};
+  }
+  const natural=document.querySelector('#face-natural');natural.checked=faceControls.settings.naturalMotion;
+  natural.onchange=()=>{faceControls.set('naturalMotion',natural.checked);invalidate();};
+  document.querySelector('#face-driver-info').textContent=`Eyes: ${faceControls.drivers.gaze}. Head: Face Lab natural-motion overlay. Mouth: LAM → VRM visemes.`;
   const skeleton = new THREE.SkeletonHelper(vrm.scene); skeleton.visible = false; scene.add(skeleton);
   document.querySelector('#skeleton').onclick = e => { skeleton.visible = !skeleton.visible; e.target.setAttribute('aria-pressed', skeleton.visible); invalidate(); };
   let physics = false;
@@ -84,7 +102,7 @@ export async function createAvatarView() {
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   // Local replay/renderer inspection hook. Native engines are exposed only on the offline asset origin.
-  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment };
+  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls };
   const matrixQuaternion = values => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
     ...values[0], 0, ...values[1], 0, ...values[2], 0, 0, 0, 0, 1)).normalize();
   const rotations = motion.rotations.map(frame => frame.map(matrixQuaternion));
@@ -118,8 +136,8 @@ export async function createAvatarView() {
       for(const frame of event.frames)if(frame.length!==52||frame.some(v=>!Number.isFinite(v)))throw new Error('Invalid LAM expression');
       faceSegments.push(event);if(faceSegments.length>8)faceSegments.shift();invalidate();
     }
-    else if(event.type==='speechStart'&&event.withFace){speaking=true;faceSegments.length=0;faceDriver.clear();engineStatus.textContent=event.message;invalidate();}
-    else if(event.type==='speechEnd'){speaking=false;faceSegments.length=0;faceDriver.clear();engineStatus.textContent=event.message;invalidate();}
+    else if(event.type==='speechStart'&&event.withFace){speaking=true;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
+    else if(event.type==='speechEnd'){speaking=false;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
     else if(event.type==='embedding') {
       const option=document.createElement('option');option.value=event.record.id;option.textContent=event.record.nickname||event.record.text;
       if(![...bank.options].some(o=>o.value===option.value))bank.append(option);bank.value=option.value;engineStatus.textContent='Embedding cached';
@@ -182,7 +200,7 @@ export async function createAvatarView() {
         const segment=faceSegments[0];
         const position=THREE.MathUtils.clamp((time-segment.startSeconds)*30,0,segment.frames.length-1);
         const a=Math.floor(position),b=Math.min(a+1,segment.frames.length-1),alpha=position-a;
-        faceDriver.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time);
+        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time);
       }
     }
     vrm.expressionManager?.update();
@@ -214,5 +232,5 @@ export async function createAvatarView() {
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
   initialized=true;
-  return {event:eventHandler,setVisible,setMode,pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {event:eventHandler,setVisible,setMode,setFaceView,pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

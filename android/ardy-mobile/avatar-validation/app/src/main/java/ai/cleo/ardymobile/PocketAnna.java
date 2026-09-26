@@ -18,11 +18,14 @@ public final class PocketAnna implements AutoCloseable {
     private float[] reference;
     private int referenceRate;
     private int loadedThreads;
+    private String loadedPrecision;
     private static final String[] FILES={"lm_flow.int8.onnx","lm_main.int8.onnx","encoder.onnx",
-        "decoder.int8.onnx","text_conditioner.onnx","vocab.json","token_scores.json","anna.wav"};
+        "decoder.int8.onnx","text_conditioner.onnx","vocab.json","token_scores.json","anna.wav",
+        "lm_flow.onnx","lm_main.onnx","decoder.onnx"};
     public PocketAnna(Context context) { this.context=context.getApplicationContext(); }
-    public void warm(int threads) throws Exception {
-        if(engine!=null&&loadedThreads==threads) return;
+    public void warm(int threads,String precision) throws Exception {
+        if(!precision.equals("fp32")&&!precision.equals("int8"))throw new IllegalArgumentException("Invalid Pocket precision");
+        if(engine!=null&&loadedThreads==threads&&precision.equals(loadedPrecision)) return;
         close();
         File root=new File(context.getFilesDir(),"pocket-tts");
         if(!root.isDirectory() && !root.mkdirs()) throw new IOException("Cannot create PocketTTS model directory");
@@ -50,8 +53,9 @@ public final class PocketAnna implements AutoCloseable {
         }
         try(FileOutputStream out=new FileOutputStream(installedManifest)){out.write(bundled.getBytes(StandardCharsets.UTF_8));out.getFD().sync();}
         OfflineTtsPocketModelConfig pocket=new OfflineTtsPocketModelConfig();
-        pocket.setLmFlow(new File(root,FILES[0]).getPath()); pocket.setLmMain(new File(root,FILES[1]).getPath());
-        pocket.setEncoder(new File(root,FILES[2]).getPath()); pocket.setDecoder(new File(root,FILES[3]).getPath());
+        String suffix=precision.equals("int8")?".int8.onnx":".onnx";
+        pocket.setLmFlow(new File(root,"lm_flow"+suffix).getPath()); pocket.setLmMain(new File(root,"lm_main"+suffix).getPath());
+        pocket.setEncoder(new File(root,"encoder.onnx").getPath()); pocket.setDecoder(new File(root,"decoder"+suffix).getPath());
         pocket.setTextConditioner(new File(root,FILES[4]).getPath()); pocket.setVocabJson(new File(root,FILES[5]).getPath());
         pocket.setTokenScoresJson(new File(root,FILES[6]).getPath()); pocket.setVoiceEmbeddingCacheCapacity(1);
         OfflineTtsModelConfig model=new OfflineTtsModelConfig(); model.setPocket(pocket); model.setNumThreads(threads); model.setProvider("cpu");
@@ -59,30 +63,36 @@ public final class PocketAnna implements AutoCloseable {
         readAnna(new File(root,"anna.wav"));
         engine=new OfflineTts(null,config);
         loadedThreads=threads;
+        loadedPrecision=precision;
     }
-    public JSONObject synthesize(String text,int threads,int steps,int chunkSize,AtomicBoolean cancelled,Consumer<String> progress,AudioChunk sink) throws Exception {
-        text=text==null ? "" : text.trim(); if(text.isEmpty()) throw new IllegalArgumentException("Enter something for Anna to say");
+    public JSONObject synthesize(String text,int threads,int steps,int chunkSize,String precision,boolean buffered,AtomicBoolean cancelled,Consumer<String> progress,AudioChunk sink) throws Exception {
+        text=PocketPrompt.prepare(text);
         if(threads<1||threads>6||steps<1||steps>10||chunkSize<1||chunkSize>32)throw new IllegalArgumentException("Invalid Pocket runtime settings");
-        long started=System.nanoTime();boolean wasWarm=engine!=null&&loadedThreads==threads;
+        long started=System.nanoTime();boolean wasWarm=engine!=null&&loadedThreads==threads&&precision.equals(loadedPrecision);
         progress.accept(wasWarm?"Anna is warm":"Loading PocketTTS and Anna…");
-        warm(threads);long prepared=System.nanoTime();
+        warm(threads,precision);long prepared=System.nanoTime();
         if(cancelled.get())return null;
         GenerationConfig options=new GenerationConfig(); options.setReferenceAudio(reference); options.setReferenceSampleRate(referenceRate);
         options.setNumSteps(steps);
+        // Native pause shortening is applied ONLY to the returned audio, after all callbacks.
+        options.setSilenceScale(buffered?0.2f:1f);
         Map<String,String> extra=new HashMap<>(); extra.put("temperature","0.7"); extra.put("chunk_size",Integer.toString(chunkSize));
-        // Shorter sentence segments reduce this backend's pre-audio LM work on long text.
-        extra.put("max_char_in_sentence","120");extra.put("min_char_in_sentence","20");
+        // Restore the backend's phrase boundaries; do not trade prosody for first-chunk latency.
+        extra.put("max_char_in_sentence","200");extra.put("min_char_in_sentence","30");
+        // Repeatable A/B comparisons. A new random seed on every click obscures precision/step changes.
+        extra.put("seed","42");
         extra.put("max_reference_audio_len",Float.toString(reference.length/(float)referenceRate));
         options.setExtra(extra);
         progress.accept("Generating Anna speech…");
-        PocketCallback callback=new PocketCallback(cancelled,samples->sink.accept(samples,engine.sampleRate()));
+        PocketCallback callback=new PocketCallback(cancelled,samples->{if(!buffered)sink.accept(samples,engine.sampleRate());});
         long generationStarted=System.nanoTime();
-        engine.generateWithConfigAndCallback(text,options,callback);
+        GeneratedAudio generated=engine.generateWithConfigAndCallback(text,options,callback);
         long finished=System.nanoTime();callback.rethrow();
         if(!cancelled.get()&&callback.samples()==0)throw new IOException("Pocket returned no audio");
-        double seconds=callback.samples()/(double)engine.sampleRate();
+        if(buffered&&!cancelled.get())sink.accept(generated.getSamples(),generated.getSampleRate());
+        double seconds=(buffered?generated.getSamples().length:callback.samples())/(double)engine.sampleRate();
         double computeMs=(finished-generationStarted-callback.sinkNanos())/1e6;
-        return new JSONObject().put("type","pocketMetrics").put("warm",wasWarm).put("threads",threads).put("steps",steps).put("chunkSize",chunkSize)
+        return new JSONObject().put("type","pocketMetrics").put("precision",precision).put("seed",42).put("silenceScale",buffered?0.2:1).put("rawAudioSeconds",callback.samples()/(double)engine.sampleRate()).put("sampleRate",engine.sampleRate()).put("warm",wasWarm).put("threads",threads).put("steps",steps).put("chunkSize",chunkSize)
             .put("loadMs",(prepared-started)/1e6).put("firstChunkMs",callback.firstNanos()==0?-1:(callback.firstNanos()-started)/1e6)
             .put("computeMs",computeMs).put("playbackSinkMs",callback.sinkNanos()/1e6).put("audioSeconds",seconds)
             .put("computeRtf",seconds>0?computeMs/1000/seconds:-1).put("cancelled",cancelled.get());

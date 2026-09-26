@@ -27,7 +27,7 @@ The user reported a speech-preparation crash and set this debug sequence:
 
 1. **Tab 1 — VRM:** approved; preserve its appearance and controls.
 2. **Tab 2 — PocketTTS:** current step; get Anna working independently, then tune speed and runtime efficiency.
-3. **Tab 3 — LAM:** next, drive the VRM face from Pocket audio using the playback clock.
+3. **Tab 3 — LAM:** built on the user's subsequent request; replay the last Pocket clip using the playback clock, with independent eye/mouth/head amplitudes.
 4. **Tab 1 — Ardy:** qualify live/batched generation with cached embeddings.
 5. **Tab 1 submenu:** create new cached embeddings with the compatible LLM2Vec encoder.
 
@@ -159,11 +159,13 @@ still require integration and device qualification.
 
 ## Next implementation checkpoints
 
-The checkpoint now separates the debug modules into tabs. Pocket runs alone;
-LAM is inactive pending the next milestone. Rolling Ardy and the embedding submenu
-remain on tab 1. Earlier CPU checks cover the model math; the user's Android speech
-test exposed a callback ABI mismatch that those desktop checks did not exercise.
-The new JVM regression and packaged DEX check cover that exact callback contract.
+The checkpoint separates the debug modules into tabs. Pocket runs alone on tab 2;
+tab 3 prepares LAM facial animation from the last completed Anna clip, then replays
+the same PCM with audio-clock synchronization and independent amplitude controls.
+Rolling Ardy and the embedding submenu remain on tab 1. The user's quality report
+led to repairing an encoder export that cropped Anna's conditioning to 1.04 seconds
+and correcting the distinction between raw callbacks and finalized pause-shortened
+audio. See `POCKET_DEBUG.md` for evidence and the remaining perceptual checks.
 
 Remaining acceptance gates are combined Android runtime qualification, perceptual
 motion/speech/face tuning, memory/thermal behavior and any selected accelerator.

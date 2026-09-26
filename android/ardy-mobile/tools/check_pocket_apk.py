@@ -70,16 +70,27 @@ if __name__ == '__main__':
         native = archive.read('lib/arm64-v8a/libsherpa-onnx-jni.so')
         assert b'([F)Ljava/lang/Integer;' in native, 'Recheck the installed JNI callback contract'
         assert b'PocketTTS only' in archive.read('assets/index.html')
-        assert not any(n.startswith('assets/lam/') for n in archive.namelist()), 'Inactive LAM payload was bundled'
+        lam=json.loads(archive.read('assets/lam/manifest.json'))
+        with archive.open('assets/lam/lam-window64-24k.onnx') as stream:
+            assert hashlib.file_digest(stream,'sha256').hexdigest()==lam['onnxSha256'], 'LAM payload hash mismatch'
+        manifest=json.loads(archive.read('assets/pocket-tts/manifest.json'))
+        assert manifest['encoderRepair']['passed']
+        assert manifest['files']['encoder.onnx']['sha256']==manifest['encoderRepair']['repairedSha256']
+        assert manifest['encoderRepair']['repairedSha256']!='e8f2f6d301ffb96e398b138a7dc6d3038622d236044636b73d920bab85890260', 'Truncating encoder was packaged'
+        for name,expected in manifest['files'].items():
+            with archive.open('assets/pocket-tts/'+name) as stream:
+                assert hashlib.file_digest(stream,'sha256').hexdigest()==expected['sha256'], f'Payload hash mismatch: {name}'
+        assert all(name in manifest['files'] for name in ('lm_main.onnx','lm_flow.onnx','decoder.onnx'))
         unused = args.apk.stat().st_size - sum(i.compress_size for i in archive.infolist())
         assert unused < 8 * 1024**2, 'APK contains large unused ZIP space; remove only the output APK and repackage'
         web = Path(__file__).resolve().parents[1] / 'avatar-validation/web'
-        for name in ('main.mjs', 'avatar-view.mjs', 'index.html', 'motion-buffer.mjs'):
+        for name in ('main.mjs', 'avatar-view.mjs', 'face-controls.mjs','index.html', 'motion-buffer.mjs'):
             assert archive.read('assets/' + name) == (web / name).read_bytes(), f'Stale packaged UI: {name}'
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,
-              'apkSha256': digest, 'apkBytes': args.apk.stat().st_size, 'lamPayloadBundled': False, 'packagedWebMatchesSource': True,
-              'phoneTest': False, 'limitation': 'Verifies packaged ABI, not Android synthesis/audio execution.'}
+              'apkSha256': digest, 'apkBytes': args.apk.stat().st_size, 'lamPayloadBundled': True, 'lamPayloadHashVerified':True,'packagedWebMatchesSource': True,
+              'repairedEncoderSha256':manifest['encoderRepair']['repairedSha256'],'allPocketPayloadHashesVerified':True,
+              'phoneTest': False, 'limitation': 'Verifies packaged ABI and payloads, not Android synthesis/audio execution.'}
     args.report.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))

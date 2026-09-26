@@ -95,8 +95,10 @@ public final class MainActivity extends Activity implements ResidentService.List
         @JavascriptInterface public void stop(){if(engines!=null)engines.stopMotion();}
         @JavascriptInterface public void pause(){if(engines!=null)engines.pauseMotion();}
         @JavascriptInterface public void embed(String text){if(engines!=null)engines.createEmbedding(text);}
-        @JavascriptInterface public void speak(String text,int threads,int steps,int chunkSize){if(engines!=null)engines.speak(text,threads,steps,chunkSize);}
+        @JavascriptInterface public void speak(String text,int threads,int steps,int chunkSize,String precision,boolean buffered){if(engines!=null)engines.speak(text,threads,steps,chunkSize,precision,buffered);}
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}
+        @JavascriptInterface public void animateLastClip(){if(engines!=null)engines.animateLastClip();}
+        @JavascriptInterface public void faceReady(String run){if(engines!=null)engines.faceReady(run);}
         @JavascriptInterface public double playbackSeconds(){return engines==null?-1:engines.playbackSeconds();}
         @JavascriptInterface public void memoryBudget(int mib){if(engines!=null)engines.memoryBudget(mib);}
         @JavascriptInterface public void importModels(){runOnUiThread(()->{

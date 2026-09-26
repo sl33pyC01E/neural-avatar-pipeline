@@ -17,24 +17,40 @@ FILES = ('lm_flow.int8.onnx', 'lm_main.int8.onnx', 'encoder.onnx', 'decoder.int8
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pocket', type=Path, required=True)
-    parser.add_argument('--lam-model', type=Path, required=True)
-    parser.add_argument('--lam-report', type=Path, required=True)
-    parser.add_argument('--lam-source', type=Path, required=True)
+    parser.add_argument('--pocket-fp32', type=Path, required=True)
+    parser.add_argument('--repaired-encoder', type=Path, required=True)
+    parser.add_argument('--encoder-report', type=Path, required=True)
+    parser.add_argument('--pocket-only', action='store_true', help='Refresh Pocket without restaging LAM or import metadata')
+    parser.add_argument('--lam-model', type=Path)
+    parser.add_argument('--lam-report', type=Path)
+    parser.add_argument('--lam-source', type=Path)
     args = parser.parse_args()
     destination = MOBILE / 'avatar-validation/app/build/generated/runtimeAssets'
     pocket = destination / 'pocket-tts'
     pocket.mkdir(parents=True, exist_ok=True)
     manifest = {'voice': 'anna', 'voiceSource': 'https://huggingface.co/kyutai/tts-voices/resolve/main/vctk/p228_023_enhanced.wav',
-                'runtime': 'sherpa-onnx 1.13.8', 'modelExport': 'pocket-tts-int8-2026-01-26', 'files': {}}
-    for name in FILES:
-        source = args.pocket / name
+                'runtime': 'sherpa-onnx 1.13.8', 'modelExport': 'pocket-tts-2026-01-26', 'precisions': ['fp32', 'int8'], 'files': {}}
+    fp32_names=('lm_flow.onnx','lm_main.onnx','decoder.onnx')
+    encoder_report=json.loads(args.encoder_report.read_text(encoding='utf-8'))
+    if not encoder_report['passed']:
+        raise ValueError('Passing encoder repair report is required')
+    manifest['encoderRepair']=encoder_report
+    for name in FILES + fp32_names:
+        source = args.repaired_encoder if name=='encoder.onnx' else (args.pocket_fp32 if name in fp32_names else args.pocket) / name
         with source.open('rb') as stream:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        if name=='encoder.onnx' and digest!=encoder_report['repairedSha256']:
+            raise ValueError('Encoder repair report/payload mismatch')
         shutil.copyfile(source, pocket / name)
         manifest['files'][name] = {'bytes': source.stat().st_size, 'sha256': digest}
     encoded = json.dumps(manifest, indent=2) + '\n'
     (pocket / 'manifest.json').write_text(encoded, encoding='utf-8')
-    (MOBILE / 'validation/pocket-payload-2026-09-25.json').write_text(encoded, encoding='utf-8')
+    (MOBILE / 'validation/pocket-payload-quality-2026-09-26.json').write_text(encoded, encoding='utf-8')
+    if args.pocket_only:
+        print(json.dumps({'pocketFiles':len(manifest['files']),'bytes':sum(f['bytes'] for f in manifest['files'].values())}))
+        return
+    if not all((args.lam_model,args.lam_report,args.lam_source)):
+        parser.error('LAM arguments are required unless --pocket-only is used')
     # The imported files are identified by content, not an ambiguous decoder.onnx filename.
     models = {
         'ardy-models/core8-onnx/denoiser.onnx': 'b1c7f632622db28033a8092de3386eedec57ae478c8d2a602a0d4d9643874b3d',

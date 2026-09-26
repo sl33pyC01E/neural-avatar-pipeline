@@ -1,0 +1,13 @@
+{
+  "limitation": "Shared production LAM inference and timeline code; Android audio clock and perceptual lip-sync require the user test.",
+  "seconds": 1.1748841,
+  "frameAlignedTail": true,
+  "maxJawOpen": 0.29013386368751526,
+  "frames": 83,
+  "cancelBeforeInference": true,
+  "audioUnmodified": true,
+  "phoneTest": false,
+  "audioSamples": 66272,
+  "passed": true,
+  "device": "Windows CPU"
+}

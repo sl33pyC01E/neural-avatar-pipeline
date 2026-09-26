@@ -23,7 +23,8 @@ The debug tabs are **1 · Avatar**, **2 · PocketTTS**, and **3 · Face**. Tab 2
 current milestone and opens first without loading the VRM or creating WebGL.
 It runs Pocket/Anna only. Tab 1 preserves the approved renderer and camera controls,
 with Ardy's cached steering bank and a submenu for creating embeddings. Tab 3 is a
-placeholder for the next LAM milestone; it shows the rest avatar without starting LAM.
+working LAM replay: generate a clip in tab 2, then play it with facial animation in
+tab 3. Eye, mouth and head amplitudes have independent saved sliders.
 Live motion uses bounded consecutive horizons, not repeated clips. Preview replay
 still deliberately wraps its recovered clip. Display fps is not inference speed.
 
@@ -31,15 +32,17 @@ Ardy and the compatible 4.6 GB GGUF can be imported by content hash through Andr
 file picker; their private files in the original package cannot be opened by this
 separate app. The authorized developer installer can also provision them through
 ADB without launching either app. Both paths copy and verify files without changing originals.
-The default APK bundles Cleopatra, the embedding bank and Pocket/Anna. The inactive
-402 MB LAM payload is excluded; `-PincludeLamPayload=true` can include it for the
-next development stage but does not enable the inactive LAM speech route.
+The default APK bundles Cleopatra, the embedding bank, both Pocket precision modes,
+Anna and LAM. Only the user-selected engines load; tab 2 remains independent of LAM.
 **This is not yet the fully self-contained Cleopatra product APK.**
 
 Native components compile and their numerical paths were tested on the development
 machine. The user's Android test found a Sherpa callback ABI crash. The replacement
-has passed a matching JVM regression and packaged DEX check; Android synthesis and
-audio output still require the user's test. The agent did not launch the phone app.
+passed a matching JVM regression and packaged DEX check. The user's next test
+confirmed speech but found poor cadence and onset quality. Version 0.3.1 repairs a
+traced encoder that cropped Anna to 1.04 seconds and plays finalized pause-shortened
+audio by default; quality still requires the user's listening test. See
+[Pocket debug notes](../POCKET_DEBUG.md). The agent did not launch the phone app.
 
 ## Build
 
@@ -54,9 +57,10 @@ From `android/ardy-mobile`, substitute the local payload paths:
 ```powershell
 python tools/prepare_avatar_validation.py --avatar "PATH/TO/Zome_Cleopatra_v1.vrm" --apk "PATH/TO/ardy-mobile-installed.apk" --dependencies "PATH/TO/retargetting/node_modules"
 python tools/fetch_runtime_dependencies.py
+python tools/repair_pocket_encoder.py payloads/dependencies/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx payloads/pocket-repaired/encoder.onnx --report validation/pocket-encoder-repair-2026-09-26.json
 # Export on CPU using the existing LAM source/checkpoint and a local mono speech WAV.
 python tools/export_lam_onnx.py --source "PATH/TO/face_animation/LAM-Audio2Expression" --audio "PATH/TO/anna.wav" --output payloads/lam/lam-window64-24k.onnx --report validation/lam-export-24k-2026-09-25.json
-python tools/prepare_runtime_assets.py --pocket payloads/dependencies/sherpa-onnx-pocket-tts-int8-2026-01-26 --lam-model payloads/lam/lam-window64-24k.onnx --lam-report validation/lam-export-24k-2026-09-25.json --lam-source "PATH/TO/face_animation/LAM-Audio2Expression"
+python tools/prepare_runtime_assets.py --pocket payloads/dependencies/sherpa-onnx-pocket-tts-int8-2026-01-26 --pocket-fp32 payloads/dependencies/sherpa-onnx-pocket-tts-2026-01-26 --repaired-encoder payloads/pocket-repaired/encoder.onnx --encoder-report validation/pocket-encoder-repair-2026-09-26.json --lam-model payloads/lam/lam-window64-24k.onnx --lam-report validation/lam-export-24k-2026-09-25.json --lam-source "PATH/TO/face_animation/LAM-Audio2Expression"
 node tools/check_avatar.mjs avatar-validation/app/build/generated/avatarAssets "PATH/TO/retargetting/node_modules" "PATH/TO/vnyan/Zome.vrm" avatar-validation/app/build/avatar-check.json
 cd avatar-validation
 .\gradlew.bat :app:assembleDebug

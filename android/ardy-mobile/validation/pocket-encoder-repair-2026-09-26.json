@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "device": "Windows CPU",
+  "sourceSha256": "e8f2f6d301ffb96e398b138a7dc6d3038622d236044636b73d920bab85890260",
+  "repairedSha256": "f5e1147dd9bd5330b1e3f2ecd8a671d1639f33bf771774e793e476d1698439aa",
+  "repair": "Dynamic ceil(length / 1920) * 1920 padding target; weights unchanged",
+  "lengthChecks": [
+    {
+      "samples": 24000,
+      "oldFrames": 13,
+      "fixedFrames": 13
+    },
+    {
+      "samples": 48000,
+      "oldFrames": 13,
+      "fixedFrames": 25
+    },
+    {
+      "samples": 240000,
+      "oldFrames": 13,
+      "fixedFrames": 125
+    },
+    {
+      "samples": 301720,
+      "oldFrames": 13,
+      "fixedFrames": 158
+    }
+  ],
+  "originalDiscardsReferenceAfterSamples": 24960,
+  "repairedReferenceTailChangesConditioning": 0.04878002405166626,
+  "oneSecondOutputBitExact": true,
+  "phoneTest": false,
+  "perceptualQualityVerified": false
+}

@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "phoneTest": false,
+  "runs": [
+    {
+      "passed": true,
+      "voice": "anna",
+      "precision": "fp32",
+      "steps": 10,
+      "device": "Windows CPU",
+      "sampleRate": 24000,
+      "durationSeconds": 2.761,
+      "rawCallbackSeconds": 4.08,
+      "generationSeconds": 4.833,
+      "rtf": 1.75,
+      "rms": 0.08357,
+      "peak": 0.73893,
+      "bufferedPcmBitExact": true,
+      "qualityVerified": false
+    },
+    {
+      "passed": true,
+      "voice": "anna",
+      "precision": "int8",
+      "steps": 10,
+      "device": "Windows CPU",
+      "sampleRate": 24000,
+      "durationSeconds": 2.918,
+      "rawCallbackSeconds": 3.2,
+      "generationSeconds": 1.558,
+      "rtf": 0.534,
+      "rms": 0.09816,
+      "peak": 0.60963,
+      "bufferedPcmBitExact": true,
+      "qualityVerified": false
+    }
+  ],
+  "limitation": "No perceptual quality or Android performance claim."
+}

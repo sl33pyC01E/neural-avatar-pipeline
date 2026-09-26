@@ -1,0 +1,98 @@
+{
+  "voice": "anna",
+  "voiceSource": "https://huggingface.co/kyutai/tts-voices/resolve/main/vctk/p228_023_enhanced.wav",
+  "runtime": "sherpa-onnx 1.13.8",
+  "modelExport": "pocket-tts-2026-01-26",
+  "precisions": [
+    "fp32",
+    "int8"
+  ],
+  "files": {
+    "lm_flow.int8.onnx": {
+      "bytes": 9962530,
+      "sha256": "8d627d235c44a597da908e1085ebe241cbbe358964c502c5a5063d18851a5529"
+    },
+    "lm_main.int8.onnx": {
+      "bytes": 76341079,
+      "sha256": "bfc0c7e7e3d72864fa3bb2ee499f62f21ddc1474b885f5f3ca570f8be73e787e"
+    },
+    "encoder.onnx": {
+      "bytes": 72713477,
+      "sha256": "f5e1147dd9bd5330b1e3f2ecd8a671d1639f33bf771774e793e476d1698439aa"
+    },
+    "decoder.int8.onnx": {
+      "bytes": 22693618,
+      "sha256": "12b0857402d31aead94df19d6783b4350d1f740e811f3a3202c70ad89ae11eea"
+    },
+    "text_conditioner.onnx": {
+      "bytes": 16388343,
+      "sha256": "0b84e837d7bfaf2c896627b03e3f080320309f37f4fc7df7698c644f7ba5e6b1"
+    },
+    "vocab.json": {
+      "bytes": 69478,
+      "sha256": "6fb646346cf931016f70c4921aab0900ce7a304b893cb02135c74e294abfea01"
+    },
+    "token_scores.json": {
+      "bytes": 123616,
+      "sha256": "5be2f278caf9b9800741f0fd82bff677f4943ec764c356f907213434b622d958"
+    },
+    "anna.wav": {
+      "bytes": 804630,
+      "sha256": "0a6de25cf12bf1540beb85979f306a92be81fecc051c547c5395e7e5237a3856"
+    },
+    "LICENSE": {
+      "bytes": 18655,
+      "sha256": "fe7b4ce83b8381cc5b216bbb4af73c570688d1b819c73bbaed8ca401f4677cd6"
+    },
+    "README.md": {
+      "bytes": 389,
+      "sha256": "2d05e627fe4fa3c625e822efcd20ad2ca62eb3b4fc1d67ae2625cb106b4f689c"
+    },
+    "lm_flow.onnx": {
+      "bytes": 39097094,
+      "sha256": "79c013a554a54e63319c33c0cc8830cbbedc9b7e448ae7e26f7923ae11f9873e"
+    },
+    "lm_main.onnx": {
+      "bytes": 302742148,
+      "sha256": "255d1a9263c5abdf36034abfc19c11d21cc5f40f0f87d8361288e972cbd5c578"
+    },
+    "decoder.onnx": {
+      "bytes": 41478706,
+      "sha256": "f267880fde6c58b17b0a8f3647eaf8dcfad321f833f32d583ebc2fb2d1a15f10"
+    }
+  },
+  "encoderRepair": {
+    "passed": true,
+    "device": "Windows CPU",
+    "sourceSha256": "e8f2f6d301ffb96e398b138a7dc6d3038622d236044636b73d920bab85890260",
+    "repairedSha256": "f5e1147dd9bd5330b1e3f2ecd8a671d1639f33bf771774e793e476d1698439aa",
+    "repair": "Dynamic ceil(length / 1920) * 1920 padding target; weights unchanged",
+    "lengthChecks": [
+      {
+        "samples": 24000,
+        "oldFrames": 13,
+        "fixedFrames": 13
+      },
+      {
+        "samples": 48000,
+        "oldFrames": 13,
+        "fixedFrames": 25
+      },
+      {
+        "samples": 240000,
+        "oldFrames": 13,
+        "fixedFrames": 125
+      },
+      {
+        "samples": 301720,
+        "oldFrames": 13,
+        "fixedFrames": 158
+      }
+    ],
+    "originalDiscardsReferenceAfterSamples": 24960,
+    "repairedReferenceTailChangesConditioning": 0.04878002405166626,
+    "oneSecondOutputBitExact": true,
+    "phoneTest": false,
+    "perceptualQualityVerified": false
+  }
+}

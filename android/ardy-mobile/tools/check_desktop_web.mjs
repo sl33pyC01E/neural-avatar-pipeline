@@ -42,20 +42,20 @@ try {
     const source=${JSON.stringify(motion)};let cursor=0,run=false,paused=false,currentProfile='core40',currentStream='';
     window.bridgeRequests=0;window.testClock=0;
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
-    window.Cleo={state(){emit({type:'state',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
+    window.Cleo={state(){emit({type:'state',pocketClip:true,bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
       tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
       speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
         emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
-      quiet(){},memoryBudget(){},importModels(){}};`});
+      animateLastClip(){window.faceRequested=true;},faceReady(run){window.faceReadyRun=run;},quiet(){},memoryBudget(){},importModels(){}};`});
   await call('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
   assert.equal(await evaluate('window.debugTabs.current()'),'pocket');
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   await evaluate('document.querySelector("#speak").click()');await sleep(150);
-  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,5,8],'Pocket settings did not reach native bridge');
+  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,10,15,'fp32',true],'Pocket quality settings did not reach native bridge');
   assert.equal(await evaluate('document.querySelector("#synthesis-speed").textContent'),'0.40 RTF');
   assert(await evaluate('!window.avatarValidation'),'Pocket speech initialized the avatar');
   const pocketImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'pocket-tab.png'),Buffer.from(pocketImage.data,'base64'));
@@ -84,11 +84,33 @@ try {
   const resting=await evaluate('window.avatarValidation.renderer.info.render.frame');await sleep(300);
   assert.equal(await evaluate('window.avatarValidation.renderer.info.render.frame'),resting,'Static rest kept rendering');
   await evaluate('window.debugTabs.select("face")');
+  await evaluate('document.querySelector("#animate-face").click();window.avatarValidation.faceControls.set("mouth",1);');
+  assert(await evaluate('window.faceRequested'),'Face control did not reach the native bridge');
   await evaluate(`window.testClock=.5;window.cleoEvent({type:'speechStart',withFace:true,message:'Facial clock check'});
-    window.cleoEvent({type:'face',fps:30,startSeconds:0,names:['jawOpen',...Array.from({length:51},(_,i)=>'unused'+i)],frames:Array.from({length:31},(_,f)=>[f/30,...Array(51).fill(0)])})`);
+    window.cleoEvent({type:'face',prepared:true,runId:'lam-check',fps:30,startSeconds:0,names:['jawOpen',...Array.from({length:51},(_,i)=>'unused'+i)],frames:Array.from({length:31},(_,f)=>[f/30,...Array(51).fill(0)])})`);
+  assert.equal(await evaluate('window.faceReadyRun'),'lam-check','Prepared face timeline was not acknowledged before audio');
   for(let i=0;i<50;i++){if(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.5)<1e-4)break;await sleep(100);}
   assert(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.5)<1e-4,'Face did not follow playback clock');
   await evaluate('window.cleoEvent({type:"speechEnd",withFace:true,message:"Clock check passed"})');await sleep(100);
+  const gainCheck=await evaluate(`(()=>{
+    const {vrm,faceControls:c}=window.avatarValidation,names=['jawOpen','eyeBlinkLeft','eyeBlinkRight','mouthSmileLeft','mouthSmileRight','eyeLookUpLeft','eyeLookUpRight'];
+    const values=[.5,.4,.4,.3,.3,.3,.3],track={names};c.set('naturalMotion',true);
+    const snapshot=()=>({mouth:vrm.expressionManager.getValue('aa'),blink:vrm.expressionManager.getValue('blinkLeft'),head:vrm.humanoid.getNormalizedBoneNode('head').quaternion.toArray(),eye:vrm.humanoid.getNormalizedBoneNode('leftEye').quaternion.toArray()});
+    c.clear();const rest=snapshot();for(const k of ['eyes','mouth','head'])c.set(k,1);c.apply(track,values,.5);const full=snapshot();
+    c.set('eyes',0);c.apply(track,values,.5);const noEyes=snapshot();c.set('eyes',1);c.set('mouth',0);c.apply(track,values,.5);const noMouth=snapshot();
+    c.set('mouth',1);c.set('head',0);c.apply(track,values,.5);const noHead=snapshot();
+    c.clear();const cleared=snapshot();c.set('eyes',1.55);c.set('mouth',.57);c.set('head',1);
+    return {rest,full,noEyes,noMouth,noHead,cleared,drivers:c.drivers};
+  })()`);
+  assert.equal(gainCheck.noEyes.blink,0);assert.deepEqual(gainCheck.noEyes.eye,gainCheck.rest.eye);
+  assert.equal(gainCheck.noEyes.mouth,gainCheck.full.mouth);assert.deepEqual(gainCheck.noEyes.head,gainCheck.full.head);
+  assert.equal(gainCheck.noMouth.mouth,0);assert.deepEqual(gainCheck.noMouth.eye,gainCheck.full.eye);assert.deepEqual(gainCheck.noMouth.head,gainCheck.full.head);
+  assert.deepEqual(gainCheck.noHead.head,gainCheck.rest.head);assert.equal(gainCheck.noHead.mouth,gainCheck.full.mouth);assert.deepEqual(gainCheck.noHead.eye,gainCheck.full.eye);
+  assert.notDeepEqual(gainCheck.full.head,gainCheck.rest.head);assert.notDeepEqual(gainCheck.full.eye,gainCheck.rest.eye);
+  assert.deepEqual(gainCheck.cleared.head,gainCheck.rest.head);assert.deepEqual(gainCheck.cleared.eye,gainCheck.rest.eye);
+  assert.match(gainCheck.drivers.gaze,/eye bones/);
+  await evaluate('document.querySelector("#face-settings").open=true');await sleep(120);
+  const faceImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'face-tab.png'),Buffer.from(faceImage.data,'base64'));
   await evaluate('window.debugTabs.select("pocket")');await sleep(100);
   const isolated=await evaluate('[window.avatarValidation.renderer.info.render.frame,window.bridgeRequests]');await sleep(250);
   assert.deepEqual(await evaluate('[window.avatarValidation.renderer.info.render.frame,window.bridgeRequests]'),isolated,'Pocket tab kept avatar/motion work running');
@@ -99,7 +121,7 @@ try {
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
-    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,bounds,
+    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 } finally {

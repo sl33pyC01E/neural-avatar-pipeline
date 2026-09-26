@@ -457,8 +457,9 @@ function applyUnifiedFaceFrame(track, values, time) {
   expression?.resetValues();
   for (const { mesh } of state.unifiedFaceMorphs) if (mesh.morphTargetInfluences) mesh.morphTargetInfluences.fill(0);
   const clamp = (value) => Math.max(0, Math.min(1, Number(value) || 0));
-  const mouth = (value) => clamp(value * (Number(track.scales?.mouth) || 1));
-  const eyes = (value) => clamp(value * (Number(track.scales?.eyes) || 1));
+  const gain = (name) => Number.isFinite(Number(track.scales?.[name])) ? Math.max(0, Number(track.scales[name])) : 1;
+  const mouth = (value) => clamp(value * gain('mouth'));
+  const eyes = (value) => clamp(value * gain('eyes'));
   const names = Array.isArray(track.names) ? track.names : [];
   const source = new Map(names.map((name, index) => [String(name), clamp(values[index])]));
   const get = (name) => source.get(name) || 0;
@@ -498,7 +499,7 @@ function applyUnifiedFaceFrame(track, values, time) {
   setMorph('BrowDownLeft', get('browDownLeft')); setMorph('BrowDownRight', get('browDownRight'));
   setMorph('BrowRiseLeft', get('browOuterUpLeft')); setMorph('BrowRiseRight', get('browOuterUpRight'));
   setMorph('BrowInnerLeft', get('browInnerUp')); setMorph('BrowInnerRight', get('browInnerUp'));
-  setMorph('MouthSmile', smile); setMorph('MouthTrouble', pair('mouthFrownLeft', 'mouthFrownRight'));
+  setMorph('MouthSmile', mouth(smile)); setMorph('MouthTrouble', mouth(pair('mouthFrownLeft', 'mouthFrownRight')));
   const lookLeft = pair('eyeLookOutLeft', 'eyeLookInRight');
   const lookRight = pair('eyeLookInLeft', 'eyeLookOutRight');
   setExpression('lookLeft', eyes(lookLeft)); setExpression('lookRight', eyes(lookRight));

@@ -29,8 +29,12 @@ public final class ResidentService extends Service {
     private ArdySampler sampler;
     private String loadedProfile;
     private PocketAnna pocket;
+    private LamDriver lam;
+    private volatile CountDownLatch faceReady;
+    private volatile String faceRun;
     private volatile String activeTab="pocket";
     private volatile long audioWritten;
+    private long audioStartNanos;
     private Embeddings embeddings;
     private JSONObject heldMotion;
 
@@ -67,6 +71,7 @@ public final class ResidentService extends Service {
                 .put("lastProfile",getSharedPreferences("runtime",MODE_PRIVATE).getString("profile","core40"))
                 .put("lastEmbedding",getSharedPreferences("runtime",MODE_PRIVATE).getString("embedding",""))
                 .put("pocketStage",getSharedPreferences("runtime",MODE_PRIVATE).getString("pocketStage","Ready for your speech test"))
+                .put("pocketClip",new File(getCacheDir(),"pocket-last.wav").isFile())
                 .put("backend","CPU").put("memoryBudgetMiB",budgetMiB());
             publish(status);
         } catch(Exception error){error(error);}
@@ -78,8 +83,9 @@ public final class ResidentService extends Service {
         if(!"avatar".equals(value)&&!"pocket".equals(value)&&!"face".equals(value))return;
         if(activeTab.equals(value))return;
         activeTab=value;stopSpeech();pauseMotion();
-        // Tab 2 runs no motion sessions; Tab 3 remains the next isolated milestone.
+        // Audio/face tabs release motion; LAM is instantiated only by the user's tab 3 action.
         if(!"avatar".equals(value))motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});
+        if(!"face".equals(value))speechWorker.execute(()->{if(lam!=null)lam.close();});
     }
     public synchronized void configureMotion(String profile,String embeddingId,String streamId) {
         if(!"avatar".equals(activeTab)||stopping)return;
@@ -136,48 +142,41 @@ public final class ResidentService extends Service {
             finally{embeddingBusy.set(false);emit("ready","");trimIfOverBudget();}
         });
     }
-    public synchronized void speak(String text,int threads,int steps,int chunkSize) {
+    public synchronized void speak(String text,int threads,int steps,int chunkSize,String precision,boolean buffered) {
         if(stopping||!visible||!"pocket".equals(activeTab))return;
         if(embeddingBusy.get()){emit("speechBusy","Wait for the embedding or model import to finish");return;}
         if(!speechBusy.compareAndSet(false,true)){emit("speechBusy","Anna is already speaking or preparing speech");return;}
         cancelled.set(false);
         speechWorker.execute(()->{
             String outcome="Anna ready";
-            try {
+            long requested=System.nanoTime();
+            try(PocketRecording recording=new PocketRecording(new File(getCacheDir(),"pocket-last.wav"))) {
                 if(cancelled.get())return;
                 if(text==null||text.trim().isEmpty())throw new IllegalArgumentException("Enter something for Anna to say");
-                audioWritten=0;emit("speechStart","Preparing PocketTTS only…");
+                audioWritten=0;audioStartNanos=0;emit("speechStart","Preparing PocketTTS only…");
                 // Finish releasing motion work before beginning the isolated speech run.
                 motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
                 if(cancelled.get())return;
-                final long[] written={0};
-                JSONObject metrics=pocket.synthesize(text,threads,steps,chunkSize,cancelled,this::pocketStage,(samples,rate)->{
-                    if(cancelled.get())return;
-                    AudioTrack track=audio;
-                    if(track==null) {
-                        int bytes=Math.max(rate/2*4,AudioTrack.getMinBufferSize(rate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_FLOAT));
-                        track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                            .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                            .setBufferSizeInBytes(bytes).setTransferMode(AudioTrack.MODE_STREAM).build();
-                        if(track.getState()!=AudioTrack.STATE_INITIALIZED){track.release();throw new IOException("Audio output did not initialize");}
-                        audio=track;track.play();pocketStage("Anna is speaking");
-                    }
-                    int offset=0;
-                    while(offset<samples.length&&!cancelled.get()) {
-                        int count=track.write(samples,offset,Math.min(2048,samples.length-offset),AudioTrack.WRITE_NON_BLOCKING);
-                        if(count<0)throw new IOException("Audio playback write failed: "+count);
-                        if(count==0){Thread.sleep(5);continue;}
-                        offset+=count;written[0]+=count;audioWritten=written[0];
-                    }
+                PocketRecording.Sink playback=this::playSamples;
+                JSONObject metrics=pocket.synthesize(text,threads,steps,chunkSize,precision,buffered,cancelled,this::pocketStage,(samples,rate)->{
+                    recording.append(samples,rate);
+                    if(!buffered)playback.accept(samples,rate);
                 });
-                if(metrics!=null)publish(metrics);
+                if(cancelled.get()||metrics==null)return;
+                recording.finish();
+                if(buffered){pocketStage("Speech prepared · playing Anna");recording.play(cancelled,playback);}
                 AudioTrack track=audio;
+                int underruns=track==null?0:track.getUnderrunCount(); // Before the intentional final drain.
                 if(track!=null&&!cancelled.get()) {
                     // Only waits during actual playback; no idle polling or wake lock.
-                    long remaining=Math.max(0,written[0]-Integer.toUnsignedLong(track.getPlaybackHeadPosition()));
+                    long remaining=Math.max(0,audioWritten-Integer.toUnsignedLong(track.getPlaybackHeadPosition()));
                     long deadline=SystemClock.elapsedRealtime()+remaining*1000/track.getSampleRate()+2000;
-                    while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<written[0]&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
+                    while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<audioWritten&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
                 }
+                metrics.put("playbackMode",buffered?"buffered":"streaming").put("underruns",underruns)
+                    .put("playbackStartMs",audioStartNanos==0?-1:(audioStartNanos-requested)/1e6).put("cancelled",cancelled.get());
+                try(FileOutputStream report=new FileOutputStream(new File(getCacheDir(),"pocket-last.json"))){report.write(metrics.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+                publish(metrics);
             }catch(Exception|LinkageError failure){outcome="Pocket error: "+(failure.getMessage()==null?failure.toString():failure.getMessage());}
             finally {
                 AudioTrack track=audio;audio=null;if(track!=null){try{track.stop();}catch(IllegalStateException ignored){}track.release();}
@@ -185,12 +184,80 @@ public final class ResidentService extends Service {
             }
         });
     }
+    private void playSamples(float[] samples,int rate) throws Exception {
+        if(cancelled.get())return;
+        AudioTrack track=audio;boolean starting=track==null;
+        if(starting) {
+            int bytes=Math.max(rate/2*4,AudioTrack.getMinBufferSize(rate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_FLOAT));
+            track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setBufferSizeInBytes(bytes).setTransferMode(AudioTrack.MODE_STREAM).build();
+            if(track.getState()!=AudioTrack.STATE_INITIALIZED){track.release();throw new IOException("Audio output did not initialize");}
+            audio=track;
+        }
+        int offset=0;
+        while(offset<samples.length&&!cancelled.get()) {
+            int count=track.write(samples,offset,starting?Math.min(track.getBufferSizeInFrames(),samples.length-offset):Math.min(2048,samples.length-offset),AudioTrack.WRITE_NON_BLOCKING);
+            if(count<0)throw new IOException("Audio playback write failed: "+count);
+            offset+=count;audioWritten+=count;
+            // Prime the track before starting to avoid an initial empty-buffer underrun.
+            if(starting&&count>0){synchronized(this){if(!cancelled.get()){track.play();audioStartNanos=System.nanoTime();starting=false;if("face".equals(activeTab))emit("faceStage","Playing Anna with LAM");else pocketStage("Anna is speaking");}}}
+            if(count==0){if(starting)throw new IOException("Audio output accepted no initial samples");Thread.sleep(5);}
+        }
+    }
     private void pocketStage(String message) {
         getSharedPreferences("runtime",MODE_PRIVATE).edit().putString("pocketStage",message).apply();
         emit("pocketStage",message);
     }
-    public void stopSpeech() {
+    public synchronized void animateLastClip() {
+        if(stopping||!visible||!"face".equals(activeTab))return;
+        if(embeddingBusy.get()||!speechBusy.compareAndSet(false,true)){emit("faceStage","Wait for the current engine task to finish");return;}
+        cancelled.set(false);
+        speechWorker.execute(()->{
+            String outcome="Face playback complete";
+            try {
+                publish(new JSONObject().put("type","speechStart").put("withFace",true).put("message","Preparing LAM from the last Anna clip…"));
+                motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
+                if(cancelled.get())return;
+                pocket.close();
+                float[] clip=PocketRecording.readCompleted(new File(getCacheDir(),"pocket-last.wav"));
+                long started=System.nanoTime();
+                if(lam==null)lam=new LamDriver(this);
+                lam.warm();lam.reset();
+                JSONObject timeline=LamTimeline.build(clip,cancelled,lam::next,message->emit("faceStage",message));
+                if(cancelled.get()||timeline==null)return;
+                double prepareMs=(System.nanoTime()-started)/1e6;
+                String run=java.util.UUID.randomUUID().toString();
+                CountDownLatch ready=new CountDownLatch(1);faceRun=run;faceReady=ready;
+                publish(timeline.put("runId",run));
+                emit("faceStage","Face prepared · waiting for avatar");
+                if(!ready.await(10,TimeUnit.SECONDS)&&!cancelled.get())throw new IOException("Avatar did not accept the facial timeline");
+                if(cancelled.get())return;
+                audioWritten=0;audioStartNanos=0;emit("faceStage","Playing Anna with LAM");
+                for(int offset=0;offset<clip.length&&!cancelled.get();offset+=12000)
+                    playSamples(java.util.Arrays.copyOfRange(clip,offset,Math.min(clip.length,offset+12000)),24000);
+                AudioTrack track=audio;int underruns=track==null?0:track.getUnderrunCount();
+                if(track!=null&&!cancelled.get()) {
+                    long remaining=Math.max(0,audioWritten-Integer.toUnsignedLong(track.getPlaybackHeadPosition()));
+                    long deadline=SystemClock.elapsedRealtime()+remaining*1000/24000+2000;
+                    while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<audioWritten&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
+                }
+                publish(new JSONObject().put("type","faceMetrics").put("prepareMs",prepareMs).put("frames",timeline.getJSONArray("frames").length())
+                    .put("audioSeconds",clip.length/24000.0).put("underruns",underruns).put("cancelled",cancelled.get()));
+            }catch(Exception|LinkageError failure){outcome="LAM error: "+(failure.getMessage()==null?failure.toString():failure.getMessage());}
+            finally {
+                faceReady=null;faceRun=null;
+                AudioTrack track=audio;audio=null;if(track!=null){try{track.stop();}catch(IllegalStateException ignored){}track.release();}
+                speechBusy.set(false);
+                try{publish(new JSONObject().put("type","speechEnd").put("withFace",true).put("message",cancelled.get()?"Face playback stopped":outcome));}catch(JSONException ignored){}
+                trimIfOverBudget();
+            }
+        });
+    }
+    public void faceReady(String run) { CountDownLatch ready=faceReady;if(ready!=null&&run!=null&&run.equals(faceRun))ready.countDown(); }
+    public synchronized void stopSpeech() {
         cancelled.set(true);AudioTrack track=audio;
+        CountDownLatch ready=faceReady;if(ready!=null)ready.countDown();
         if(track!=null)try{track.pause();track.flush();}catch(IllegalStateException ignored){}
     }
     public double playbackSeconds() {
@@ -215,10 +282,10 @@ public final class ResidentService extends Service {
     private File checkpoint(){return new File(getFilesDir(),"ardy-state/"+loadedProfile+".bin");}
     private void saveMotion(){if(sampler!=null)try{sampler.save(checkpoint());}catch(IOException failure){emit("stateWarning","Could not save motion context");}}
     private void trimIfOverBudget(){if(Debug.getPss()/1024>budgetMiB())trim();}
-    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(pocket::close);}
+    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(()->{pocket.close();if(lam!=null)lam.close();});}
     private void releaseWarmSessions() throws Exception {
         motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
-        speechWorker.submit(pocket::close).get();
+        speechWorker.submit(()->{pocket.close();if(lam!=null)lam.close();}).get();
     }
     @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
@@ -231,7 +298,7 @@ public final class ResidentService extends Service {
     private void publish(JSONObject message){main.post(()->{Listener current=listener;if(current!=null)current.event(message);});}
     @Override public void onDestroy() {
         stopping=true;stopMotion();stopSpeech();
-        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(pocket::close);
+        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(()->{pocket.close();if(lam!=null)lam.close();});
         motionWorker.shutdown();speechWorker.shutdown();embeddingWorker.shutdownNow();listener=null;super.onDestroy();
     }
 }
