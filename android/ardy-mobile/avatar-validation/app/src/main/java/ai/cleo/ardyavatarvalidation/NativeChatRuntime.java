@@ -23,6 +23,7 @@ final class NativeChatRuntime implements AutoCloseable {
     private JSONArray messages=new JSONArray();
     private final String token=UUID.randomUUID().toString();
     private volatile boolean closed,cancelled;
+    private String modelName="qwen";
     double loadMs;
     String backendEvidence="";
 
@@ -31,6 +32,7 @@ final class NativeChatRuntime implements AutoCloseable {
         long start=SystemClock.elapsedRealtimeNanos();
         boolean qwen=model.equals("qwen"),gpu=backend.equals("opencl");
         if(!Set.of("qwen","gemma").contains(model)||!Set.of("cpu","opencl").contains(backend)||!Set.of("tiny","base","small","whisperx-base").contains(asr))throw new IOException("Unknown model configuration");
+        modelName=model;
         List<String> args=new ArrayList<>(Arrays.asList("-m",model(qwen?"Qwen3.5-2B-Q4_K_M.gguf":"gemma-4-E2B-it-Q4_0.gguf"),
             "--mmproj",model(qwen?"qwen35-mmproj-F16.gguf":"mmproj-gemma-4-E2B-it-Q8_0.gguf"),
             "-c","4096","-t","2","-tb","2","-ngl",gpu?"999":"0",gpu?"--mmproj-offload":"--no-mmproj-offload",
@@ -116,6 +118,9 @@ final class NativeChatRuntime implements AutoCloseable {
             .put("temperature",.3).put("seed",42).put("max_tokens",512+reasoning).put("reasoning_budget_tokens",reasoning)
             .put("chat_template_kwargs",new JSONObject().put("enable_thinking",reasoning>0)).put("timings_per_token",true)
             .put("stream_options",new JSONObject().put("include_usage",true));
+        // Qwen 2B readily loops with the shared low-temperature Gemma preset.
+        if(modelName.equals("qwen"))request.put("temperature",reasoning>0?1.0:.7).put("top_p",reasoning>0?.95:.8)
+            .put("top_k",20).put("min_p",0.0).put("presence_penalty",1.5).put("repeat_penalty",1.0);
         HttpURLConnection c=open(llm,"/v1/chat/completions");connection=c;c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
         StringBuilder answer=new StringBuilder();JSONObject timings=new JSONObject(),usage=new JSONObject();double first=-1,device=-1,current=-1;String finish="";
         try{

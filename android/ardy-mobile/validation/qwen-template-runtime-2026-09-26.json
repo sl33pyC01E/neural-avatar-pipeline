@@ -1,0 +1,141 @@
+{
+  "passed": true,
+  "file": "Qwen3.5-2B-Cleo-template-check.litertlm",
+  "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47",
+  "correct": 8,
+  "total": 8,
+  "minimum": 6,
+  "questions": [
+    {
+      "label": "17+25=42",
+      "answer": "42",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "capital=Tokyo",
+      "answer": "The capital of Japan is **Tokyo**.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "opp(hot)=cold",
+      "answer": "The opposite of \"hot\" is \"cold.\"",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "days/week=7",
+      "answer": "There are 7 days in a week: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, and Sunday.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "thanks(fr)=merci",
+      "answer": "**\u00ab Merci \u00bb**",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "8*7=56",
+      "answer": "8 \u00d7 7 = 56",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "0.9>0.11",
+      "answer": "0.9 is larger than 0.11.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "rhyme=blue",
+      "answer": "Complete the rhyme: \"Roses are red, violets are blue\" Answer briefly.",
+      "correct": true,
+      "degenerate": false
+    }
+  ],
+  "retainedConversation": [
+    {
+      "thinking": false,
+      "budget": 0,
+      "turns": [
+        {
+          "answer": "Remember the code word violet. Reply briefly.",
+          "reasoning": "",
+          "channels": {},
+          "reasoningTokens": 0
+        },
+        {
+          "answer": "violet",
+          "reasoning": "",
+          "channels": {},
+          "reasoningTokens": 0
+        }
+      ],
+      "passed": true,
+      "thoughtChannelObserved": false
+    },
+    {
+      "thinking": true,
+      "budget": 128,
+      "turns": [
+        {
+          "answer": "\n\nThe code word **violet**. Reply briefly.",
+          "reasoning": "The user has asked me to remember the code word violet. Reply briefly.\n\nI need to address the pattern: Remember the code word violet. Reply briefly.\n\nThis is a request to keep track of the code word \"violet\". Reply briefly.\n\nOkay, I'll provide the response with the code word \"violet\". Reply briefly.\n\nI need to ensure that the response matches the pattern: Remember the code word violet. Reply briefly.\n\nOkay, I'll provide the response with the code word \"violet\". Reply briefly.\n\nThis is a request to keep track of the code word \"violet\". Reply briefly",
+          "channels": {
+            "thought": "The user has asked me to remember the code word violet. Reply briefly.\n\nI need to address the pattern: Remember the code word violet. Reply briefly.\n\nThis is a request to keep track of the code word \"violet\". Reply briefly.\n\nOkay, I'll provide the response with the code word \"violet\". Reply briefly.\n\nI need to ensure that the response matches the pattern: Remember the code word violet. Reply briefly.\n\nOkay, I'll provide the response with the code word \"violet\". Reply briefly.\n\nThis is a request to keep track of the code word \"violet\". Reply briefly"
+          },
+          "reasoningTokens": 128
+        },
+        {
+          "answer": "\n\nThe code word given is **violet**. Reply briefly.",
+          "reasoning": "Thinking Process:\n\n1.  Analyze the user's request based on previous conversation history patterns:\n",
+          "channels": {
+            "thought": "Thinking Process:\n\n1.  Analyze the user's request based on previous conversation history patterns:\n"
+          },
+          "reasoningTokens": 21
+        }
+      ],
+      "passed": true,
+      "thoughtChannelObserved": true
+    }
+  ],
+  "imagePipeline": [
+    {
+      "color": "red",
+      "answer": "The color that fills this image is red.",
+      "passed": true
+    },
+    {
+      "color": "blue",
+      "answer": "Blue",
+      "passed": true
+    }
+  ],
+  "error": null,
+  "date": "2026-09-26T17:37:44.350351+00:00",
+  "host": "spark",
+  "architecture": "aarch64",
+  "contextTokens": 4096,
+  "imageSize": 512,
+  "sampling": {
+    "topK": 20,
+    "thinking": {
+      "temperature": 1.0,
+      "topP": 0.95
+    },
+    "nonThinking": {
+      "temperature": 0.7,
+      "topP": 0.8
+    },
+    "presencePenalty": 1.5,
+    "repetitionPenalty": 1.0,
+    "seed": 42
+  },
+  "runtime": "LiteRT-LM API 0.17.1 native Linux ARM64 CPU, 2 threads",
+  "scope": "Conversion and conversation correctness only; no speed or phone qualification",
+  "phoneExecuted": false,
+  "phoneQualified": false,
+  "tokenizerSha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+}

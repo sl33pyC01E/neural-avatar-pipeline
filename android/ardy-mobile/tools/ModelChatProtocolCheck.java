@@ -25,6 +25,7 @@ public final class ModelChatProtocolCheck {
                 check(request.getInt("reasoning_budget_tokens")==256,"Reasoning budget is forwarded under the actual API key");
                 check(request.getJSONObject("chat_template_kwargs").getBoolean("enable_thinking"),"Reasoning enabled");
                 check(request.getBoolean("cache_prompt")&&request.getInt("id_slot")==0,"Persistent prefix slot");
+                check(request.getDouble("temperature")==1.0&&request.getInt("top_k")==20&&request.getDouble("top_p")==.95&&request.getDouble("presence_penalty")==1.5,"Qwen reasoning sampler avoids the previous low-temperature loop preset");
                 if(fail){exchange.sendResponseHeaders(400,3);exchange.getResponseBody().write("bad".getBytes());exchange.close();return;}
                 response="data: {\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\"thinking\"},\"finish_reason\":null}]}\n\n"
                     +"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n";

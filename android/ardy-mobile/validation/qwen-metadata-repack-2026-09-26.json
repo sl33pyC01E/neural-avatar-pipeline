@@ -1,10 +1,10 @@
 {
   "file": "Qwen3.5-2B-Cleo-template-check.litertlm",
   "bytes": 3148905040,
-  "sha256": "b8c2975aeb33585aef93434396886b34f26d3031ebee4372987f49d89385292f",
+  "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47",
   "sourceFile": "Qwen3.5-2B-VL_int8.litertlm",
   "sourceSha256": "f8821e403dcfc939a033f6b2c9633a5d6b78c29a380ca825e0b90a62df61afe5",
-  "templateSha256": "5be7f53bf58362e6e9c4f9634a70e9d88c9f7a22e029e4b9c8f9c0381451d338",
+  "templateSha256": "1b7b52d3d16ae0e1cc6c7e01cffeee8e4e1287b5696540c3550de8ee60b1c668",
   "imageSize": 512,
   "contextTokens": 4096,
   "thinkingChannel": {

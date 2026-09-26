@@ -1,0 +1,127 @@
+{
+  "passed": false,
+  "file": "Qwen3.5-2B-Cleo-template-check.litertlm",
+  "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47",
+  "correct": 8,
+  "total": 8,
+  "minimum": 6,
+  "questions": [
+    {
+      "label": "17+25=42",
+      "answer": "42",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "capital=Tokyo",
+      "answer": "The capital of Japan is **Tokyo**.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "opp(hot)=cold",
+      "answer": "The opposite of \"hot\" is \"cold\".",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "days/week=7",
+      "answer": "There are 7 days in a week: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, and Sunday.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "thanks(fr)=merci",
+      "answer": "**\u00ab Merci \u00bb**",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "8*7=56",
+      "answer": "8 times 7 equals 56.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "0.9>0.11",
+      "answer": "0.9 is larger.",
+      "correct": true,
+      "degenerate": false
+    },
+    {
+      "label": "rhyme=blue",
+      "answer": "\"Roses are red, violets are blue.\"",
+      "correct": true,
+      "degenerate": false
+    }
+  ],
+  "retainedConversation": [
+    {
+      "thinking": false,
+      "budget": 0,
+      "turns": [
+        {
+          "answer": "Violet is a beautiful flower.",
+          "reasoning": "",
+          "channels": {}
+        },
+        {
+          "answer": "Violet",
+          "reasoning": "",
+          "channels": {}
+        }
+      ],
+      "passed": true
+    },
+    {
+      "thinking": true,
+      "budget": 128,
+      "turns": [
+        {
+          "answer": "\n\nRemember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is",
+          "reasoning": "The user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\"",
+          "channels": {
+            "thought": "The user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\""
+          }
+        },
+        {
+          "answer": "\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply",
+          "reasoning": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   The user is asking \"What code word did I give you?\"\n    *   This is a trick question or a test of my ability to follow instructions.\n    *   The user is asking me to remember the code word \"violet\" and reply briefly.\n    *   The user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and",
+          "channels": {
+            "thought": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   The user is asking \"What code word did I give you?\"\n    *   This is a trick question or a test of my ability to follow instructions.\n    *   The user is asking me to remember the code word \"violet\" and reply briefly.\n    *   The user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and reply briefly.\n\nThe user is asking me to remember the code word \"violet\" and"
+          }
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "imagePipeline": [
+    {
+      "color": "red",
+      "answer": "red",
+      "passed": true
+    },
+    {
+      "color": "blue",
+      "answer": "blue",
+      "passed": true
+    }
+  ],
+  "error": null,
+  "date": "2026-09-26T17:34:33.051555+00:00",
+  "host": "spark",
+  "architecture": "aarch64",
+  "contextTokens": 4096,
+  "imageSize": 512,
+  "runtime": "LiteRT-LM API 0.17.1 native Linux ARM64 CPU, 2 threads",
+  "scope": "Conversion and conversation correctness only; no speed or phone qualification",
+  "phoneExecuted": false,
+  "phoneQualified": false,
+  "sampling": {
+    "topK": 40,
+    "topP": 0.95,
+    "temperature": 0.3,
+    "presencePenalty": 0
+  },
+  "finding": "Reasoning repeats; conversation check corrected to reject degenerate answers. Text questions and basic image pipeline pass."
+}

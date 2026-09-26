@@ -34,6 +34,13 @@ The native request uses `reasoning_budget_tokens` and `enable_thinking`; the
 LiteRT Conversation uses ThinkingConfig. Answer output is capped at 512 tokens
 in addition to the reasoning budget.
 
+Qwen now has its own sampling preset on both runtimes: top-k 20 and presence
+penalty 1.5, with temperature/top-p 1.0/0.95 for reasoning and 0.7/0.8 otherwise.
+The previous shared temperature of 0.3 produced repeated-text loops in a native
+LiteRT reference run. The revised preset passed the same conversation check.
+This does not eliminate the 2B model's documented tendency to loop; output and
+reasoning remain bounded. See [Qwen's model notes](https://huggingface.co/Qwen/Qwen3.5-2B#thinking-mode).
+
 CPU and Adreno OpenCL are selectable for both GGUF models. Both models also offer
 LiteRT CPU/GPU. Qwen uses our 768×768 / 576-visual-token / 8K-context build,
 with its thinking channel and a template that retains the exact conversation prefix.
@@ -127,6 +134,10 @@ left to the user.
 - Android compilation, lint and APK signature/payload checks.
 - `check_model_chat.py`: real Java adapter against a fake host HTTP server;
   prefix history, media routing, reasoning key, failed streams and action parsing.
+- `check_qwen_litert_quality.py`: native Spark CPU conversion check with eight
+  text questions, reasoning on/off retained conversations and two basic images.
+  The reference 512/4K bundle passes after sampling adjustment; the custom
+  768/8K artifact still needs this gate after compilation.
 - `check_desktop_web.mjs`: CPU-rendered eight-tab UI with a stub Android bridge;
   settings, chat controls, metrics, follow-up actions and compact layouts, plus
   regressions for the existing avatar, face and scheduled speech views.

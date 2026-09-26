@@ -150,6 +150,9 @@ def main():
         custom=json.loads(custom_receipt.read_text(encoding='utf-8'))
         if custom.get('imageSize')!=768 or custom.get('contextTokens')!=8192 or not custom.get('graphExported'):
             p.error('Expected the custom 768-pixel / 8192-token Qwen graph export')
+        quality=custom.get('generationQuality',{})
+        if not quality.get('passed') or quality.get('sha256')!=custom.get('sha256'):
+            p.error('The custom Qwen bundle must pass its native conversion-quality gate before provisioning')
         install(a.adb,a.transport,[*[model for model in models if model.get('provision',True)],custom])
     elif a.install_runtimes_only:install(a.adb,a.transport,[])
 

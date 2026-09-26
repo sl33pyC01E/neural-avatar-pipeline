@@ -22,6 +22,14 @@ assistant output is typed, so retaining that representation preserves reasoning.
 The template check models the runtime capability probe and this adapter, then
 checks three consecutive turns with thinking on/off and text/image input.
 
+The actual LiteRT 0.17.1 CPU check of the reference 512/4K bundle caught looping
+with the app's old shared 0.3-temperature sampler. Qwen now uses top-k 20 and
+presence penalty 1.5, temperature/top-p 1.0/0.95 when thinking and 0.7/0.8 when
+not thinking. The same reference passes eight questions, retained conversations
+with both modes, and simple red/blue image checks. Reports under `validation/`
+retain the before/after output. This is template/sampler evidence only; it does
+not qualify the custom graph or browser grounding.
+
 FastVLM resizes the complete image to the compiled square; it does not center
 crop. This preserves normalized 0–1000 coordinate mapping, while changing the
 aspect ratio seen by the encoder. The decoder receives sequential positions
@@ -45,7 +53,7 @@ Copy `bootstrap.sh`, `build-requirements.lock`, `profile.json`, `chat.jinja`, an
 these tools into the workspace:
 
 - `build_qwen_litert.py`, `download_qwen_source.py`, `split_qwen_vision.py`
-- `check_qwen_vision.py`, `check_qwen_template.py`
+- `check_qwen_vision.py`, `check_qwen_template.py`, `check_qwen_litert_quality.py`
 - `repack_qwen_litert.py`, `inspect_litert.py`
 
 Run `bootstrap.sh` inside the container. It installs the pinned source fork and
@@ -81,10 +89,21 @@ local `payloads/benchmark/` and its build receipt to this directory. Provisionin
 refuses a metadata-only repack or the wrong image/context profile. Never relabel
 the community bundle or the template-only check file as the custom export.
 
-The build receipt records source weight hashes, graph contracts and numerical
-checks. It explicitly leaves phone qualification pending. The converter's
-generation-quality and device gates remain required user runs; the agent may
-install, but may not execute those tests on the phone.
+Before provisioning, use `check_qwen_litert_quality.py` in an isolated native ARM
+environment with `litert-lm-api==0.17.1`, `tokenizers==0.22.2` and Pillow. Supply
+the bundle, `--converter CONVERTER`, `--tokenizer SOURCE/tokenizer.json`,
+`--report REPORT`, and `--build-receipt RECEIPT`.
+This runs the converter's eight fixed questions (at least six correct, no
+degeneration), retained conversations with thinking on/off, counted reasoning
+tokens against the budget, and two simple image pipeline checks. The report
+attaches to the matching artifact's build receipt.
+Provisioning requires a passing report with the same bundle hash.
+
+The build receipt records source weight hashes, graph contracts, numerical
+checks and generation checks. It explicitly leaves phone qualification pending.
+These native CPU conversion checks do not establish phone speed, memory use,
+GPU coverage, browser grounding, or transcription accuracy. The agent may
+install, but may not execute tests on the phone.
 
 Sources: [converter recipe](https://github.com/john-rocky/hf-to-litertlm/tree/e77865e8b2ecd33efc70aba7c44e77c58959fdde/qwen35vl_work),
 [Qwen source](https://huggingface.co/Qwen/Qwen3.5-2B/tree/15852e8c16360a2fea060d615a32b45270f8a8fc),

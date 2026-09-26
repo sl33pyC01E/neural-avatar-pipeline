@@ -141,8 +141,10 @@ public final class ModelChatService extends Service {
     private JSONObject liteChat(String prompt,String kind,byte[] media)throws Exception {
         checkCancelled();
         int reasoning=selection.getInt("reasoning");long started=SystemClock.elapsedRealtimeNanos();
+        boolean qwen=selection.getString("model").equals("qwen");
         if(conversation==null){
-            ConversationConfig options=new ConversationConfig(null,Collections.emptyList(),Collections.emptyList(),new SamplerConfig(40,.95,.3,42),false,
+            SamplerConfig sampler=qwen?new SamplerConfig(20,reasoning>0?.95:.8,reasoning>0?1.0:.7,42):new SamplerConfig(40,.95,.3,42);
+            ConversationConfig options=new ConversationConfig(null,Collections.emptyList(),Collections.emptyList(),sampler,false,
                 null,Collections.emptyMap(),null,false,512+reasoning,new ThinkingConfig(reasoning>0,reasoning),false);
             conversation=engine.createConversation(options);
         }
@@ -153,7 +155,7 @@ public final class ModelChatService extends Service {
                 String text=((Content.Text)part).getText();if(!text.isEmpty()){first.compareAndSet(-1,SystemClock.elapsedRealtimeNanos());answer.append(text);}
             }long now=SystemClock.elapsedRealtime();if(now-lastEmit.get()>60){lastEmit.set(now);emit(json("partial",answer.toString()));}}
             public void onDone(){done.countDown();}public void onError(Throwable failure){error.set(failure);done.countDown();}
-        });
+        },Collections.emptyMap(),qwen?new RepetitionPenaltyConfig(1f,1.5f,0f,0):null);
         if(!done.await(180,TimeUnit.SECONDS)){conversation.cancelProcess();conversation.close();conversation=null;history=new JSONArray();turns=0;throw new IOException("Response timed out; conversation reset");}
         if(error.get()!=null){conversation.close();conversation=null;history=new JSONArray();turns=0;throw new IOException("LiteRT session reset: "+error.get());}
         if(stopping||cancellation.get()!=operationCancellation){conversation.close();conversation=null;history=new JSONArray();turns=0;throw new InterruptedIOException("Response cancelled; conversation reset");}
