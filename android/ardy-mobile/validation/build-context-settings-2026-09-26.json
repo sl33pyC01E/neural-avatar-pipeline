@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "versionCode": 16,
+  "versionName": "0.7.1-context-settings",
+  "assembleDebug": true,
+  "lintDebug": true,
+  "lintErrors": 0,
+  "lintWarnings": 10,
+  "apkSignatureVerified": true,
+  "contextOptions": [
+    4096,
+    8192,
+    16384,
+    32768,
+    65536,
+    131072
+  ],
+  "defaultContext": 4096,
+  "phoneInference": false,
+  "nativeModelContextAllocationTested": false
+}

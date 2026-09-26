@@ -1,4 +1,4 @@
-# In-app Gemma and browser: 0.7.0
+# In-app Gemma and browser: 0.7.1
 
 Gemma 4 E2B and E4B are selectable conversational models. LiteRT-LM 0.17.1 loads the full
 `gemma-4-E2B-it.litertlm` or `gemma-4-E4B-it.litertlm` bundle on CPU or GPU for decoder/vision, with the audio
@@ -14,7 +14,12 @@ template supports the reasoning toggle and emits a `thought` channel; the UI
 streams it separately from the answer in a collapsed-by-default disclosure.
 All generated text is inserted as text, never HTML. Only the answer is spoken.
 
-The engine uses a 4,096-token context and at most eight images per conversation;
+Context size is selectable in tab 7: 4K, 8K, 16K, 32K, 64K or 128K tokens
+(4096–131072), with 4K the default. The saved choice is passed to the actual
+LiteRT `EngineConfig.maxNumTokens` for both E2B/E4B and CPU/GPU. A change requires
+Load/apply, reallocates the engine and starts fresh chat/avatar conversations.
+Browser and Cleopatra inherit this engine setting. At most eight images per
+conversation are configured;
 image token budget is selectable: 70, 140, 280 (default), 560 or 1120. The real
 LiteRT 0.17.1 `ExperimentalFlags.visualTokenBudget` is set BEFORE engine creation
 and applies to every subsequent message, including browser screenshots. Changing
@@ -26,8 +31,11 @@ runtime preserves approximate aspect ratio and rounds dimensions to multiples
 of 48: square images become 384, 528, 768, 1104 or 1584 pixels per side for these
 budgets (64, 121, 256, 529 or 1089 actual visual tokens). It is not a fixed square
 input, and source image dimensions do not independently set the token budget.
-E2B/E4B's architectural context is 128K; this app intentionally allocates 4096,
-shared by system/tools, retained messages, media and output. No 128K phone claim.
+E2B/E4B's architectural context is 128K. The selected context is shared by
+system/tools, retained messages, media and output. Larger values allocate more
+RAM and may not fit alongside the avatar models. Phone capacity and latency at
+these settings are not yet qualified; the user runs those tests. The maximum
+reply length and optional reasoning budget are separate from context capacity.
 
 Sources: [Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4),
 [variable-resolution vision](https://ai.google.dev/gemma/docs/capabilities/vision/image),

@@ -93,16 +93,18 @@ public final class ModelChatService extends Service {
     }
     private void load(JSONObject request)throws Exception {
         closeModels();loaded=false;history=new JSONArray();turns=0;lastMetrics=new JSONObject();
-        String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280);
+        String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280),contextTokens=request.optInt("contextTokens",4096);
+        Object context=request.opt("contextTokens");
+        if(!Set.of(4096,8192,16384,32768,65536,131072).contains(contextTokens)||(context!=null&&(!(context instanceof Number)||((Number)context).doubleValue()!=contextTokens)))throw new IOException("Unsupported context size");
         if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
-        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens);
+        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens);
         long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
         emit(json("phase","Loading Gemma with vision and audio..."));
         File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");
         if(!file.isFile())throw new IOException("Missing full Gemma audio/vision model");
         ExperimentalFlags.INSTANCE.setVisualTokenBudget(visualTokens); // Must precede engine creation: reserves the matching vision buffers.
-        engine=new Engine(new EngineConfig(file.getPath(),gpu?new Backend.GPU():new Backend.CPU(2,null),gpu?new Backend.GPU():new Backend.CPU(2,null),new Backend.CPU(2,null),4096,8,getCacheDir().getPath()));
-        engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready"));
+        engine=new Engine(new EngineConfig(file.getPath(),gpu?new Backend.GPU():new Backend.CPU(2,null),gpu?new Backend.GPU():new Backend.CPU(2,null),new Backend.CPU(2,null),contextTokens,8,getCacheDir().getPath()));
+        engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready · "+contextTokens+"-token context"));
     }
     private Conversation createConversation(AvatarToolApi api)throws Exception {
         List<ToolProvider> tools=new ArrayList<>();Contents instruction=null;

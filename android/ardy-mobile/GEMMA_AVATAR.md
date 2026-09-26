@@ -1,4 +1,4 @@
-# Cleopatra 0.7.0 · Gemma avatar
+# Cleopatra 0.7.1 · Gemma avatar
 
 Tab 8 remains Browser. **Tab 9 · Cleopatra** loads the VRM and offers Load all,
 per-engine readiness, a persistent Gemma conversation, streamed answers/thoughts,
@@ -6,7 +6,7 @@ Send, Stop, New chat and Unload all. Nothing starts merely by installing the APK
 Load all opens live Ardy, Pocket/Anna and LAM sessions and the selected Gemma
 LiteRT engine. It does not generate body motion or play speech. The selected
 Core-8/Core-40 comes from tab 5; speech/face controls come from tabs 2–3; Gemma's
-E2B/E4B, CPU/GPU, image budget and reasoning settings come from tab 7. Loading is an attempt, not a
+E2B/E4B, CPU/GPU, context size, image budget and reasoning settings come from tab 7. Loading is an attempt, not a
 promise that Android will retain every engine under memory pressure.
 
 ## Avatar tool
@@ -78,7 +78,7 @@ results. CPU-rendered browser checks use stub native/model responses, not phone
 inference. Android compile/lint and packaged payload checks are separate receipts.
 The agent installs; the user tests model behavior, coexistence, quality and speed.
 
-Version code 15 is the E4B/audio/avatar-controls checkpoint, installed without launch. The original Ardy app/version and
+Version code 16 adds the saved 4K–128K context setting (4K default) to the E4B/audio/avatar-controls checkpoint, installed without launch. The original Ardy app/version and
 Core-8/Core-40/LLM2Vec files were verified unchanged. Cleanup removed 35 matched
 Qwen/Whisper files (11,277,306,916 bytes) from this checkpoint and its staging
 directories; the full Gemma bundle was hash-verified and retained. Receipts are
@@ -87,3 +87,8 @@ under `validation/*gemma-avatar-2026-09-26.json` and
 
 E4B provision and controls receipts: `validation/gemma-e4b-*.json`,
 `validation/gemma-controls-*.json`, and `validation/*gemma-controls-2026-09-26.json`.
+
+Context-setting build, desktop UI and installation receipts are under
+`validation/*context-settings-2026-09-26.json`. The host UI check verifies saved
+context forwarding, reload/reset behavior, and inheritance by Browser and
+Cleopatra; it does not allocate native model memory or run phone inference.

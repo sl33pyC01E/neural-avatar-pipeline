@@ -4,7 +4,7 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.7.0 · E4B, audio and avatar controls
+## Latest checkpoint: 0.7.1 · Configurable Gemma context
 
 Gemma 4 E2B/E4B use LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
 Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
@@ -13,7 +13,9 @@ and cached embedding bank remain available in tab 5.
 
 Answers and Gemma-provided reasoning stream in tabs 7–9. Reasoning defaults off; enabled traces start
 collapsed. Tab 7 exposes 70–1120 image tokens, shared by tabs 8–9. Audio input is
-available in all three Gemma tabs. The runtime context remains 4,096 tokens. Browser remains tab 8; **tab 9 · Cleopatra** loads Gemma, live Ardy,
+available in all three Gemma tabs. Tab 7 now offers a saved context setting from 4K to 128K tokens (4K default).
+Load/apply recreates Gemma and clears its conversations; Browser and Cleopatra
+share the selection. Larger contexts allocate more RAM and need phone validation. Browser remains tab 8; **tab 9 · Cleopatra** loads Gemma, live Ardy,
 Pocket/Anna, LAM and the VRM together. The `avatar_stage` tool selects a cached
 text embedding to steer live Ardy generation, a supported expression, and the
 speech cue/tail, plus camera, floor placement, heading, face gains and timed cues. The final answer feeds the scheduled audio/face/body pipeline.

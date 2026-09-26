@@ -271,13 +271,21 @@ try {
   assert(await evaluate('!document.querySelector("#chat-reasoning").checked'),'Reasoning must default off');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
   assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'Retained · count unavailable');
   await evaluate('window.cleoEvent({type:"chat",attachment:{file:"test.png",kind:"image",label:"Test image"}});document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="send").at(-1).kind'),'image');
+  assert.deepEqual(await evaluate('[...document.querySelector("#chat-context").options].map(o=>Number(o.value))'),[4096,8192,16384,32768,65536,131072]);
+  await evaluate('document.querySelector("#chat-context").value="8192";document.querySelector("#chat-context").dispatchEvent(new Event("change"))');
+  assert(await evaluate('document.querySelector("#chat-send").disabled&&document.querySelector("#browser-start").disabled'),'Context change did not require reload across tabs');
+  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("8,192 tokens")'),'Selected context not displayed');
+  await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).contextTokens'),8192,'Selected context did not reach native load request');
+  assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),0,'Context reload retained the old conversation');
+  assert(await evaluate('document.querySelector("#browser-model").textContent.includes("8K context")'),'Browser does not show the applied context');
   await evaluate('document.querySelector("#chat-model").value="gemma-e4b";document.querySelector("#chat-model").dispatchEvent(new Event("change"));document.querySelector("#image-budget").value="560";document.querySelector("#image-budget").dispatchEvent(new Event("change"))');
   assert(await evaluate('document.querySelector("#chat-send").disabled'),'Changed runtime settings were silently ignored');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
@@ -365,9 +373,17 @@ try {
   assert(compactBounds.stopBottom<=520&&compactBounds.viewportHeight>=90,'Keyboard-sized browser layout hides controls: '+JSON.stringify(compactBounds));
   await evaluate('window.debugTabs.select("chat");document.querySelector("#model-settings").open=false');await sleep(150);
   assert(await evaluate('document.querySelector("#chat-send").getBoundingClientRect().bottom<=520'),'Keyboard-sized chat hides Send');
+  await call('Page.reload');
+  for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
+  assert.equal(await evaluate('document.querySelector("#chat-context").value'),'8192','Context choice did not persist');
+  await evaluate('window.debugTabs.select("cleopatra")');
+  for(let i=0;i<150;i++){if(await evaluate('window.validationState.ready'))break;await sleep(200);}
+  await evaluate('document.querySelector("#cleopatra-load").click()');await sleep(150);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).contextTokens'),8192,'Cleopatra Load all did not inherit the saved context');
+  assert.deepEqual(await evaluate('window.validationState.errors'),[]);
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
-    faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
+    contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
