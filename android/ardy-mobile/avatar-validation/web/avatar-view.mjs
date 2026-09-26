@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {relaxedStance} from './relaxed-stance.mjs';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from './vendor/three-vrm.module.js';
 import { createRetargeter } from './retarget.mjs';
@@ -62,7 +63,7 @@ export async function createAvatarView() {
   const feet = ['leftFoot','leftToes','rightFoot','rightToes'].map(position).filter(Boolean);
   const alignment = { hipsHeightM: position('hips').y, floorOffsetM: Math.min(...feet.map(p => p.y)) };
   const retarget = createRetargeter(vrm, bind, alignment);
-  retarget.reset();
+  retarget.reset();relaxedStance(vrm);
   const faceControls=createFaceControls(vrm,faceDriver);
   const setFaceView=value=>cameraControls.setFaceView(value,position('head').y-.02);
   for(const key of ['eyes','mouth','head']) {
@@ -77,15 +78,16 @@ export async function createAvatarView() {
   document.querySelector('#skeleton').onclick = e => { skeleton.visible = !skeleton.visible; e.target.setAttribute('aria-pressed', skeleton.visible); invalidate(); };
   let physics = false;
   document.querySelector('#physics').onclick = e => { physics = !physics; vrm.springBoneManager?.setInitState(); e.target.setAttribute('aria-pressed', physics); invalidate(); };
-  let mode = 'replay', started = performance.now();
+  let mode = 'rest', started = performance.now();
   const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false,liveStream='';
+  let stagedPlan=null;
   let performanceTrack=null,performanceGate=null,entryPose=null,entryRoot=null,heldRoot=[0,0,0];
   function setMode(value) {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
     if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;liveStream='';}
     performanceTrack=null;performanceGate=null;entryPose=null;
-    mode = value; started = performance.now(); retarget.reset(); vrm.springBoneManager?.setInitState();
-    if(value==='rest')status.textContent=`Rest pose · display sleeps until input\n${after.vertices.toLocaleString()} vertices`;
+    mode = value; started = performance.now(); retarget.reset();if(value==='rest')relaxedStance(vrm); vrm.springBoneManager?.setInitState();
+    if(value==='rest')status.textContent=`Relaxed stance · display sleeps until input\n${after.vertices.toLocaleString()} vertices`;
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     invalidate();
   }
@@ -122,7 +124,7 @@ export async function createAvatarView() {
     liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=document.querySelector('#profile').value;
     mode='live';liveError=false;livePaused=false;performanceGate=null;
     performanceTrack=new PerformanceTrack(event.cueSeconds,event.tailSeconds);
-    window.Cleo?.startPerformance(liveProfile,bank.value,liveStream);requestMotion();invalidate();
+    window.Cleo?.startPerformance(liveProfile,event.tab==='cleopatra'?stagedPlan?.embeddingId:bank.value,liveStream);requestMotion();invalidate();
   }
   const eventHandler=event=>{
     // A queued native result may arrive after a profile switch or a recreated WebView.
@@ -150,11 +152,11 @@ export async function createAvatarView() {
       const previous=faceSegments.at(-1);
       if(previous&&event.startSeconds<previous.startSeconds+previous.frames.length/30-1e-5)throw new Error('Overlapping LAM windows');
       faceSegments.push(event);if(faceSegments.length>8)throw new Error('LAM playback queue exceeded its bound');invalidate();
-      if(event.tab==='full'&&performanceTrack){gatePerformance(event);return false;}
+      if(['full','cleopatra'].includes(event.tab)&&performanceTrack){gatePerformance(event);return false;}
       return true;
     }
     else if(event.type==='speechStart'&&event.withFace){
-      if(event.tab==='full')beginPerformance(event);
+      if(['full','cleopatra'].includes(event.tab))beginPerformance(event);
       speaking=true;faceStream=event.streamId??null;faceSegments.length=0;faceControls.clear(mode==='live');engineStatus.textContent=event.message;invalidate();
     }
     else if(event.type==='performanceTail'){
@@ -244,6 +246,10 @@ export async function createAvatarView() {
         faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1);
       }
     }
+    if(stagedPlan&&speaking&&performanceTrack){
+      const name=stagedPlan.expression;
+      if(name!=='neutral'&&vrm.expressionManager?.getExpression(name))vrm.expressionManager.setValue(name,Math.min(.75,Math.max(0,stagedPlan.strength))*(trackClock?.faceWeight??0));
+    }
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
     vrm.scene.updateMatrixWorld(true);
@@ -274,7 +280,7 @@ export async function createAvatarView() {
     if(!visible){cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
-  function stopFace(){speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
+  function stopFace(){stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
   initialized=true;
-  return {event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {stage(plan){stagedPlan={...plan};},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

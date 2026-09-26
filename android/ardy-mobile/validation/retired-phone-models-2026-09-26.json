@@ -1,0 +1,225 @@
+{
+  "time": "2026-09-26T20:40:52.678123+00:00",
+  "removed": true,
+  "inferenceTest": false,
+  "appLaunched": false,
+  "originalAppTouched": false,
+  "files": [
+    {
+      "private": true,
+      "path": "files/benchmark/Qwen3.5-2B-Q4_K_M.gguf",
+      "bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-Q4_K_M.gguf",
+      "bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/qwen35-mmproj-F16.gguf",
+      "bytes": 668227264,
+      "sha256": "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/qwen35-mmproj-F16.gguf",
+      "bytes": 668227264,
+      "sha256": "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/ggml-tiny.en-q5_1.bin",
+      "bytes": 32166155,
+      "sha256": "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/ggml-tiny.en-q5_1.bin",
+      "bytes": 32166155,
+      "sha256": "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/ggml-base.en-q5_1.bin",
+      "bytes": 59721011,
+      "sha256": "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/ggml-base.en-q5_1.bin",
+      "bytes": 59721011,
+      "sha256": "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/ggml-small.en-q5_1.bin",
+      "bytes": 190098681,
+      "sha256": "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/ggml-small.en-q5_1.bin",
+      "bytes": 190098681,
+      "sha256": "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/Qwen3.5-2B-Cleo-512-4k-int8.litertlm",
+      "bytes": 3148905040,
+      "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-Cleo-512-4k-int8.litertlm",
+      "bytes": 3148905040,
+      "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/base.en/model.bin",
+      "bytes": 145216508,
+      "sha256": "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/base.en/model.bin",
+      "bytes": 145216508,
+      "sha256": "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/base.en/config.json",
+      "bytes": 2227,
+      "sha256": "f3bc3821e9fc76a27bae538e11ae5b677dcdd352b4600429ce7951d398569aeb"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/base.en/config.json",
+      "bytes": 2227,
+      "sha256": "f3bc3821e9fc76a27bae538e11ae5b677dcdd352b4600429ce7951d398569aeb"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/base.en/vocabulary.txt",
+      "bytes": 422309,
+      "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/base.en/vocabulary.txt",
+      "bytes": 422309,
+      "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/base.en/README.md",
+      "bytes": 1323,
+      "sha256": "0360e1518671daf4064d44121ad1c4bbb0446dd5b0f8c724c8d3132fd33a1540"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/base.en/README.md",
+      "bytes": 1323,
+      "sha256": "0360e1518671daf4064d44121ad1c4bbb0446dd5b0f8c724c8d3132fd33a1540"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/alignment/model.onnx",
+      "bytes": 95286046,
+      "sha256": "cd5040c147381580ed73258143dd8e0c28e800a09e74ee42ee2b3e8cb4d760a3"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/alignment/model.onnx",
+      "bytes": 95286046,
+      "sha256": "cd5040c147381580ed73258143dd8e0c28e800a09e74ee42ee2b3e8cb4d760a3"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/alignment/vocab.json",
+      "bytes": 358,
+      "sha256": "4178db26b3c7570f6a47f14ac6a1c7b32950b8c2800fb097287e53776934f1c5"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/alignment/vocab.json",
+      "bytes": 358,
+      "sha256": "4178db26b3c7570f6a47f14ac6a1c7b32950b8c2800fb097287e53776934f1c5"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/alignment/preprocessor_config.json",
+      "bytes": 215,
+      "sha256": "8cdfd65ff4115423185a1512bdae100e2e0cd744f5b322417429944aaafd0827"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/alignment/preprocessor_config.json",
+      "bytes": 215,
+      "sha256": "8cdfd65ff4115423185a1512bdae100e2e0cd744f5b322417429944aaafd0827"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/alignment/README.md",
+      "bytes": 1372,
+      "sha256": "6c235e53bdc82374bd10f9dbff5aad652c0e1c11eaaf9427d85a7c3adcd56fb8"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/alignment/README.md",
+      "bytes": 1372,
+      "sha256": "6c235e53bdc82374bd10f9dbff5aad652c0e1c11eaaf9427d85a7c3adcd56fb8"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/vad/model.onnx",
+      "bytes": 2243022,
+      "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/vad/model.onnx",
+      "bytes": 2243022,
+      "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+    },
+    {
+      "private": true,
+      "path": "files/whisperx/vad/LICENSE",
+      "bytes": 1075,
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-whisperx/vad/LICENSE",
+      "bytes": 1075,
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/llama-server",
+      "bytes": 12816040,
+      "sha256": "93333ae09c375948434a170a39adaa596571f96465ef4e50f85fa654b5c9de57"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/whisper-server",
+      "bytes": 2438256,
+      "sha256": "8e64ea8edce79a2266adc69b813c6e69ce700a0c8b8b4fd55948d319151ea328"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/llama-server-opencl",
+      "bytes": 15795728,
+      "sha256": "cafb2698476c68069880d9075c1651d0d68ed95cf675228db24cac5ced1f9d0f"
+    }
+  ],
+  "alreadyAbsent": [
+    "files/benchmark/Qwen3.5-2B-VL_int8.litertlm",
+    "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-VL_int8.litertlm"
+  ],
+  "bytesRemoved": 11277306916,
+  "gemmaSha256Preserved": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+}

@@ -1,13 +1,21 @@
+import {streamMessage} from './stream-message.mjs';
 const $=selector=>document.querySelector(selector);
 export function createBrowserUI(){
-  let active=false;
+  let active=false,pending=null;
   const command=value=>window.Cleo?.browserCommand?.(JSON.stringify(value));
   function bounds(){if(!active)return;const r=$('#browser-viewport').getBoundingClientRect();window.Cleo?.browserBounds?.(JSON.stringify({x:r.x/innerWidth,y:r.y/innerHeight,width:r.width/innerWidth,height:r.height/innerHeight}));}
   const resize=new ResizeObserver(bounds);resize.observe($('#browser-viewport'));window.addEventListener('resize',bounds);visualViewport?.addEventListener('resize',bounds);
   $('#browser-form').onsubmit=event=>{event.preventDefault();const goal=$('#browser-goal').value.trim();if(!goal)return;$('#browser-goal').blur();$('#browser-followup').hidden=true;command({action:'start',goal});};
   for(const action of ['pause','resume','stop','back','home','approve','reject'])$(`#browser-${action}`).onclick=()=>{if(['approve','reject'].includes(action))$('#browser-followup').hidden=true;command({action});};
   $('#browser-followup-form').onsubmit=event=>{event.preventDefault();command({action:'followup',text:$('#browser-answer').value.trim()});$('#browser-answer').value='';$('#browser-followup').hidden=true;};
-  return {select(tab){active=tab==='browser';if(active)requestAnimationFrame(bounds);},event(value){
+  return {modelEvent(value){
+    if(value.channel!=='browser')return;
+    if(value.partial!==undefined){
+      if(pending?.id!==value.requestId){$('#browser-stream').replaceChildren();pending={id:value.requestId,view:streamMessage($('#browser-stream'),'assistant')};}
+      pending.view.update(value.partial,value.reasoning);bounds();
+    }
+    if(value.result&&pending?.id===value.requestId)pending.view.update(value.result.text,value.result.reasoning);
+  },select(tab){active=tab==='browser';if(active)requestAnimationFrame(bounds);},event(value){
     $('#browser-status').textContent=value.status||'';$('#browser-url').textContent=value.url||'Google';
     $('#browser-pause').disabled=!value.running;$('#browser-resume').disabled=value.running||value.waiting;
     if(!value.waiting)$('#browser-followup').hidden=true;

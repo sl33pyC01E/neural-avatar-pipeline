@@ -73,6 +73,7 @@ public final class ArdySampler implements AutoCloseable {
         throw new IllegalArgumentException("Unknown ARDY model: "+modelId);
     }
 
+    public boolean isWarm(){return denoiser!=null&&decoder!=null;}
     public void warm() throws Exception {
         if (denoiser!=null) return;
         OrtSession first=createSession(requireModel("denoiser.onnx"));

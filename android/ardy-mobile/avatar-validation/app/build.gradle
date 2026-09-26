@@ -11,8 +11,8 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 13
-        versionName '0.5.2-qwen-prebuilt'
+        versionCode 14
+        versionName '0.6.0-gemma-avatar'
         ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
@@ -20,7 +20,6 @@ android {
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/selectedRuntimeAssets')
     sourceSets.main.assets.srcDir '../../recovery/assets'
     sourceSets.main.jniLibs.srcDir '../../recovery/lib'
-    sourceSets.main.jniLibs.srcDir layout.buildDirectory.dir('generated/chatNative')
     androidResources { noCompress += ['vrm', 'onnx', 'gguf', 'f32', 'i32', 'npy'] }
     // Sherpa's legacy x86 slice dynamically links another ORT; supported slices are static.
     packaging { jniLibs { useLegacyPackaging = true; excludes += ['lib/x86/**', 'lib/armeabi-v7a/**']; keepDebugSymbols += ['**/libcleo_*.so'] } }
@@ -53,16 +52,4 @@ tasks.register('stageRuntimePayload', Sync) {
     }
     into layout.buildDirectory.dir('generated/selectedRuntimeAssets')
 }
-tasks.register('stageChatNative', Sync) {
-    from('../../payloads/benchmark') {
-        include 'llama-server', 'llama-server-opencl', 'whisper-server', 'libcleo_whisperx.so'
-        rename { name -> ['llama-server':'libcleo_llama.so','llama-server-opencl':'libcleo_llama_opencl.so','whisper-server':'libcleo_whisper.so'].get(name,name) }
-    }
-    into layout.buildDirectory.dir('generated/chatNative/arm64-v8a')
-    doFirst {
-        ['llama-server','llama-server-opencl','whisper-server','libcleo_whisperx.so'].each { name ->
-            if (!file('../../payloads/benchmark/' + name).isFile()) throw new GradleException('Build the Android model runtimes first: ' + name)
-        }
-    }
-}
-tasks.named('preBuild').configure { dependsOn 'checkAvatarPayload', 'stageRuntimePayload', 'stageChatNative' }
+tasks.named('preBuild').configure { dependsOn 'checkAvatarPayload', 'stageRuntimePayload' }

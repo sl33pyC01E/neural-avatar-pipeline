@@ -1,8 +1,6 @@
 param(
-    [ValidateSet('qwen-whisper','qwen-litert-cpu','qwen-litert-gpu','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu')][string]$Engine='qwen-whisper',
+    [ValidateSet('gemma-litert-cpu','gemma-litert-gpu')][string]$Engine='gemma-litert-gpu',
     [ValidateSet('idle','full')][string]$Load='full',
-    [ValidateSet('cpu','opencl')][string]$Backend='cpu',
-    [ValidateSet('tiny','base','small')][string]$Whisper='base',
     [int]$Transport=1,
     [switch]$AllCases
 )
@@ -16,5 +14,5 @@ else{Write-Host 'Leave Repeat Together running and the app visible.'}
 Read-Host 'Press Enter when the phone is ready' | Out-Null
 Push-Location $mobileRoot
 try {
-    python tools/run_phone_benchmark.py --run --engine $Engine --load $Load --backend $Backend --whisper $Whisper --limit $caseLimit --adb $adbPath --transport $Transport
+    python tools/run_phone_benchmark.py --run --engine $Engine --load $Load --limit $caseLimit --adb $adbPath --transport $Transport
 } finally { Pop-Location }

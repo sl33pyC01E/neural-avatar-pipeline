@@ -1,0 +1,64 @@
+{
+  "liveSdkToolSchema": true,
+  "sdkTools": [
+    {
+      "function": {
+        "name": "avatar_stage",
+        "description": "Stage the avatar's next spoken reply. Select a cached text embedding to steer live Ardy body generation, plus a subtle facial expression. This does not play a prerecorded animation. This queues settings; nothing plays until your final spoken answer is complete.",
+        "parameters": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "tail_seconds": {
+              "maximum": 3,
+              "description": "Body motion after the voice ends. Range: 0.5 to 3.0.",
+              "type": "number",
+              "minimum": 0.5
+            },
+            "expression": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "happy"
+              ]
+            },
+            "motion": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "wave"
+              ]
+            },
+            "strength": {
+              "maximum": 0.75,
+              "description": "Expression intensity; keep subtle so LAM can articulate speech. Range: 0.0 to 0.75.",
+              "type": "number",
+              "minimum": 0
+            },
+            "cue_seconds": {
+              "maximum": 3,
+              "description": "Delay before voice and face, measured from the start of the body track. Range: 0.0 to 3.0.",
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "motion",
+            "expression",
+            "strength",
+            "cue_seconds",
+            "tail_seconds"
+          ]
+        }
+      },
+      "type": "function"
+    }
+  ],
+  "browserParserPreserved": true,
+  "reasoningAndAnswerDeltasSeparated": true,
+  "invalidAvatarInputsRejected": 19,
+  "cachedEmbeddingResolution": true,
+  "modelInference": false,
+  "phoneTest": false,
+  "passed": true
+}

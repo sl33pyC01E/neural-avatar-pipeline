@@ -86,21 +86,10 @@ if __name__ == '__main__':
         web = Path(__file__).resolve().parents[1] / 'avatar-validation/web'
         for name in [file.name for file in web.iterdir() if file.suffix in ('.mjs','.html')]:
             assert archive.read('assets/' + name) == (web / name).read_bytes(), f'Stale packaged UI: {name}'
-        packaged_workers={}
-        for source,target in [('llama-server','libcleo_llama.so'),('llama-server-opencl','libcleo_llama_opencl.so'),('whisper-server','libcleo_whisper.so')]:
-            binary=archive.read('lib/arm64-v8a/'+target)
-            assert binary[:6]==b'\x7fELF\x02\x01' and struct.unpack_from('<H',binary,18)[0]==183, 'Expected ARM64 ELF executable'
-            assert b'/system/bin/linker64' in binary and b'CLEO_PID=' in binary, 'Missing Android entrypoint or process identity'
-            if 'opencl' in target:assert b'CLEO_GPU_LAYERS=' in binary, 'Missing independent GPU offload receipt'
-            expected=(web.parents[1]/'payloads/benchmark'/source).read_bytes()
-            assert binary==expected, 'Packaged runtime differs from verified cross-compile: '+source
-            packaged_workers[target]=hashlib.sha256(binary).hexdigest()
-        binary=archive.read('lib/arm64-v8a/libcleo_whisperx.so')
-        assert binary[:6]==b'\x7fELF\x02\x01' and struct.unpack_from('<H',binary,18)[0]==183
-        for symbol in ('nativeLoad','nativeTranscribe','nativeClose'):
-            assert ('Java_ai_cleo_ardyavatarvalidation_WhisperXRuntime_'+symbol).encode() in binary, 'Missing WhisperX JNI method: '+symbol
-        assert binary==(web.parents[1]/'payloads/benchmark/libcleo_whisperx.so').read_bytes(), 'Stale WhisperX JNI library'
-        packaged_workers['libcleo_whisperx.so']=hashlib.sha256(binary).hexdigest()
+        obsolete={'libcleo_llama.so','libcleo_llama_opencl.so','libcleo_whisper.so','libcleo_whisperx.so'}
+        assert not any(Path(name).name in obsolete for name in archive.namelist()), 'Obsolete model runtime packaged'
+        assert 'lib/arm64-v8a/libardy_llm2vec.so' in archive.namelist(), 'Ardy embedding runtime lost'
+        packaged_workers={'Gemma':'LiteRT-LM 0.17.1','ArdyEmbeddings':'libardy_llm2vec.so'}
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,

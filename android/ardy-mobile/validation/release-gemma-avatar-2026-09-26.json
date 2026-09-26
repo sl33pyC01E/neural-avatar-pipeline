@@ -1,0 +1,24 @@
+{
+  "versionCode": 14,
+  "versionName": "0.6.0-gemma-avatar",
+  "apkSha256": "e8e842491620c32b413897548e1f344660aa0a74e6e8f2d53938a0900a566ac5",
+  "installed": true,
+  "originalArdyUnchanged": true,
+  "gradleAssembleDebugPassed": true,
+  "gradleLintDebugPassed": true,
+  "apkSignatureVerified": true,
+  "phoneAppLaunched": false,
+  "phoneInferenceTest": false,
+  "retiredPayloadFilesRemoved": 35,
+  "retiredPayloadBytesRemoved": 11277306916,
+  "hostChecks": [
+    "gemma-avatar-protocol-2026-09-26.json",
+    "gemma-template-2026-09-26.json",
+    "desktop-gemma-avatar-2026-09-26.json",
+    "apk-gemma-avatar-2026-09-26.json"
+  ],
+  "limits": [
+    "Android inference and simultaneous model residency require user testing.",
+    "Lint retains existing dependency/API migration warnings."
+  ]
+}

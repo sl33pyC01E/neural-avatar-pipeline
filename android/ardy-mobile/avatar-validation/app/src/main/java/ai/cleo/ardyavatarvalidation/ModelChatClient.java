@@ -26,7 +26,7 @@ final class ModelChatClient {
             JSONObject value=new JSONObject(json);value.put("avatarPid",android.os.Process.myPid());String action=value.optString("action");
             if(action.equals("background")&&!bound)return;
             Intent intent=new Intent(context,ModelChatService.class);
-            if(action.equals("load")||action.equals("send")||action.equals("agentStep"))context.startForegroundService(intent);
+            if(action.equals("load")||action.equals("send")||action.equals("agentStep")||action.equals("avatarSend"))context.startForegroundService(intent);
             if(!bound){bound=context.bindService(intent,connection,Context.BIND_AUTO_CREATE);if(!bound)throw new IllegalStateException("Cannot bind local models");}
             if(service==null){if(pending.size()>4)throw new IllegalStateException("Model service is still starting");pending.add(value.toString());}else dispatch(value.toString());
         }catch(Exception failure){events.accept(error(failure.toString()));}

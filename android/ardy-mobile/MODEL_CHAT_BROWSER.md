@@ -1,72 +1,31 @@
-# In-app models and browser: 0.5.2
+# In-app Gemma and browser: 0.6.0
 
-Tabs 7 and 8 run from **Cleopatra · Avatar Check**. No computer launcher is
-needed after installation and model provisioning. The agent installs; the user
-opens the app and tests it. No phone model execution was performed for this change.
-Version code 13 selects the premade Qwen 512/4K artifact. WhisperX and full Gemma
-payloads remain available. The custom 768/8K export and its transfer were cancelled
-at the user's request; there is no pending compilation or automatic model transfer.
+Gemma 4 E2B is the only conversational model. LiteRT-LM 0.17.1 loads the full
+`gemma-4-E2B-it.litertlm` bundle on CPU or GPU for decoder/vision, with the audio
+encoder on CPU. The separately named `-gpu` artifact is text-only and is unused.
+No Qwen, Whisper or WhisperX chat runtime is packaged. Ardy's LLM2Vec JNI remains.
 
 ## Tab 7: Models
 
-Choose **Qwen 3.5 2B + Whisper** or **Gemma 4 E2B**, then Load. Switching models
-loads the new selection and releases the previous one. Other setting changes
-require Load/apply and start a new conversation. Qwen loads the selected Whisper
-tiny/base/small English model alongside the VLM; audio is transcribed before the
-chat turn. Gemma receives audio directly.
+Load Gemma, then type, attach an image/WAV or record audio. Gemma receives audio
+directly. Attachments remain bounded to 20 MB; images to 16 megapixels. Reasoning
+defaults on with a 256-token budget (128/256/512 selectable). The actual package's
+template supports the reasoning toggle and emits a `thought` channel; the UI
+streams it separately from the answer in a collapsed-by-default disclosure.
+All generated text is inserted as text, never HTML. Only the answer is spoken.
 
-Type a message, attach an image or WAV, or Record (up to 60 seconds), then Send.
-Image orientation is applied before encoding. Attachments are limited to 20 MB,
-images to 16 megapixels, and the attachment cache retains the newest eight files.
-The app requests microphone permission only when Record is used.
+The engine uses a 4,096-token context and at most eight images per conversation;
+image allocation is controlled by the artifact and has no runtime slider here.
+Normal chat and tab 9 retain separate LiteRT conversations/prefixes. New chat
+resets that conversation; settings reload or Unload resets both. Browser steps
+use temporary conversations. A failed/cancelled conversation is reset. History
+is in memory and the debug app does not silently summarize full contexts.
 
-The native runtime keeps one conversation slot and resends its exact conversation
-prefix with `cache_prompt` enabled. Failed/incomplete turns are excluded from
-history. LiteRT keeps a persistent Conversation. New chat resets history; it does
-not reload the weights. History is in memory, so unloading or process reclamation
-starts a fresh conversation. All current runtimes use a 4,096-token context. Start a new chat when it
-fills. This debug build does not silently summarize or trim the conversation.
-
-Settings expose llama.cpp's minimum and maximum image tokens plus maximum image
-encoder batch tokens. Minimum 0 selects the model default. The maximum starts at
-560, encoder batch size at 1,024. Source images retain their aspect ratio. Model
-preprocessing can round allocations to its patch grid. LiteRT's packaged artifact
-fixes image allocation; its unavailable overrides are disabled and explained.
-Reasoning defaults on, with a selectable 128/256/512-token budget (default 256).
-The native request uses `reasoning_budget_tokens` and `enable_thinking`; the
-LiteRT Conversation uses ThinkingConfig. Answer output is capped at 512 tokens
-in addition to the reasoning budget.
-
-Qwen now has its own sampling preset on both runtimes: top-k 20 and presence
-penalty 1.5, with temperature/top-p 1.0/0.95 for reasoning and 0.7/0.8 otherwise.
-The previous shared temperature of 0.3 produced repeated-text loops in a native
-LiteRT reference run. The revised preset passed the same conversation check.
-This does not eliminate the 2B model's documented tendency to loop; output and
-reasoning remain bounded. See [Qwen's model notes](https://huggingface.co/Qwen/Qwen3.5-2B#thinking-mode).
-
-CPU and Adreno OpenCL are selectable for both GGUF models. Both models also offer
-LiteRT CPU/GPU. Qwen uses the premade 512×512 / 256-visual-token / 4K-context model,
-with a metadata-only repack for its thinking channel and checked conversation template.
-No Qwen weights or compiled graph sections were changed.
-Gemma uses the full audio/vision package on both LiteRT backends: the separate
-`-gpu` artifact is text-only and caused the missing audio encoder failure. OpenCL loading requires evidence of nonzero layer offload in the
-startup log. Backend selection is not a claim of full operator coverage or NPU
-support. These candidates still need the user's phone qualification.
-
-The speech selector also offers **WhisperX native · Base English (experimental)**:
-Silero VAD, CTranslate2 INT8 greedy decoding, and wav2vec2 INT8 word alignment,
-all on CPU. Its additional stage times are shown beside total ASR time. It is an
-English native pipeline port without Python, temperature retries, or speaker
-diarization. See [the Android WhisperX implementation](benchmark/WHISPERX_ANDROID.md)
-and [the Qwen package](benchmark/qwen-litert/README.md).
-
-The bottom strip reports load time, time to first answer text, response duration,
-Whisper duration, model CPU time, decode rate, sampled PSS and prefix reuse. Missing
-metrics display a dash. The first answer time includes reasoning and, for Qwen
-audio, ASR. PSS sums the app process, model service and owned workers; isolated
-WebView renderers and GPU driver allocations may be outside this sum. A partial
-reading is labelled. Peaks are sampled once per second and can miss short spikes.
-CPU time is not wall time or a GPU utilization measurement.
+The footer shows first answer-token time, response/load duration, model CPU time
+and sampled resident/peak PSS. PSS includes the app and Gemma service; independent
+WebView/GPU allocations may be excluded. Prefix retention is reported without
+inventing a reused-token count. No token-rate or utilization value is fabricated.
+The model worker blocks when idle. Unload releases it; memory pressure may too.
 
 ## Tab 8: Browser
 
@@ -98,54 +57,11 @@ a fixed editing routine. The task prompt treats page contents as observations.
 The browser can still be mistaken about a page or target: this is an experimental
 agent tab, and neither navigation accuracy nor autonomous completion is qualified.
 
-## Packaging and lifecycle
+## Tab 9 and validation
 
-The APK packages three ARM64 executables in its extracted native library folder:
-CPU/OpenCL llama-server and whisper-server, plus the WhisperX JNI library. Models live in private app storage
-under `files/benchmark`, copied and hash-verified by `prepare_benchmark.py --install`.
-Pinned source artifacts and a separately fingerprinted premade Qwen repack are
-provisioned; only the selected contender is loaded. This checkpoint is self-contained at runtime, but model provisioning is
-still separate from the APK download. The final distribution bundle is future work.
-
-Inference runs in the separate `:models` process. Native servers bind only
-127.0.0.1 and require a fresh per-runtime bearer token. The WebView uses the
-internet; model requests remain local. Models remain resident between messages,
-native workers use blocking waits, and metrics sampling stops when idle. There is
-no reserved-memory promise or wake lock. Stop & unload releases the process;
-critical memory pressure unloads it. Backgrounding during active inference stops
-that work; an idle resident model can remain available. Workers have a parent-death
-signal so they cannot survive the model service.
-
-Native source patches, exact revisions, model hashes and preparation instructions
-are in `benchmark/`. The original `ai.cleo.ardymobile` package is preserved.
-
-## Loading repairs
-
-Whisper-server does not accept whisper-cli’s `-nc` flag; removing it repairs the
-observed Qwen-ready/Whisper-startup failure. Its independent-request context is
-already the server default. Native GPU loading now reads an explicit receipt of
-actual offloaded layers, independent of llama.cpp log verbosity. Worker logs
-include model, backend and timestamp and retain the latest twelve files.
-
-The user reported Gemma CPU and the old text-only LiteRT GPU package loading.
-That does not qualify the full multimodal package or Qwen GPU. Android also
-recorded app-update exits during earlier installations; those are not GPU crash
-evidence. Version 0.5.2 follows the user's request to package the premade Qwen
-artifact, with execution left to the user.
-
-## Verification
-
-- Android compilation, lint and APK signature/payload checks.
-- `check_model_chat.py`: real Java adapter against a fake host HTTP server;
-  prefix history, media routing, reasoning key, failed streams and action parsing.
-- `check_qwen_litert_quality.py`: native Spark CPU conversion check with eight
-  text questions, reasoning on/off retained conversations and two basic images.
-  The delivered premade 512/4K bundle has exactly the bytes that passed after
-  sampling adjustment. This does not establish phone performance or GPU coverage.
-- `check_desktop_web.mjs`: CPU-rendered eight-tab UI with a stub Android bridge;
-  settings, chat controls, metrics, follow-up actions and compact layouts, plus
-  regressions for the existing avatar, face and scheduled speech views.
-- Installation receipt and private model hashes; no launch or phone inference.
-
-These checks do not establish phone latency, audio quality, GPU success, image
-accuracy or successful browser tasks. Those results must come from the user's runs.
+See [Gemma avatar](GEMMA_AVATAR.md) for Load all, the validated tool API, scheduled
+playback and the relaxed default stance. Desktop tests use the real renderer and
+Java validators with fake inference responses. The package template and actual
+LiteRT SDK schema adapter are checked without loading weights. Android compile,
+lint and APK payload checks complement those tests. Phone execution remains the
+user's job; model quality, residency and timings are not inferred from host tests.

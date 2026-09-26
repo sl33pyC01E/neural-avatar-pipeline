@@ -1,3 +1,5 @@
+> Historical research: retired from the active app in 0.6.0. See [Gemma avatar](../GEMMA_AVATAR.md). Do not restart the cancelled Spark build.
+
 # Native WhisperX option
 
 Tab 7 offers **WhisperX native · Base English (experimental)** alongside the

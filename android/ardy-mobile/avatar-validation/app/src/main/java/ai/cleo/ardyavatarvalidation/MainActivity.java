@@ -123,6 +123,9 @@ public final class MainActivity extends Activity implements ResidentService.List
             runOnUiThread(()->{if(view!=null)((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(),0);});
             if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds);
         }
+        @JavascriptInterface public void warmAll(String profile,int threads,String precision,String request){if(engines!=null)engines.warmAll(profile,threads,precision,request);}
+        @JavascriptInterface public void cancelWarmAll(){if(engines!=null)engines.cancelWarmAll();}
+        @JavascriptInterface public void unloadAvatarModels(){if(engines!=null)engines.unloadAvatarModels();}
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}
         @JavascriptInterface public void animateLastClip(){if(engines!=null)engines.animateLastClip();}
         @JavascriptInterface public void faceReady(String run){if(engines!=null)engines.faceReady(run);}

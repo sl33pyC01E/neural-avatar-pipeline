@@ -1,12 +1,13 @@
 // Module shell. Welcome and isolated speech load no avatar or WebGL context.
 import { createModelChat } from './model-chat.mjs';
 import { createBrowserUI } from './browser-ui.mjs';
+import { createAvatarAgent } from './avatar-agent.mjs';
 let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
-const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel'};
+const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel',cleopatra:'#cleopatra-panel'};
 const modelChat=createModelChat(),browserUI=createBrowserUI();
 new ResizeObserver(()=>document.documentElement.style.setProperty('--content-top',`${document.querySelector('header').getBoundingClientRect().bottom+12}px`)).observe(document.querySelector('header'));
-const usesAvatar=tab=>['face','talk','avatar','full'].includes(tab);
+const usesAvatar=tab=>['face','talk','avatar','full','cleopatra'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
 const timingControls=[$('#full-cue'),$('#full-tail')];
@@ -23,6 +24,16 @@ for(const control of runtimeControls)control.addEventListener('change',()=>{
   try{localStorage.setItem('cleo-pocket-settings',JSON.stringify(Object.fromEntries(runtimeControls.map(item=>[item.id,item.value]))));}catch{}
 });
 function settings(){return [Number($('#threads').value),Number($('#steps').value),Number($('#chunk-size').value),$('#precision').value,$('#playback-mode').value==='buffered'];}
+const avatarAgent=createAvatarAgent(modelChat,{
+  avatar:()=>avatar,state:()=>lastState,cue:()=>performanceCue,
+  runtime:()=>[$('#profile').value,Number($('#threads').value),$('#precision').value],
+  stopTake(){window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();},
+  startTake(text,plan){
+    if(currentTab!=='cleopatra'||!pageVisible||!avatar)return;
+    pipelineTab='cleopatra';speechBusy=true;performanceCue=plan.cue_seconds;avatar.stage(plan);buttons();
+    window.Cleo?.speakWithFace(text,...settings(),plan.cue_seconds,plan.tail_seconds);
+  }
+});
 function buttons(){
   speak.disabled=speechBusy||!lastState;
   animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';
@@ -34,7 +45,7 @@ function describeSettings(tab){
   const [threads,steps,chunk,precision,buffered]=settings(),face=avatar?.faceSettings();
   $(`#${tab}-settings`).textContent=`${precision} · ${threads} CPU threads · ${steps} steps · chunk ${chunk}\n${buffered?'Prepared speech with shortened pauses':'Raw streaming with untrimmed pauses'} · rolling LAM\n`+
     (face?`Eyes ${face.eyes}× · mouth ${face.mouth}× · head ${face.head}× · natural motion ${face.naturalMotion?'on':'off'}`:'');
-  if(tab==='full')$('#full-body').textContent=`${$('#profile').value} · ${$('#bank').selectedOptions[0]?.textContent||'Choose a cached motion in tab 5'}`;
+  if(tab==='full')$('#full-body').textContent=`${$('#profile').value} · ${$('#bank').selectedOptions[0]?.textContent||'Choose a cached embedding in tab 5'}`;
 }
 window.validationState={ready:false,errors:[],tab:currentTab};
 function fail(error){const message=String(error?.stack||error);window.validationState.errors.push(message);pocketStatus.textContent=message;if(['talk','full'].includes(currentTab))$(`#${currentTab}-status`).textContent=message;console.error(message);}
@@ -50,18 +61,18 @@ async function selectTab(tab){
   });
   for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
   $('canvas').hidden=!usesAvatar(tab);
-  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Qwen / Gemma · local multimodal chat',browser:'Local models · browser actions'}[tab];
-  modelChat.select(tab);browserUI.select(tab);
+  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Gemma · local multimodal chat',browser:'Gemma · browser actions',cleopatra:'Gemma + live Ardy + Anna + LAM'}[tab];
+  modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);
   buttons();avatar?.setVisible(false);
   if(usesAvatar(tab)){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());
     avatar=await avatarLoading;
     if(lastState)avatar.event(lastState);
-    if(['face','talk','full'].includes(currentTab))avatar.setMode('rest');
+    if(['face','talk','full','cleopatra'].includes(currentTab))avatar.setMode('rest');
     avatar.setFaceView(['face','talk'].includes(currentTab));
     avatar.setVisible(pageVisible&&usesAvatar(currentTab));
     if(['talk','full'].includes(currentTab))describeSettings(currentTab);
-    buttons();
+    buttons();avatarAgent.refresh();
   }
 }
 document.querySelectorAll('[data-open]').forEach(button=>button.onclick=()=>selectTab(button.dataset.open).catch(fail));
@@ -74,12 +85,12 @@ document.querySelectorAll('[data-tab]').forEach(button=>{
     event.preventDefault();tabs[next].focus();tabs[next].click();
   };
 });
-window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;if(!pageVisible)stopRepeat();avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
+window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;if(!pageVisible){stopRepeat();avatarAgent.hidden();}avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
 document.addEventListener('visibilitychange',()=>window.cleoVisible(!document.hidden));
 const ms=value=>value>=0?`${Math.round(value)} ms`:'—';
 const eventTab=event=>event.tab||((event.withFace||event.type==='face')?'face':'pocket');
 window.cleoEvent=event=>{
-  if(event.type==='chat'){modelChat.event(event);return;}
+  if(event.type==='chat'){modelChat.event(event);browserUI.modelEvent(event);avatarAgent.event(event);return;}
   if(event.type==='browser'){browserUI.event(event);return;}
   const tab=eventTab(event),status=tab==='pocket'?pocketStatus:tab==='face'?faceStatus:$(`#${tab}-status`);
   if(event.type==='state'){
@@ -89,8 +100,8 @@ window.cleoEvent=event=>{
   }
   if(event.type==='speechStart'){
     speechBusy=true;status.textContent=event.message;buttons();
-    if(['talk','full'].includes(tab))pipelineTab=tab;
-    if(tab==='full')performanceCue=event.cueSeconds;
+    if(['talk','full','cleopatra'].includes(tab))pipelineTab=tab;
+    if(['full','cleopatra'].includes(tab))performanceCue=event.cueSeconds;
   }
   if(['pocketStage','speechBusy','speechEnd'].includes(event.type))status.textContent=event.message;
   if(event.type==='faceStage')faceStatus.textContent=event.message;
@@ -113,7 +124,7 @@ window.cleoEvent=event=>{
   if(event.type==='speechEnd'){
     speechBusy=false;
     if(event.clipReady||(!event.withFace&&event.message==='Anna ready'))lastState={...lastState,pocketClip:true};
-    if(tab==='full')avatar?.pause();buttons();
+    if(['full','cleopatra'].includes(tab))avatar?.pause();buttons();
     if(tab==='full'&&event.completed&&benchmarkRepeat.checked)repeatTimer=setTimeout(()=>{if(currentTab==='full'&&pageVisible&&benchmarkRepeat.checked&&!speechBusy)$('#full-form').requestSubmit();},150);
     else if(tab==='full'&&!event.completed)stopRepeat();
   }
@@ -124,6 +135,7 @@ window.cleoEvent=event=>{
   }
   if(currentTab==='full'&&event.type==='motion')$('#full-body').textContent=`${event.profile} · ${ms(event.generationMs)} per motion batch`;
   if(currentTab==='full'&&event.type==='motionError')$('#full-body').textContent=`Ardy: ${event.message}`;
+  avatarAgent.event(event);
   const facial=event.withFace||event.type==='face';
   if(facial&&tab!==currentTab)return;
   let accepted;
@@ -143,7 +155,7 @@ for(const tab of ['talk','full']){
     event.preventDefault();if(speechBusy||!avatar||currentTab!==tab)return;
     const text=$(`#${tab}-text`).value.trim();if(!text){$(`#${tab}-status`).textContent='Enter something for Cleopatra to say.';return;}
     if(!window.Cleo){$(`#${tab}-status`).textContent='Speech runs in the Android app.';return;}
-    if(tab==='full'&&!$('#bank').value){$('#full-status').textContent='Select a cached motion in tab 5 first.';return;}
+    if(tab==='full'&&!$('#bank').value){$('#full-status').textContent='Select a cached embedding in tab 5 first.';return;}
     $(`#${tab}-text`).blur();pipelineTab=tab;speechBusy=true;buttons();describeSettings(tab);
     $(`#${tab}-status`).textContent='Starting…';$(`#${tab}-latency`).textContent='Send → playback: measuring…';
     window.Cleo.speakWithFace(text,...settings(),tab==='full'?Number($('#full-cue').value):0,tab==='full'?Number($('#full-tail').value):0);

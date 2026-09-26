@@ -4,32 +4,24 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.5.2
+## Latest checkpoint: 0.6.0 · Gemma avatar
 
-The **0.5.2 Qwen prebuilt update** uses the premade Qwen LiteRT model on CPU/GPU:
-**512×512 images, 256 visual tokens and a 4,096-token context**. The conversation
-template and thought-channel metadata retain the checked reasoning toggle,
-budget and prefix behavior; weights and compiled graph sections are unchanged.
-It retains the 0.5.1 Whisper-server repair, full Gemma audio/vision package and
-experimental native WhisperX option. The original Ardy app is preserved.
-Version code 13 and the Qwen private model are installed and hash-verified;
-the agent did not launch the app or run phone inference. Installation and
-provisioning receipts are under `validation/*qwen-prebuilt-2026-09-26.json`.
+Gemma 4 E2B now uses LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
+Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
+active provisioning/benchmark commands. Ardy's independent GGUF LLM2Vec encoder
+and cached embedding bank remain available in tab 5.
 
-The user cancelled the custom 768/8K export because of its compilation time.
-The Spark compiler, finishing job and Windows transfer queue were stopped;
-the owned workspace, container and unused image were removed (about 17.6 GB).
-Do not restart that build without a new user request. See
-[the Qwen build](benchmark/qwen-litert/README.md) and
-[WhisperX Android](benchmark/WHISPERX_ANDROID.md).
+Answers and Gemma-provided reasoning stream in tabs 7–9. Reasoning starts
+collapsed. Browser remains tab 8; **tab 9 · Cleopatra** loads Gemma, live Ardy,
+Pocket/Anna, LAM and the VRM together. The `avatar_stage` tool selects a cached
+text embedding to steer live Ardy generation, a supported expression, and the
+speech cue/tail. The final answer feeds the scheduled audio/face/body pipeline.
+The default VRM stance lowers the arms and slightly bends the elbows; idle
+rendering still sleeps. See [Gemma avatar](GEMMA_AVATAR.md).
 
-**Tab 7 — Models** provides on-device chat with Qwen + Whisper or Gemma, image
-and audio input, retained conversation prefixes, image-token controls, reasoning
-settings and latency/resource metrics. **Tab 8 — Browser** opens an embedded
-Google browser and runs a screenshot/action loop with a goal, click-box preview,
-follow-up input, Pause, Resume and Stop. Both tabs share the model settings.
-See [the in-app model/browser checkpoint](MODEL_CHAT_BROWSER.md) for behavior,
-runtime options, packaging and validation limits. Phone execution is left to the user.
+The original Ardy app is preserved. Host checks and build results do not qualify
+phone inference, model coexistence, voice quality or timing. The agent can install;
+the user launches and tests. The cancelled Spark Qwen build must stay stopped.
 
 ### Retained avatar controls from 0.4.3
 
@@ -50,11 +42,9 @@ and corrects four Ardy history/mask/decoder contracts. See
 The checkpoint is installed for the user's visual/audio/model test; the original app and
 its models are retained. Desktop checks do not establish phone quality or speed.
 
-The [comparison kit](benchmark/README.md) prepares **Ardy + Pocket + LAM + VRM +
-[(Qwen + Whisper) versus Gemma]**. Image and audio are scored independently under
-matched idle and active avatar workloads. Models and CPU/GPU runtime candidates
-are installed; phone inference, resource measurements and a winner are pending
-the user's runs. The agent must not invoke the benchmark launcher.
+The [measurement kit](benchmark/README.md) compares Gemma LiteRT CPU/GPU with
+image/audio scores under matched idle and active avatar workloads. The user runs
+phone tests; the agent must not invoke the benchmark launcher.
 
 ## Agreed scope
 
@@ -76,7 +66,7 @@ inference/benchmarks, play audio, or automate phone controls. The user launches
 the installed app and reports the results. Keep the original Ardy installation.
 
 The user reported a speech-preparation crash, then approved Pocket and LAM and
-expanded the debug sequence to these eight tabs:
+expanded the debug sequence to these nine tabs:
 
 1. **Welcome:** navigation to the modules.
 2. **PocketTTS:** Anna speech and runtime settings.
@@ -84,8 +74,9 @@ expanded the debug sequence to these eight tabs:
 4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
 5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
 6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
-7. **Models:** Qwen + Whisper or Gemma chat, image/audio input, runtime/image/reasoning settings and metrics.
+7. **Models:** Gemma chat, image/audio input, CPU/GPU and reasoning settings, streamed text and metrics.
 8. **Browser:** embedded Google browser, screenshot/action loop, follow-up input and pause/stop controls.
+9. **Cleopatra:** Gemma replies through live Ardy, Pocket/Anna, LAM and the VRM; explicit Load all and bounded avatar tools.
 
 Only after the modules work independently should their tabs collapse into a debug
 menu behind a real product frontend. Quantization and compilation are authorized
@@ -110,21 +101,15 @@ The intended components are:
 - the compatible 4-bit GGUF LLM2Vec encoder and a precached steering bank;
 - the Cleo/Cleopatra VRM avatar;
 - PocketTTS for speech output;
-- **Qwen 3.5 2B**, including its vision encoder, plus a separate transcription
-  model (the user's preferred direction as of 2026-09-25);
+- **Gemma 4 E2B** on LiteRT for text, vision and direct audio (current direction);
 - a small OpenCode/OpenClaw-style agent scaffold;
 - potentially ChromaDB for persistent storage.
 
-Qwen integration must preserve image understanding and bounding boxes, a thinking
-toggle, a separate reasoning-token budget, and a per-image token ceiling. Treat
-grounding coordinates as normalized 0–1000, map them through the source image's
-dimensions and any crop/orientation transform, and preserve the image aspect ratio.
-The 1000-coordinate convention does not require a 1000×1000 input image. Keep the
-matching vision encoder/projector in the model package; a language-only GGUF is
-not the complete VLM. Verify each control against the selected native runtime.
-
-Speech recognition, agent scaffold and storage implementations remain candidates.
-None of these product-phase engines is integrated or qualified on the phone yet.
+Gemma provides vision and direct audio input. Browser grounding uses normalized
+0–1000 coordinates relative to the captured viewport. The 1000-coordinate
+convention does not require a 1000×1000 input image. The full audio/vision bundle
+is retained; image allocation is fixed by the LiteRT artifact. Agent scaffolding
+and persistent storage remain future work.
 See [the acceleration assessment](ACCELERATION.md) for model-specific GPU/NPU
 options and the evidence separating available backends from verified execution.
 

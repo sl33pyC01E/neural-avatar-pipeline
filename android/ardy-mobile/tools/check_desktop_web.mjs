@@ -47,14 +47,21 @@ try {
         if(r.action==='load'){modelSelection=Object.fromEntries(Object.entries(r).filter(([k])=>k!=='action'));modelLoaded=true;chatHistory=[];}
         if(r.action==='newChat')chatHistory=[];
         if(r.action==='unload'){modelLoaded=false;emit({type:'chat',unloaded:true});}
-        if(r.action==='send'){chatHistory.push({role:'user',text:r.text,attachment:r.kind||''},{role:'assistant',text:'<img src=x onerror=alert(1)> Model response'});emit({type:'chat',partial:'Model response'});}
-        emit({type:'chat',state:true,loaded:modelLoaded,busy:false,selection:modelSelection,history:chatHistory,turns:chatHistory.length/2,metrics:{firstTokenMs:125,totalMs:500,memory:{pssKb:1048576,peakPssKb:1050000,complete:true},timings:{cache_n:17}}});
+        if(r.action==='avatarSend'){emit({type:'chat',channel:'avatar',requestId:r.requestId,state:true,loaded:true,busy:true,selection:modelSelection,history:chatHistory});return;}
+        if(r.action==='send'){
+          const text='<img src=x onerror=alert(1)> Model response';
+          chatHistory.push({role:'user',text:r.text,attachment:r.kind||''},{role:'assistant',text,reasoning:'Model reasoning'});
+          emit({type:'chat',channel:'chat',requestId:r.requestId,partial:text,reasoning:'Model reasoning'});
+          emit({type:'chat',channel:'chat',requestId:r.requestId,result:{text,reasoning:'Model reasoning'}});
+        }
+        emit({type:'chat',channel:r.action.startsWith('avatar')?'avatar':'chat',requestId:r.requestId,state:true,loaded:modelLoaded,busy:false,selection:modelSelection,history:chatHistory,turns:chatHistory.length/2,metrics:{firstTokenMs:125,totalMs:500,prefixCache:'Retained',memory:{pssKb:1048576,peakPssKb:1050000,complete:true}}});
       },browserBounds(raw){window.browserBounds=JSON.parse(raw);},browserCommand(raw){window.browserRequests.push(JSON.parse(raw));},chatAttach(kind){window.attachKind=kind;},chatRecord(start){emit({type:'chat',recording:start});},
-      state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
+      state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',nickname:'Relaxed speaking idle',text:'Small speaking gestures'},{id:'bank:wave',nickname:'Right hand wave',text:'Wave with the right hand'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
-      startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.Cleo.start(profile,embedding,stream);},
+      startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.performanceEmbedding=embedding;window.Cleo.start(profile,embedding,stream);},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
+      warmAll(profile,threads,precision,requestId){window.warmRequest={profile,threads,precision,requestId};for(const component of ['ardy','pocket','lam','all'])emit({type:'ensemble',component,requestId,state:'ready',message:'Resident'});},cancelWarmAll(){},unloadAvatarModels(){emit({type:'ensembleReleased',message:'Unloaded'});},
       tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
       speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
         emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
@@ -63,7 +70,7 @@ try {
   await call('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
   assert.equal(await evaluate('window.debugTabs.current()'),'welcome');
-  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full','chat','browser']);
+  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full','chat','browser','cleopatra']);
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   const welcomeImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'welcome-tab.png'),Buffer.from(welcomeImage.data,'base64'));
   await evaluate('document.querySelector("[data-open=pocket]").click()');await sleep(100);
@@ -86,6 +93,9 @@ try {
   assert(ready?.ready,'Avatar did not load: '+JSON.stringify({logs,state:ready,page:await evaluate('({url:location.href,text:document.body?.innerText})')}));assert.deepEqual(ready.errors,[]);
   const graphics=await evaluate('(()=>{const gl=window.avatarValidation.renderer.getContext(),ext=gl.getExtension("WEBGL_debug_renderer_info");return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):"unknown"})()');
   assert(/swiftshader/i.test(graphics),'CPU renderer not selected: '+graphics);
+  const relaxed=await evaluate(`(()=>{const v=window.avatarValidation.vrm,n=name=>v.humanoid.getNormalizedBoneNode(name),y=name=>n(name).matrixWorld.elements[13];return ['left','right'].every(side=>y(side+'Hand')<y(side+'UpperArm')-.25&&y(side+'LowerArm')<y(side+'UpperArm')-.15)})()`);
+  assert(relaxed,'Default avatar arms are not relaxed below the shoulders');
+
   await evaluate("document.querySelector('#motion-controls').open=true;document.querySelector('#live').click()");await sleep(1800);
   assert(await evaluate('window.bridgeRequests')>0,'Motion requests missing');
   await evaluate(`window.oldBatch=window.lastBatch;window.oldStream=window.lastStartedStream;
@@ -254,28 +264,22 @@ try {
   assert(await evaluate('document.querySelector("#chat-reasoning").checked'),'Browser reasoning should default on');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual(loadedModel,{action:'load',model:'qwen',backend:'cpu',whisper:'base',imageMinTokens:0,imageTokens:560,imageBatchTokens:1024,reasoning:256});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:256});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
-  assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'17 tokens');
+  assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'Retained · count unavailable');
   await evaluate('window.cleoEvent({type:"chat",attachment:{file:"test.png",kind:"image",label:"Test image"}});document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="send").at(-1).kind'),'image');
   await evaluate('document.querySelector("#chat-reasoning").checked=false;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"))');
   assert(await evaluate('document.querySelector("#chat-send").disabled'),'Changed runtime settings were silently ignored');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),0);
-  await evaluate('document.querySelector("#chat-model").value="gemma";document.querySelector("#chat-model").dispatchEvent(new Event("change"))');await sleep(100);
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).model'),'gemma');
-  await evaluate('document.querySelector("#chat-backend").value="litert-gpu";document.querySelector("#chat-backend").dispatchEvent(new Event("change"))');
-  assert(await evaluate('document.querySelector("#image-max-tokens").disabled&&document.querySelector("#image-batch-tokens").disabled'),'LiteRT advertised unsupported image budget overrides');
-  await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-model").value="qwen";document.querySelector("#chat-model").dispatchEvent(new Event("change"))');await sleep(100);
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).backend'),'litert-gpu','Qwen LiteRT selection was lost');
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),256,'Qwen LiteRT reasoning did not survive selection');
-  assert(await evaluate('!document.querySelector("#chat-reasoning").disabled&&!document.querySelector("#chat-whisper").disabled'),'Qwen LiteRT controls unavailable');
-  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("576")'),'Wrong custom image profile');
-  await evaluate('document.querySelector("#chat-whisper").value="whisperx-base";document.querySelector("#chat-whisper").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(100);
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).whisper'),'whisperx-base','WhisperX option was not forwarded');
+  assert(await evaluate('!document.querySelector("#chat-whisper")&&!document.querySelector("#chat-model")'),'Removed models still advertised');
+  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("fixes image allocation")'),'Unsupported image controls');
+  await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(100);
+  await evaluate('document.querySelector("#chat-text").value="Stream test";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
+  assert(await evaluate('!document.querySelector("#chat-log .assistant .reasoning").open&&!document.querySelector("#chat-log .assistant .reasoning").hidden'),'Reasoning not available collapsed');
   const chatBounds=await evaluate('(()=>{const p=document.querySelector("#chat-panel").getBoundingClientRect(),m=document.querySelector("#chat-panel .resource-strip").getBoundingClientRect();return {panelBottom:p.bottom,metricsBottom:m.bottom,logHeight:document.querySelector("#chat-log").clientHeight}})()');
   assert(chatBounds.metricsBottom<=915&&chatBounds.logHeight>=40,'Chat controls overflow viewport: '+JSON.stringify(chatBounds));
   const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));
@@ -291,6 +295,49 @@ try {
   assert(await evaluate('!document.querySelector("#browser-confirm").hidden&&document.querySelector("#browser-followup-form").hidden'));
   await evaluate('document.querySelector("#browser-reject").click();window.cleoEvent({type:"browser",status:"Paused",running:false,waiting:false})');
   const browserImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'browser-tab.png'),Buffer.from(browserImage.data,'base64'));
+  // Tab 9 uses the real renderer/track, with model responses and native sessions stubbed.
+  await evaluate('window.debugTabs.select("cleopatra")');await sleep(150);
+  assert(await evaluate('document.querySelector("#cleopatra-send").disabled'),'Send enabled before all models load');
+  await evaluate('document.querySelector("#cleopatra-load").click()');await sleep(150);
+  assert.equal(await evaluate('window.warmRequest.profile'),'core40');
+  assert.equal(await evaluate('window.warmRequest.precision'),'mixed');
+  assert(await evaluate('!document.querySelector("#cleopatra-send").disabled'),'Load all did not enable Send');
+  await evaluate('document.querySelector("#cleopatra-text").value="Hello Cleopatra";document.querySelector("#cleopatra-form").requestSubmit()');await sleep(60);
+  const avatarRequest=await evaluate('window.chatRequests.filter(r=>r.action==="avatarSend").at(-1)');
+  assert.equal(avatarRequest.motions.find(x=>x.key==='wave').id,'bank:wave');
+  await evaluate(`window.avatarRequestId=${JSON.stringify(avatarRequest.requestId)};window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,partial:'Hello',reasoning:'Choose a friendly wave.'})`);
+  assert.equal(await evaluate('document.querySelector("#cleopatra-log article:last-child>div").textContent'),'Hello');
+  assert(await evaluate('!document.querySelector("#cleopatra-log article:last-child .reasoning").open'),'Reasoning expanded itself');
+  await evaluate(`document.querySelector('#cleopatra-log article:last-child .reasoning').open=true;window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,partial:'Hello there!',reasoning:'Choose a friendly wave. Then speak.'})`);
+  assert(await evaluate('document.querySelector("#cleopatra-log article:last-child .reasoning").open'),'Streaming collapsed a user-opened trace');
+  const takeCount=await evaluate('window.performanceStarts');
+  await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,avatarTool:{name:'avatar_stage',arguments:{motion:'wave'},result:{ok:true}}})`);
+  assert.equal(await evaluate('window.performanceStarts'),takeCount,'Tool call started playback before the answer completed');
+  await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:window.avatarRequestId,result:{text:'Hello there!',reasoning:'Choose a friendly wave.',avatarPlan:{embeddingId:'bank:wave',expression:'happy',strength:.2,cue_seconds:.25,tail_seconds:.75}}})`);await sleep(150);
+  assert.equal(await evaluate('window.performanceEmbedding'),'bank:wave','Live Ardy did not receive the tool-selected cached embedding');
+  assert.equal(await evaluate('document.querySelector("#bank").value'),'bank:check','Tool overwrote manual Ardy selection');
+  assert.equal(await evaluate('window.talkArguments[0]'),'Hello there!','Reasoning/tool syntax leaked into speech');
+  assert.deepEqual(await evaluate('window.talkArguments.slice(1)'),[2,10,15,'mixed',true,.25,.75]);
+  for(let i=0;i<30;i++){if(await evaluate('Boolean(window.validationState.performance)'))break;await sleep(100);}
+  assert.deepEqual(await evaluate('window.validationState.errors'),[]);
+  assert.equal(await evaluate('window.validationState.performance?.origin'),0,'Avatar take never rendered');
+  await evaluate(`window.cleoEvent({type:'face',withFace:true,prepared:true,streamId:'pipe-check',tab:'cleopatra',runId:'agent-window',requiredMotionSeconds:1.25,fps:30,startSeconds:0,names:['jawOpen',...Array.from({length:51},(_,i)=>'unused'+i)],frames:Array.from({length:30},()=>[.5,...Array(51).fill(0)])})`);await sleep(150);
+  assert.equal(await evaluate('window.faceReadyRun'),'agent-window');
+  await evaluate(`window.testClock=.1;window.cleoEvent({type:'talkPlayback',tab:'cleopatra',playbackStartMs:900})`);await sleep(100);
+  assert.equal(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")'),0);
+  await evaluate('window.testClock=.6');await sleep(100);
+  assert(Math.abs(await evaluate('window.validationState.performance.motionSeconds')-.6)<1e-5);
+  const agentImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'cleopatra-tab.png'),Buffer.from(agentImage.data,'base64'));
+  await evaluate(`document.querySelector('#cleopatra-stop').click();window.cleoEvent({type:'speechEnd',tab:'cleopatra',withFace:true,completed:false,message:'Stopped'});window.Cleo.chat(JSON.stringify({action:'status'}))`);await sleep(150);
+  await evaluate('document.querySelector("#cleopatra-text").value="Cancel this";document.querySelector("#cleopatra-form").requestSubmit()');await sleep(80);
+  const cancelledId=await evaluate('window.chatRequests.filter(r=>r.action==="avatarSend").at(-1).requestId');
+  await evaluate('window.debugTabs.select("chat")');await sleep(80);
+  assert(await evaluate('window.chatRequests.some(r=>r.action==="cancel")'),'Leaving tab 9 did not cancel pending Gemma');
+  const beforeStale=await evaluate('window.performanceStarts');
+  await evaluate(`window.cleoEvent({type:'chat',channel:'avatar',requestId:${JSON.stringify(cancelledId)},result:{text:'Stale reply',avatarPlan:{embeddingId:'bank:wave',expression:'neutral',strength:0,cue_seconds:0,tail_seconds:1}}})`);await sleep(100);
+  assert.equal(await evaluate('window.performanceStarts'),beforeStale,'Stale result started speech after tab switch');
+  assert.deepEqual(await evaluate('window.validationState.errors'),[]);
+  await evaluate('window.debugTabs.select("browser")');await sleep(100);
   await call('Emulation.setDeviceMetricsOverride',{width:360,height:520,deviceScaleFactor:1,mobile:true});await sleep(200);
   const compactBounds=await evaluate('(()=>{const b=document.querySelector("#browser-stop").getBoundingClientRect(),v=document.querySelector("#browser-viewport").getBoundingClientRect();return {stopBottom:b.bottom,viewportHeight:v.height}})()');
   assert(compactBounds.stopBottom<=520&&compactBounds.viewportHeight>=90,'Keyboard-sized browser layout hides controls: '+JSON.stringify(compactBounds));
@@ -298,7 +345,7 @@ try {
   assert(await evaluate('document.querySelector("#chat-send").getBoundingClientRect().bottom<=520'),'Keyboard-sized chat hides Send');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
-    eightTabsAndWelcome:true,modelSettingsForwarded:true,modelSwitchLoadsSelection:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
+    defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};

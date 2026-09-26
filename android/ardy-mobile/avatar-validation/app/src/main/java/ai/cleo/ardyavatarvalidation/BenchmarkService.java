@@ -18,7 +18,6 @@ public final class BenchmarkService extends Service {
     private volatile Conversation conversation;
     private Engine engine;
     private String modelName,backendName;
-    private boolean qwen;
     private static final String CHANNEL="cleopatra-benchmark";
 
     @Override public IBinder onBind(Intent intent){return null;}
@@ -48,15 +47,14 @@ public final class BenchmarkService extends Service {
                     case "load":
                         closeEngine();
                         modelName=config.getString("model");backendName=config.getString("backend");
-                        qwen=modelName.equals("Qwen3.5-2B-Cleo-512-4k-int8.litertlm");
-                        if(!qwen&&!modelName.equals("gemma-4-E2B-it.litertlm"))throw new IllegalArgumentException("Unknown benchmark model");
+                        if(!modelName.equals("gemma-4-E2B-it.litertlm"))throw new IllegalArgumentException("Unknown benchmark model");
                         File model=privateFile(modelName);
                         Backend backend;
                         if("cpu".equals(backendName))backend=new Backend.CPU(config.optInt("threads",2),null);
                         else if("gpu".equals(backendName))backend=new Backend.GPU();
                         else throw new IllegalArgumentException("Only CPU/GPU backends are available in this adapter");
                         Backend vision="gpu".equals(backendName)?new Backend.GPU():new Backend.CPU(2,null);
-                        engine=new Engine(new EngineConfig(model.getPath(),backend,vision,qwen?null:new Backend.CPU(2,null),4096,qwen?1:8,getCacheDir().getPath()));
+                        engine=new Engine(new EngineConfig(model.getPath(),backend,vision,new Backend.CPU(2,null),4096,8,getCacheDir().getPath()));
                         engine.initialize();result.put("loadMs",elapsed(started));break;
                     case "infer":
                         if(engine==null||!engine.isInitialized())throw new IllegalStateException("Load a model first");
@@ -78,7 +76,6 @@ public final class BenchmarkService extends Service {
     }
     private JSONObject infer(JSONObject config)throws Exception {
         List<Content> contents=new ArrayList<>();
-        if(qwen&&config.has("audio"))throw new IllegalArgumentException("Qwen audio must use the separately resident Whisper engine");
         if(config.has("image"))contents.add(new Content.ImageBytes(Files.readAllBytes(privateFile(config.getString("image")).toPath())));
         if(config.has("audio"))contents.add(new Content.AudioBytes(Files.readAllBytes(privateFile(config.getString("audio")).toPath())));
         contents.add(new Content.Text(config.getString("prompt")));
@@ -89,7 +86,7 @@ public final class BenchmarkService extends Service {
         if(budget<0||budget>512)throw new IllegalArgumentException("Invalid reasoning budget");
         ThinkingConfig thought=new ThinkingConfig(thinking,budget);
         if(thinking!=(budget>0))throw new IllegalArgumentException("Thinking requires a positive reasoning budget");
-        SamplerConfig sampler=qwen?new SamplerConfig(20,thinking?.95:.8,thinking?1.0:.7,42):new SamplerConfig(40,.95,.3,42);
+        SamplerConfig sampler=new SamplerConfig(40,.95,.3,42);
         ConversationConfig options=new ConversationConfig(null,Collections.emptyList(),Collections.emptyList(),
             sampler,false,null,Collections.emptyMap(),null,false,maximum,thought,false);
         StringBuilder text=new StringBuilder();AtomicReference<Throwable> error=new AtomicReference<>();
@@ -106,7 +103,7 @@ public final class BenchmarkService extends Service {
                 }
                 public void onDone(){done.countDown();}
                 public void onError(Throwable failure){error.set(failure);done.countDown();}
-            },Collections.emptyMap(),qwen?new RepetitionPenaltyConfig(1f,1.5f,0f,0):null);
+            },Collections.emptyMap(),null);
             if(!done.await(180,TimeUnit.SECONDS)){active.cancelProcess();throw new IOException("Inference timed out");}
             if(error.get()!=null)throw new IOException("Inference failed",error.get());
         }finally{conversation=null;}
