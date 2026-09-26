@@ -62,6 +62,11 @@ def main():
     if a.stage in ('decoder','all'):
         run(converter/'qwen35vl_work/export_qwen35vl_decoder.py',source,decoder,CACHE=str(context),PREFILL=','.join(map(str,config['prefillLengths'])))
     if a.stage in ('package','all'):
+        from split_qwen_vision import generate
+        derived=work/'vision_split.audit.py';recipe=generate(converter,derived)
+        if hashlib.sha256((work/'vision_split.py').read_bytes()).hexdigest()!=recipe['derivedSha256']:
+            raise ValueError('The vision compiler recipe differs from the pinned derivation')
+        (out/'vision-recipe.json').write_text(json.dumps(recipe,indent=2)+'\n')
         parity=json.loads((vision/'parity.json').read_text())
         if not parity.get('passed'):raise ValueError('Native vision parity gate did not pass')
         for row in parity['checks']:
@@ -87,6 +92,10 @@ def main():
         receipt=repack(out/'bound.litertlm',out/(config['name']+'.litertlm'),a.template.read_text(encoding='utf-8'))
         receipt.update(graphExported=True,profile=config,graphContracts=contracts,visionParity=parity,packagingWallSeconds=time.time()-started,
                        phoneQualified=False,qualification='Pending user runs on Android; CPU conversion checks are not phone benchmarks.')
+        receipt['visionRecipe']=recipe
+        receipt['toolchainSha256']={name:hashlib.sha256((work/name).read_bytes()).hexdigest() for name in
+            ('build-requirements.lock','build_qwen_litert.py','split_qwen_vision.py','repack_qwen_litert.py','check_qwen_template.py','inspect_litert.py')}
+        receipt['torchPatchSha256']=hashlib.sha256(subprocess.check_output(['git','-c','safe.directory='+str(torch_source),'-C',str(torch_source),'diff','--binary'])).hexdigest()
         receipt['sourceWeights']={}
         for path in source.glob('*.safetensors'):
             with path.open('rb') as stream:receipt['sourceWeights'][path.name]=hashlib.file_digest(stream,'sha256').hexdigest()

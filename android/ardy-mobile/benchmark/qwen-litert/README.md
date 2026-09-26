@@ -99,6 +99,12 @@ tokens against the budget, and two simple image pipeline checks. The report
 attaches to the matching artifact's build receipt.
 Provisioning requires a passing report with the same bundle hash.
 
+For a decoder already running on Spark, `finish_qwen_litert.py --work-dir WORK
+--wait-pid HOST_DECODER_PID` waits for that process, packages the completed export,
+runs the native gate and stops the owned compiler container on success. Its
+`finish-status.json` and stage logs remain in the workspace. It does not install
+or execute anything on the phone.
+
 The build receipt records source weight hashes, graph contracts, numerical
 checks and generation checks. It explicitly leaves phone qualification pending.
 These native CPU conversion checks do not establish phone speed, memory use,
