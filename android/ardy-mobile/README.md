@@ -23,9 +23,18 @@ checkpoint and provision verified models. Do not launch phone apps, run phone
 inference/benchmarks, play audio, or automate phone controls. The user launches
 the installed app and reports the results. Keep the original Ardy installation.
 
-Next connect Ardy Core-8/Core-40 and the recovered on-device LLM2Vec backend,
-then PocketTTS with **Anna**, followed by the **LAM facial-expression driver**.
-LAM must consume generated speech and follow the audio playback clock.
+The user reported a speech-preparation crash and set this debug sequence:
+
+1. **Tab 1 — VRM:** approved; preserve its appearance and controls.
+2. **Tab 2 — PocketTTS:** current step; get Anna working independently, then tune speed and runtime efficiency.
+3. **Tab 3 — LAM:** next, drive the VRM face from Pocket audio using the playback clock.
+4. **Tab 1 — Ardy:** qualify live/batched generation with cached embeddings.
+5. **Tab 1 submenu:** create new cached embeddings with the compatible LLM2Vec encoder.
+
+Only after the modules work independently should their tabs collapse into a debug
+menu behind a real product frontend. Quantization and compilation are authorized
+where they improve size/speed; preserve Anna and verify quality and compatibility.
+See [the Pocket debug checkpoint](POCKET_DEBUG.md) for the crash evidence and current limits.
 
 The intended lifecycle is continuous availability with aggressive idle sleep:
 retain useful model sessions within a configurable memory budget, avoid dummy
@@ -150,10 +159,11 @@ still require integration and device qualification.
 
 ## Next implementation checkpoints
 
-The buildable checkpoint now connects rolling Ardy, cached/new LLM2Vec embeddings,
-Anna speech and LAM facial output to the approved renderer. CPU checks cover actual
-Ardy weights and generated-motion retargeting, Pocket synthesis, LAM export parity
-and postprocessing. See the checkpoint README for build steps and exact limits.
+The checkpoint now separates the debug modules into tabs. Pocket runs alone;
+LAM is inactive pending the next milestone. Rolling Ardy and the embedding submenu
+remain on tab 1. Earlier CPU checks cover the model math; the user's Android speech
+test exposed a callback ABI mismatch that those desktop checks did not exercise.
+The new JVM regression and packaged DEX check cover that exact callback contract.
 
 Remaining acceptance gates are combined Android runtime qualification, perceptual
 motion/speech/face tuning, memory/thermal behavior and any selected accelerator.

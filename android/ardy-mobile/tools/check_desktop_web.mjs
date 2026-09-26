@@ -46,14 +46,26 @@ try {
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
-      playbackSeconds(){return window.testClock;},embed(){},speak(){},quiet(){},memoryBudget(){},importModels(){}};`});
+      tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
+      speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
+        emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
+      quiet(){},memoryBudget(){},importModels(){}};`});
   await call('Page.navigate',{url});
+  for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
+  assert.equal(await evaluate('window.debugTabs.current()'),'pocket');
+  assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
+  await evaluate('document.querySelector("#speak").click()');await sleep(150);
+  assert.deepEqual(await evaluate('window.speechArguments.slice(1)'),[2,5,8],'Pocket settings did not reach native bridge');
+  assert.equal(await evaluate('document.querySelector("#synthesis-speed").textContent'),'0.40 RTF');
+  assert(await evaluate('!window.avatarValidation'),'Pocket speech initialized the avatar');
+  const pocketImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'pocket-tab.png'),Buffer.from(pocketImage.data,'base64'));
+  await evaluate('window.debugTabs.select("avatar")');
   let ready;
   for(let i=0;i<150;i++){ready=await evaluate('window.validationState');if(ready?.ready)break;await sleep(200);}
   assert(ready?.ready,'Avatar did not load: '+JSON.stringify({logs,state:ready,page:await evaluate('({url:location.href,text:document.body?.innerText})')}));assert.deepEqual(ready.errors,[]);
   const graphics=await evaluate('(()=>{const gl=window.avatarValidation.renderer.getContext(),ext=gl.getExtension("WEBGL_debug_renderer_info");return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):"unknown"})()');
   assert(/swiftshader/i.test(graphics),'CPU renderer not selected: '+graphics);
-  await evaluate("document.querySelector('details').open=true;document.querySelector('#live').click()");await sleep(1800);
+  await evaluate("document.querySelector('#motion-controls').open=true;document.querySelector('#live').click()");await sleep(1800);
   assert(await evaluate('window.bridgeRequests')>0,'Motion requests missing');
   await evaluate(`window.oldBatch=window.lastBatch;window.oldStream=window.lastStartedStream;
     document.querySelector('#profile').value='core8';document.querySelector('#live').click();
@@ -71,18 +83,23 @@ try {
   await evaluate('window.cleoVisible(true);window.avatarValidation.setMode("rest")');await sleep(150);
   const resting=await evaluate('window.avatarValidation.renderer.info.render.frame');await sleep(300);
   assert.equal(await evaluate('window.avatarValidation.renderer.info.render.frame'),resting,'Static rest kept rendering');
-  await evaluate(`window.testClock=.5;window.cleoEvent({type:'speechStart',message:'Facial clock check'});
+  await evaluate('window.debugTabs.select("face")');
+  await evaluate(`window.testClock=.5;window.cleoEvent({type:'speechStart',withFace:true,message:'Facial clock check'});
     window.cleoEvent({type:'face',fps:30,startSeconds:0,names:['jawOpen',...Array.from({length:51},(_,i)=>'unused'+i)],frames:Array.from({length:31},(_,f)=>[f/30,...Array(51).fill(0)])})`);
   for(let i=0;i<50;i++){if(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.5)<1e-4)break;await sleep(100);}
   assert(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.5)<1e-4,'Face did not follow playback clock');
-  await evaluate('window.cleoEvent({type:"speechEnd",message:"Clock check passed"})');await sleep(100);
+  await evaluate('window.cleoEvent({type:"speechEnd",withFace:true,message:"Clock check passed"})');await sleep(100);
+  await evaluate('window.debugTabs.select("pocket")');await sleep(100);
+  const isolated=await evaluate('[window.avatarValidation.renderer.info.render.frame,window.bridgeRequests]');await sleep(250);
+  assert.deepEqual(await evaluate('[window.avatarValidation.renderer.info.render.frame,window.bridgeRequests]'),isolated,'Pocket tab kept avatar/motion work running');
+  await evaluate('window.debugTabs.select("avatar")');await sleep(100);
   const image=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'runtime-panel.png'),Buffer.from(image.data,'base64'));
   const errors=await evaluate('window.validationState.errors');assert.deepEqual(errors,[]);
   const bounds=await evaluate('(()=>{const c=document.querySelector("canvas").getBoundingClientRect(),p=document.querySelector("#panel").getBoundingClientRect();return {canvasHeight:c.height,canvasBottom:c.bottom,panelTop:p.top}})()');
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
-    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,bounds,
+    staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 } finally {

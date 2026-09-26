@@ -7,6 +7,7 @@ import java.nio.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.json.JSONObject;
 
 /** PocketTTS with Kyutai's Anna preset source (vctk/p228_023_enhanced.wav). */
@@ -16,11 +17,13 @@ public final class PocketAnna implements AutoCloseable {
     private OfflineTts engine;
     private float[] reference;
     private int referenceRate;
+    private int loadedThreads;
     private static final String[] FILES={"lm_flow.int8.onnx","lm_main.int8.onnx","encoder.onnx",
         "decoder.int8.onnx","text_conditioner.onnx","vocab.json","token_scores.json","anna.wav"};
     public PocketAnna(Context context) { this.context=context.getApplicationContext(); }
-    public void warm() throws Exception {
-        if(engine!=null) return;
+    public void warm(int threads) throws Exception {
+        if(engine!=null&&loadedThreads==threads) return;
+        close();
         File root=new File(context.getFilesDir(),"pocket-tts");
         if(!root.isDirectory() && !root.mkdirs()) throw new IOException("Cannot create PocketTTS model directory");
         String bundled;
@@ -51,26 +54,38 @@ public final class PocketAnna implements AutoCloseable {
         pocket.setEncoder(new File(root,FILES[2]).getPath()); pocket.setDecoder(new File(root,FILES[3]).getPath());
         pocket.setTextConditioner(new File(root,FILES[4]).getPath()); pocket.setVocabJson(new File(root,FILES[5]).getPath());
         pocket.setTokenScoresJson(new File(root,FILES[6]).getPath()); pocket.setVoiceEmbeddingCacheCapacity(1);
-        OfflineTtsModelConfig model=new OfflineTtsModelConfig(); model.setPocket(pocket); model.setNumThreads(2); model.setProvider("cpu");
+        OfflineTtsModelConfig model=new OfflineTtsModelConfig(); model.setPocket(pocket); model.setNumThreads(threads); model.setProvider("cpu");
         OfflineTtsConfig config=new OfflineTtsConfig(); config.setModel(model);
         readAnna(new File(root,"anna.wav"));
         engine=new OfflineTts(null,config);
+        loadedThreads=threads;
     }
-    public void synthesize(String text, AtomicBoolean cancelled, AudioChunk sink) throws Exception {
+    public JSONObject synthesize(String text,int threads,int steps,int chunkSize,AtomicBoolean cancelled,Consumer<String> progress,AudioChunk sink) throws Exception {
         text=text==null ? "" : text.trim(); if(text.isEmpty()) throw new IllegalArgumentException("Enter something for Anna to say");
-        warm();
+        if(threads<1||threads>6||steps<1||steps>10||chunkSize<1||chunkSize>32)throw new IllegalArgumentException("Invalid Pocket runtime settings");
+        long started=System.nanoTime();boolean wasWarm=engine!=null&&loadedThreads==threads;
+        progress.accept(wasWarm?"Anna is warm":"Loading PocketTTS and Anna…");
+        warm(threads);long prepared=System.nanoTime();
+        if(cancelled.get())return null;
         GenerationConfig options=new GenerationConfig(); options.setReferenceAudio(reference); options.setReferenceSampleRate(referenceRate);
-        options.setNumSteps(5);
-        Map<String,String> extra=new HashMap<>(); extra.put("temperature","0.7"); extra.put("chunk_size","8");
+        options.setNumSteps(steps);
+        Map<String,String> extra=new HashMap<>(); extra.put("temperature","0.7"); extra.put("chunk_size",Integer.toString(chunkSize));
+        // Shorter sentence segments reduce this backend's pre-audio LM work on long text.
+        extra.put("max_char_in_sentence","120");extra.put("min_char_in_sentence","20");
         extra.put("max_reference_audio_len",Float.toString(reference.length/(float)referenceRate));
         options.setExtra(extra);
-        final Exception[] failure={null};
-        engine.generateWithConfigAndCallback(text,options,samples->{
-            if(cancelled.get()) return 0;
-            try { sink.accept(samples.clone(),engine.sampleRate()); return cancelled.get()?0:1; }
-            catch(Exception error) { failure[0]=error; return 0; }
-        });
-        if(failure[0]!=null) throw failure[0];
+        progress.accept("Generating Anna speech…");
+        PocketCallback callback=new PocketCallback(cancelled,samples->sink.accept(samples,engine.sampleRate()));
+        long generationStarted=System.nanoTime();
+        engine.generateWithConfigAndCallback(text,options,callback);
+        long finished=System.nanoTime();callback.rethrow();
+        if(!cancelled.get()&&callback.samples()==0)throw new IOException("Pocket returned no audio");
+        double seconds=callback.samples()/(double)engine.sampleRate();
+        double computeMs=(finished-generationStarted-callback.sinkNanos())/1e6;
+        return new JSONObject().put("type","pocketMetrics").put("warm",wasWarm).put("threads",threads).put("steps",steps).put("chunkSize",chunkSize)
+            .put("loadMs",(prepared-started)/1e6).put("firstChunkMs",callback.firstNanos()==0?-1:(callback.firstNanos()-started)/1e6)
+            .put("computeMs",computeMs).put("playbackSinkMs",callback.sinkNanos()/1e6).put("audioSeconds",seconds)
+            .put("computeRtf",seconds>0?computeMs/1000/seconds:-1).put("cancelled",cancelled.get());
     }
     private void readAnna(File file) throws IOException {
         byte[] bytes; try(InputStream input=new FileInputStream(file)){ bytes=Embeddings.read(input); }

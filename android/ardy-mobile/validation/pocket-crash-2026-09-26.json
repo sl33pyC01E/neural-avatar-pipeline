@@ -1,0 +1,14 @@
+{
+  "source": "Read-only crash-buffer inspection after the user's test",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "versionName": "0.2.1-cleopatra-native",
+  "localTimestamp": "2026-09-26 07:25:10",
+  "signal": "SIGABRT",
+  "exception": "java.lang.NoSuchMethodError",
+  "missingMethod": "PocketAnna$$ExternalSyntheticLambda0.invoke([F)Ljava/lang/Integer;",
+  "abortOperation": "JNI NewFloatArray called with pending exception",
+  "nativeEntryPoint": "Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithConfigImpl",
+  "correction": "Explicit PocketCallback class with typed Integer invoke(float[]) and keep rules",
+  "agentLaunchedApp": false,
+  "agentRanInference": false
+}

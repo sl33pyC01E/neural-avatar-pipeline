@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "concreteDexCallback": "invoke([F)Ljava/lang/Integer;",
+  "sherpaJniDescriptorMatches": true,
+  "apkSha256": "56acac8f4596cf7d8806572cb4ef8a9d7aa827363443668365a48615d3123693",
+  "apkBytes": 311884838,
+  "lamPayloadBundled": false,
+  "packagedWebMatchesSource": true,
+  "phoneTest": false,
+  "limitation": "Verifies packaged ABI, not Android synthesis/audio execution."
+}

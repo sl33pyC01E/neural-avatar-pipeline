@@ -2,34 +2,54 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cleopatra · Avatar Check</title>
+<title>Cleopatra · Module Debug</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101416;color:#e8f1ee;font:15px system-ui;height:100dvh;overflow:hidden}
-canvas{display:block;position:absolute;width:100%;height:100%;touch-action:none}header{position:absolute;top:24px;left:20px;right:20px;pointer-events:none}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:#101416;color:#e8f1ee;font:15px system-ui;height:100dvh;overflow:hidden}
+canvas{display:block;position:absolute;width:100%;height:100%;touch-action:none}header{position:absolute;top:24px;left:20px;right:20px;z-index:2}
 h1{font-size:24px;font-weight:600;margin:0 0 5px}p{margin:0;color:#aec5bc;font-size:13px;line-height:1.5}
-#panel{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px;max-height:calc(100dvh - 235px);overflow:auto}
+#panel,#face-panel{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px;max-height:calc(100dvh - 295px);overflow:auto}
 #controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}button{color:#dfeee7;background:#253f35;border:1px solid #49785f;border-radius:10px;padding:10px 13px;font:inherit}
-button[aria-pressed=true]{background:#b5d8bd;color:#14251b}#status{white-space:pre-wrap;font:12px/1.5 monospace;color:#b0c6bb}
+button[aria-pressed=true],button[aria-selected=true]{background:#b5d8bd;color:#14251b}#status{white-space:pre-wrap;font:12px/1.5 monospace;color:#b0c6bb}
 details{margin-top:8px}summary{cursor:pointer;color:#c6dbce}#engines{max-height:45dvh;overflow:auto;padding-top:10px}
-input,select{background:#101b19;border:1px solid #49785f;border-radius:8px;color:#e8f1ee;padding:8px;font:inherit;min-width:0;max-width:100%}
+input,select,textarea{background:#101b19;border:1px solid #49785f;border-radius:8px;color:#e8f1ee;padding:8px;font:inherit;min-width:0;max-width:100%}
 .row{display:flex;gap:6px;margin:7px 0;flex-wrap:wrap}.row input{flex:1}#bank{width:100%}#engine-status{white-space:pre-wrap;font-size:12px;color:#aec5bc}
 button:disabled{opacity:.5}
+nav{display:flex;gap:6px;margin-top:15px}nav button{flex:1;padding:10px 6px;font-size:13px}
+#pocket-panel{position:absolute;top:155px;bottom:24px;left:16px;right:16px;overflow:auto;padding:16px;background:#172321;border:1px solid #36554a;border-radius:16px}
+h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertical;min-height:100px;margin:14px 0 8px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.metrics dt{font-size:12px;color:#aec5bc}.metrics dd{margin:3px 0;font-size:18px;font-variant-numeric:tabular-nums}
+#pocket-status{white-space:pre-wrap;margin:14px 0;font-size:14px;line-height:1.5}#pocket-settings label{display:flex;flex:1;flex-direction:column;gap:5px;font-size:12px}
+.hint{font-size:12px;line-height:1.5;color:#aec5bc}.badge{display:inline-block;font-size:12px;border:1px solid #49785f;border-radius:20px;padding:4px 8px;margin:0 0 12px}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
-<canvas id="scene"></canvas>
-<header><h1>Cleopatra</h1><p>Drag to orbit · pinch to zoom</p></header>
-<div id="panel"><div id="controls">
+<canvas id="scene" hidden></canvas>
+<header><h1>Cleopatra</h1><p id="subtitle">Anna · isolated speech runtime</p>
+<nav role="tablist" aria-label="Debug modules"><button id="tab-avatar" role="tab" data-tab="avatar" aria-controls="panel">1 · Avatar</button><button id="tab-pocket" role="tab" data-tab="pocket" aria-controls="pocket-panel">2 · PocketTTS</button><button id="tab-face" role="tab" data-tab="face" aria-controls="face-panel">3 · Face</button></nav></header>
+<section id="panel" role="tabpanel" aria-labelledby="tab-avatar" hidden><div id="controls">
 <button data-mode="replay" aria-pressed="true">Walk + wave</button><button data-mode="rest">Rest pose</button>
 <button data-mode="turn">Turn test</button><button id="skeleton" aria-pressed="false">Skeleton</button>
 <button id="physics" aria-pressed="false">Physics</button></div><div id="status">Loading Cleopatra…</div>
-<details><summary>Motion &amp; voice</summary><div id="engines">
+<details id="motion-controls"><summary>Ardy · cached embeddings</summary><div id="engines">
 <select id="bank" aria-label="Cached motion description"></select>
 <div class="row"><select id="profile" aria-label="Ardy profile"><option value="core40">Core-40</option><option value="core8">Core-8</option></select>
 <button id="live">Start motion</button><button id="stop-motion">Pause motion</button></div>
-<div class="row"><input id="motion-text" maxlength="2000" placeholder="New motion description" aria-label="New motion description"><button id="embed">Cache embedding</button></div>
-<div class="row"><input id="speech-text" maxlength="2000" placeholder="Something for Anna to say" aria-label="Speech text"><button id="speak">Speak</button><button id="quiet">Stop voice</button></div>
+<details id="embedding-controls"><summary>Create cached embeddings</summary><div class="row"><input id="motion-text" maxlength="2000" placeholder="New motion description" aria-label="New motion description"><button id="embed">Cache embedding</button></div></details>
 <div class="row"><button id="import">Import model files</button><label>Memory budget <select id="memory" aria-label="Memory budget"><option value="4096">4 GB</option><option value="6144" selected>6 GB</option><option value="8192">8 GB</option></select></label></div>
 <div id="engine-status">Connecting local engines…</div>
-</div></details></div>
+</div></details></section>
+<section id="pocket-panel" role="tabpanel" aria-labelledby="tab-pocket">
+<span class="badge">Current step · PocketTTS only</span><h2>Anna</h2><p>Sherpa ONNX · INT8 models · CPU</p>
+<textarea id="speech-text" maxlength="2000" aria-label="Speech text" placeholder="Something for Anna to say">Hello. I'm Cleopatra. It's good to meet you.</textarea>
+<div class="row"><button id="speak" disabled>Speak</button><button id="quiet">Stop voice</button></div>
+<div id="pocket-status" role="status" aria-live="polite">Ready for your speech test</div>
+<dl class="metrics"><div><dt>First audio chunk</dt><dd id="first-audio">—</dd></div><div><dt>Model preparation</dt><dd id="model-load">—</dd></div><div><dt>Synthesis / audio duration</dt><dd id="synthesis-speed">—</dd></div><div><dt>Generated audio</dt><dd id="audio-duration">—</dd></div></dl>
+<p class="hint">RTF below 1 means generation is faster than the audio duration. Playback waiting is excluded; first chunk includes model preparation. The second run reuses the warm model and Anna's cached voice.</p>
+<details id="pocket-settings"><summary>Runtime tuning</summary><div class="row">
+<label>CPU threads<select id="threads"><option>1</option><option selected>2</option><option>4</option><option>6</option></select></label>
+<label>Flow steps<select id="steps"><option>2</option><option>3</option><option selected>5</option></select></label>
+<label>Decoder chunk<select id="chunk-size"><option>4</option><option selected>8</option><option>15</option></select></label></div>
+<p class="hint">Fewer flow steps can reduce generation time and speech quality. Changing threads reloads the model. Decoder chunks affect audio delivery; they do not make the language model stream token by token.</p></details>
+</section>
+<section id="face-panel" role="tabpanel" aria-labelledby="tab-face" hidden><span class="badge">Next step</span><h2>LAM facial driver</h2><p>After PocketTTS passes, use its audio to drive Cleopatra's face here. LAM is inactive in this build's speech path.</p></section>
 <script type="module" src="./main.mjs"></script>
 </html>

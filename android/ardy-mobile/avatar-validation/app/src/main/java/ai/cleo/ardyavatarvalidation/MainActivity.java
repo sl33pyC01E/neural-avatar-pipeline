@@ -24,10 +24,11 @@ import ai.cleo.ardymobile.ResidentService;
 public final class MainActivity extends Activity implements ResidentService.Listener {
     private WebView view;
     private volatile ResidentService engines;
+    private volatile String selectedTab="pocket";
     private boolean resumed,bound;
     private final ServiceConnection connection=new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name,IBinder binder) {
-            engines=((ResidentService.LocalBinder)binder).service();engines.attach(MainActivity.this);engines.visible(resumed);engines.state();
+            engines=((ResidentService.LocalBinder)binder).service();engines.attach(MainActivity.this);engines.tab(selectedTab);engines.visible(resumed);engines.state();
         }
         @Override public void onServiceDisconnected(ComponentName name){engines=null;}
     };
@@ -88,12 +89,13 @@ public final class MainActivity extends Activity implements ResidentService.List
     }
     public final class Bridge {
         @JavascriptInterface public void state(){if(engines!=null)engines.state();}
+        @JavascriptInterface public void tab(String tab){selectedTab=tab;if(engines!=null)engines.tab(tab);}
         @JavascriptInterface public void start(String profile,String embedding,String stream){if(engines!=null)engines.configureMotion(profile,embedding,stream);}
         @JavascriptInterface public boolean next(){return engines!=null&&engines.nextMotion();}
         @JavascriptInterface public void stop(){if(engines!=null)engines.stopMotion();}
         @JavascriptInterface public void pause(){if(engines!=null)engines.pauseMotion();}
         @JavascriptInterface public void embed(String text){if(engines!=null)engines.createEmbedding(text);}
-        @JavascriptInterface public void speak(String text){if(engines!=null)engines.speak(text);}
+        @JavascriptInterface public void speak(String text,int threads,int steps,int chunkSize){if(engines!=null)engines.speak(text,threads,steps,chunkSize);}
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}
         @JavascriptInterface public double playbackSeconds(){return engines==null?-1:engines.playbackSeconds();}
         @JavascriptInterface public void memoryBudget(int mib){if(engines!=null)engines.memoryBudget(mib);}

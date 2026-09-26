@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "test": "tools/PocketCallbackCheck.java",
+  "runtime": "Desktop JVM; Kotlin stdlib 2.1.0",
+  "originalSamMismatchReproduced": true,
+  "jniSignature": "invoke([F)Ljava/lang/Integer;",
+  "deliveryCancellationErrorsAndTiming": true,
+  "phoneTest": false,
+  "limitation": "Checks the callback ABI and behavior; does not execute Android Sherpa synthesis."
+}

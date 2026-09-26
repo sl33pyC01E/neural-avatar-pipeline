@@ -29,14 +29,14 @@ public final class ResidentService extends Service {
     private ArdySampler sampler;
     private String loadedProfile;
     private PocketAnna pocket;
-    private LamDriver lam;
+    private volatile String activeTab="pocket";
     private volatile long audioWritten;
     private Embeddings embeddings;
     private JSONObject heldMotion;
 
     @Override public void onCreate() {
         super.onCreate();
-        embeddings=new Embeddings(this);pocket=new PocketAnna(this);lam=new LamDriver(this);
+        embeddings=new Embeddings(this);pocket=new PocketAnna(this);
         NotificationManager notifications=getSystemService(NotificationManager.class);
         NotificationChannel channel=new NotificationChannel("resident","Cleopatra availability",NotificationManager.IMPORTANCE_LOW);
         channel.setSound(null,null);notifications.createNotificationChannel(channel);
@@ -66,6 +66,7 @@ public final class ResidentService extends Service {
                 .put("core8",modelsPresent("core8")).put("core40",modelsPresent("core40"))
                 .put("lastProfile",getSharedPreferences("runtime",MODE_PRIVATE).getString("profile","core40"))
                 .put("lastEmbedding",getSharedPreferences("runtime",MODE_PRIVATE).getString("embedding",""))
+                .put("pocketStage",getSharedPreferences("runtime",MODE_PRIVATE).getString("pocketStage","Ready for your speech test"))
                 .put("backend","CPU").put("memoryBudgetMiB",budgetMiB());
             publish(status);
         } catch(Exception error){error(error);}
@@ -73,7 +74,15 @@ public final class ResidentService extends Service {
     private boolean modelsPresent(String id) {
         File root=new File(getFilesDir(),"ardy-models/"+id+"-onnx");return new File(root,"denoiser.onnx").isFile()&&new File(root,"decoder.onnx").isFile();
     }
+    public synchronized void tab(String value) {
+        if(!"avatar".equals(value)&&!"pocket".equals(value)&&!"face".equals(value))return;
+        if(activeTab.equals(value))return;
+        activeTab=value;stopSpeech();pauseMotion();
+        // Tab 2 runs no motion sessions; Tab 3 remains the next isolated milestone.
+        if(!"avatar".equals(value))motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});
+    }
     public synchronized void configureMotion(String profile,String embeddingId,String streamId) {
+        if(!"avatar".equals(activeTab)||stopping)return;
         if(!"core8".equals(profile)&&!"core40".equals(profile)){error(new IllegalArgumentException("Unknown Ardy profile"));return;}
         if(streamId==null||streamId.isEmpty()||streamId.length()>128){error(new IllegalArgumentException("Invalid motion stream"));return;}
         boolean newRun=this.embeddingId==null||!this.profile.equals(profile)||!streamId.equals(this.streamId);
@@ -85,7 +94,7 @@ public final class ResidentService extends Service {
     public synchronized void stopMotion() { embeddingId=null;epoch++;heldMotion=null; }
     public void pauseMotion(){motionPaused=true;motionWorker.execute(this::saveMotion);}
     public synchronized boolean nextMotion() {
-        if(stopping||!visible||motionPaused||embeddingId==null||embeddingBusy.get())return false;
+        if(stopping||!visible||!"avatar".equals(activeTab)||motionPaused||embeddingId==null||embeddingBusy.get())return false;
         if(heldMotion!=null) { JSONObject held=heldMotion;heldMotion=null;publish(held);return true; }
         if(!motionBusy.compareAndSet(false,true))return false;
         final long requestedEpoch=epoch;final String requestedProfile=profile,requestedEmbedding=embeddingId,requestedStream=streamId;
@@ -117,7 +126,7 @@ public final class ResidentService extends Service {
         return true;
     }
     public synchronized void createEmbedding(String text) {
-        if(stopping||!visible||!embeddingBusy.compareAndSet(false,true))return;
+        if(stopping||!visible||!"avatar".equals(activeTab)||!embeddingBusy.compareAndSet(false,true))return;
         embeddingWorker.execute(()->{
             try {
                 // The 4.6 GB GGUF is the largest demand. Give it room before inference.
@@ -127,54 +136,58 @@ public final class ResidentService extends Service {
             finally{embeddingBusy.set(false);emit("ready","");trimIfOverBudget();}
         });
     }
-    public synchronized void speak(String text) {
-        if(stopping||!visible)return;
+    public synchronized void speak(String text,int threads,int steps,int chunkSize) {
+        if(stopping||!visible||!"pocket".equals(activeTab))return;
         if(embeddingBusy.get()){emit("speechBusy","Wait for the embedding or model import to finish");return;}
         if(!speechBusy.compareAndSet(false,true)){emit("speechBusy","Anna is already speaking or preparing speech");return;}
         cancelled.set(false);
         speechWorker.execute(()->{
+            String outcome="Anna ready";
             try {
                 if(cancelled.get())return;
                 if(text==null||text.trim().isEmpty())throw new IllegalArgumentException("Enter something for Anna to say");
-                audioWritten=0;emit("speechStart","Anna is preparing speech…");
-                lam.warm();lam.reset();if(cancelled.get())return;
+                audioWritten=0;emit("speechStart","Preparing PocketTTS only…");
+                // Finish releasing motion work before beginning the isolated speech run.
+                motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
+                if(cancelled.get())return;
                 final long[] written={0};
-                pocket.synthesize(text,cancelled,(samples,rate)->{
+                JSONObject metrics=pocket.synthesize(text,threads,steps,chunkSize,cancelled,this::pocketStage,(samples,rate)->{
                     if(cancelled.get())return;
-                    for(int start=0;start<samples.length;start+=24000) {
-                        if(cancelled.get())return;
-                        float[] chunk=java.util.Arrays.copyOfRange(samples,start,Math.min(samples.length,start+24000));
-                        publish(lam.next(chunk,rate));
                     AudioTrack track=audio;
                     if(track==null) {
                         int bytes=Math.max(rate/2*4,AudioTrack.getMinBufferSize(rate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_FLOAT));
                         track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                             .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                             .setBufferSizeInBytes(bytes).setTransferMode(AudioTrack.MODE_STREAM).build();
-                        audio=track;track.play();emit("speech","Anna is speaking");
+                        if(track.getState()!=AudioTrack.STATE_INITIALIZED){track.release();throw new IOException("Audio output did not initialize");}
+                        audio=track;track.play();pocketStage("Anna is speaking");
                     }
                     int offset=0;
-                    while(offset<chunk.length&&!cancelled.get()) {
-                        int count=track.write(chunk,offset,Math.min(2048,chunk.length-offset),AudioTrack.WRITE_NON_BLOCKING);
+                    while(offset<samples.length&&!cancelled.get()) {
+                        int count=track.write(samples,offset,Math.min(2048,samples.length-offset),AudioTrack.WRITE_NON_BLOCKING);
                         if(count<0)throw new IOException("Audio playback write failed: "+count);
                         if(count==0){Thread.sleep(5);continue;}
                         offset+=count;written[0]+=count;audioWritten=written[0];
                     }
-                    }
                 });
+                if(metrics!=null)publish(metrics);
                 AudioTrack track=audio;
                 if(track!=null&&!cancelled.get()) {
-                    // Only waits during actual playback. The playback head is also the future LAM clock.
+                    // Only waits during actual playback; no idle polling or wake lock.
                     long remaining=Math.max(0,written[0]-Integer.toUnsignedLong(track.getPlaybackHeadPosition()));
                     long deadline=SystemClock.elapsedRealtime()+remaining*1000/track.getSampleRate()+2000;
                     while(!cancelled.get()&&Integer.toUnsignedLong(track.getPlaybackHeadPosition())<written[0]&&SystemClock.elapsedRealtime()<deadline)Thread.sleep(20);
                 }
-            }catch(Exception failure){if(!cancelled.get())error(failure);}
+            }catch(Exception|LinkageError failure){outcome="Pocket error: "+(failure.getMessage()==null?failure.toString():failure.getMessage());}
             finally {
                 AudioTrack track=audio;audio=null;if(track!=null){try{track.stop();}catch(IllegalStateException ignored){}track.release();}
-                speechBusy.set(false);emit("speechEnd",cancelled.get()?"Speech stopped":"Anna ready");trimIfOverBudget();
+                speechBusy.set(false);String message=cancelled.get()?"Speech stopped":outcome;pocketStage(message);emit("speechEnd",message);trimIfOverBudget();
             }
         });
+    }
+    private void pocketStage(String message) {
+        getSharedPreferences("runtime",MODE_PRIVATE).edit().putString("pocketStage",message).apply();
+        emit("pocketStage",message);
     }
     public void stopSpeech() {
         cancelled.set(true);AudioTrack track=audio;
@@ -202,10 +215,10 @@ public final class ResidentService extends Service {
     private File checkpoint(){return new File(getFilesDir(),"ardy-state/"+loadedProfile+".bin");}
     private void saveMotion(){if(sampler!=null)try{sampler.save(checkpoint());}catch(IOException failure){emit("stateWarning","Could not save motion context");}}
     private void trimIfOverBudget(){if(Debug.getPss()/1024>budgetMiB())trim();}
-    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(()->{pocket.close();lam.close();});}
+    private void trim(){if(stopping)return;motionWorker.execute(()->{if(sampler!=null)sampler.close();});speechWorker.execute(pocket::close);}
     private void releaseWarmSessions() throws Exception {
         motionWorker.submit(()->{if(sampler!=null)sampler.close();}).get();
-        speechWorker.submit(()->{pocket.close();lam.close();}).get();
+        speechWorker.submit(pocket::close).get();
     }
     @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
@@ -218,7 +231,7 @@ public final class ResidentService extends Service {
     private void publish(JSONObject message){main.post(()->{Listener current=listener;if(current!=null)current.event(message);});}
     @Override public void onDestroy() {
         stopping=true;stopMotion();stopSpeech();
-        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(()->{pocket.close();lam.close();});
+        motionWorker.execute(()->{if(sampler!=null){saveMotion();sampler.close();}});speechWorker.execute(pocket::close);
         motionWorker.shutdown();speechWorker.shutdown();embeddingWorker.shutdownNow();listener=null;super.onDestroy();
     }
 }
