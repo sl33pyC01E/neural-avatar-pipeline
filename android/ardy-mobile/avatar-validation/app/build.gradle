@@ -11,17 +11,35 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0-cleopatra-replay'
+        versionCode 2
+        versionName '0.2.0-cleopatra-native'
+        ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
-    androidResources { noCompress += ['vrm'] }
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/runtimeAssets')
+    sourceSets.main.assets.srcDir '../../recovery/assets'
+    sourceSets.main.jniLibs.srcDir '../../recovery/lib'
+    androidResources { noCompress += ['vrm', 'onnx', 'gguf', 'f32', 'i32', 'npy'] }
+    // Sherpa's legacy x86 slice dynamically links another ORT; supported slices are static.
+    packaging { jniLibs { excludes += ['lib/x86/**', 'lib/armeabi-v7a/**'] } }
+}
+
+dependencies {
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.24.3'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.1.0'
+    implementation files('../../payloads/dependencies/sherpa-onnx-static-link-onnxruntime-1.13.8.aar')
 }
 
 tasks.register('checkAvatarPayload') {
     doLast {
         if (!layout.buildDirectory.file('generated/avatarAssets/provenance.json').get().asFile.exists()) {
             throw new GradleException('Run tools/prepare_avatar_validation.py before building.')
+        }
+        if (!layout.buildDirectory.file('generated/runtimeAssets/pocket-tts/manifest.json').get().asFile.exists()) {
+            throw new GradleException('Run tools/prepare_runtime_assets.py before building.');
+        }
+        if (!layout.buildDirectory.file('generated/runtimeAssets/lam/manifest.json').get().asFile.exists()) {
+            throw new GradleException('Export LAM and run tools/prepare_runtime_assets.py before building.');
         }
     }
 }

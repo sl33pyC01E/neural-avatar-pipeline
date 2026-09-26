@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "voice": "anna",
+  "device": "Windows CPU",
+  "sampleRate": 24000,
+  "durationSeconds": 2.994,
+  "generationSeconds": 0.983,
+  "rtf": 0.328,
+  "rms": 0.06058,
+  "peak": 0.49523,
+  "phoneTest": false,
+  "limits": "CPU synthesis produced non-silent audio using Anna reference; no perceptual listening or Android performance qualification."
+}

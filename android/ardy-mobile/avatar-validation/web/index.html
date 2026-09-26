@@ -7,16 +7,29 @@
 *{box-sizing:border-box}body{margin:0;background:#101416;color:#e8f1ee;font:15px system-ui;height:100dvh;overflow:hidden}
 canvas{display:block;position:absolute;width:100%;height:100%;touch-action:none}header{position:absolute;top:24px;left:20px;right:20px;pointer-events:none}
 h1{font-size:24px;font-weight:600;margin:0 0 5px}p{margin:0;color:#aec5bc;font-size:13px;line-height:1.5}
-#panel{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px}
+#panel{position:absolute;bottom:24px;left:16px;right:16px;background:#172321e8;border:1px solid #36554a;border-radius:16px;padding:14px;max-height:calc(100dvh - 235px);overflow:auto}
 #controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}button{color:#dfeee7;background:#253f35;border:1px solid #49785f;border-radius:10px;padding:10px 13px;font:inherit}
 button[aria-pressed=true]{background:#b5d8bd;color:#14251b}#status{white-space:pre-wrap;font:12px/1.5 monospace;color:#b0c6bb}
+details{margin-top:8px}summary{cursor:pointer;color:#c6dbce}#engines{max-height:45dvh;overflow:auto;padding-top:10px}
+input,select{background:#101b19;border:1px solid #49785f;border-radius:8px;color:#e8f1ee;padding:8px;font:inherit;min-width:0;max-width:100%}
+.row{display:flex;gap:6px;margin:7px 0;flex-wrap:wrap}.row input{flex:1}#bank{width:100%}#engine-status{white-space:pre-wrap;font-size:12px;color:#aec5bc}
+button:disabled{opacity:.5}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 <canvas id="scene"></canvas>
-<header><h1>Cleopatra</h1><p>Avatar validation · recovered Ardy motion<br>Drag to orbit · pinch to zoom</p></header>
+<header><h1>Cleopatra</h1><p>Drag to orbit · pinch to zoom</p></header>
 <div id="panel"><div id="controls">
 <button data-mode="replay" aria-pressed="true">Walk + wave</button><button data-mode="rest">Rest pose</button>
 <button data-mode="turn">Turn test</button><button id="skeleton" aria-pressed="false">Skeleton</button>
-<button id="physics" aria-pressed="false">Physics</button></div><div id="status">Loading Cleopatra…</div></div>
+<button id="physics" aria-pressed="false">Physics</button></div><div id="status">Loading Cleopatra…</div>
+<details><summary>Motion &amp; voice</summary><div id="engines">
+<select id="bank" aria-label="Cached motion description"></select>
+<div class="row"><select id="profile" aria-label="Ardy profile"><option value="core40">Core-40</option><option value="core8">Core-8</option></select>
+<button id="live">Start motion</button><button id="stop-motion">Pause motion</button></div>
+<div class="row"><input id="motion-text" maxlength="2000" placeholder="New motion description" aria-label="New motion description"><button id="embed">Cache embedding</button></div>
+<div class="row"><input id="speech-text" maxlength="2000" placeholder="Something for Anna to say" aria-label="Speech text"><button id="speak">Speak</button><button id="quiet">Stop voice</button></div>
+<div class="row"><button id="import">Import model files</button><label>Memory budget <select id="memory" aria-label="Memory budget"><option value="4096">4 GB</option><option value="6144" selected>6 GB</option><option value="8192">8 GB</option></select></label></div>
+<div id="engine-status">Connecting local engines…</div>
+</div></details></div>
 <script type="module" src="./main.mjs"></script>
 </html>

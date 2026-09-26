@@ -1,0 +1,56 @@
+{
+  "models": [
+    {
+      "resetReproducible": true,
+      "frames": 72,
+      "historyCapacityExceeded": true,
+      "maxRotationOrthonormalityError": 7.131602615118027E-7,
+      "maxRootFrameStepM": 0.028370833987333543,
+      "model": "core8",
+      "maxRootHorizonSeamStepM": 0.017815017938565162,
+      "maxBoneLengthErrorM": 3.2478365280530497E-7,
+      "generationMs": [
+        149.9814,
+        140.3682,
+        139.0319,
+        139.9638,
+        136.9676,
+        138.0769,
+        140.0639,
+        139.7691,
+        138.3143
+      ],
+      "steps": 4,
+      "checkpointContinuationExact": true,
+      "horizons": 9
+    },
+    {
+      "resetReproducible": true,
+      "frames": 360,
+      "historyCapacityExceeded": true,
+      "maxRotationOrthonormalityError": 7.358294169534929E-7,
+      "maxRootFrameStepM": 0.005264131501683981,
+      "model": "core40",
+      "maxRootHorizonSeamStepM": 0.004372522113731047,
+      "maxBoneLengthErrorM": 4.2269946010087267E-7,
+      "generationMs": [
+        2192.1308,
+        2179.9105,
+        2194.7946,
+        2202.0008,
+        2178.3718,
+        2156.4137,
+        2180.6381,
+        2193.6036,
+        2213.5285
+      ],
+      "steps": 4,
+      "checkpointContinuationExact": true,
+      "horizons": 9
+    }
+  ],
+  "phoneTest": false,
+  "passed": true,
+  "device": "Windows CPU",
+  "limits": "Numeric continuity checks; no claim of phone speed, visual quality or whole-app integration."
+}

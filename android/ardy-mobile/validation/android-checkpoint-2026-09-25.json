@@ -1,0 +1,45 @@
+{
+  "built": true,
+  "apkSha256": "a9e788f38954400d6477970ca74fec0e250ca23e3bcad58132227184c5f47e98",
+  "apkBytes": 714243777,
+  "nativeLibraries": [
+    "lib/arm64-v8a/libardy_llm2vec.so",
+    "lib/arm64-v8a/libonnxruntime.so",
+    "lib/arm64-v8a/libonnxruntime4j_jni.so",
+    "lib/arm64-v8a/libsherpa-onnx-jni.so"
+  ],
+  "llm2vecNativeMatchesInstalled": true,
+  "bundled": [
+    "Cleopatra VRM",
+    "141 steering embeddings",
+    "PocketTTS + Anna",
+    "LAM 64-frame ONNX"
+  ],
+  "requiresModelImport": [
+    "Ardy Core-8 ONNX",
+    "Ardy Core-40 ONNX",
+    "compatible LLM2Vec GGUF"
+  ],
+  "phoneInstalled": false,
+  "phoneTest": false,
+  "combinedAndroidRuntimeTest": "not run; local emulator hypervisor unavailable; active phone tests prohibited",
+  "limitations": [
+    "LLM2Vec JNI restored byte-for-byte and connected, but not executed in the new package.",
+    "GPU/NPU backend qualification remains pending.",
+    "Pocket/LAM perceptual quality and device audio synchronization require qualification."
+  ],
+  "lintDebug": "passed",
+  "apkSignatureV2": "verified",
+  "sourceFingerprints": {
+    "ArdyModelProfile.java": "462f4722e68071863d3d28593a17300b36931e4e1d54133e565035058b22d027",
+    "ArdyRuntimeData.java": "7c5b7637b512602eab6547ea9bf6af06707398c36efc911342fc44d25e717fc1",
+    "ArdySampler.java": "8ca07f166a1767c7cb27231b3d32592de2b06a88d9fc3c5ec3422dc34c73f051",
+    "Embeddings.java": "1ea20a61ed01381458c80b67fdec72dbddd95912e507f4b3311174d26d475828",
+    "LamDriver.java": "dbc0f1b5404299a80bc1bba5581216fe19551f19eaf967e27f06b839ce3dd78b",
+    "LamPostprocess.java": "96f5b5941bcc4dc971f477498d894ff0989d1b1e7e0f5571d008e9509c88897a",
+    "ModelImporter.java": "73fce7a6c055a7d049f7675429442b5e7e87a0d7d7bbabdb33b74c43f2bd1721",
+    "NativeLlm2Vec.java": "f69777a370b31d38cfe48651c9f0613c6c72beea488678c145a7ac864436372d",
+    "PocketAnna.java": "c77e2d693031e518a530bbec4bfc461e0d7c86ecbe08b298bb09c526e40c576d",
+    "ResidentService.java": "5ca50fa2819fad13ba104b9c43c193a44c48bad3f3634653b616792a0db6f6e2"
+  }
+}

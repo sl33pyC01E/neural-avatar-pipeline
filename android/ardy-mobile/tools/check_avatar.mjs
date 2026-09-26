@@ -1,11 +1,11 @@
 // CPU-only checks using the actual Three-VRM loader and extracted desktop math.
-// Usage: node check_avatar.mjs ASSETS NODE_MODULES ORIGINAL_ZOME REPORT.json
+// Usage: node check_avatar.mjs ASSETS NODE_MODULES ORIGINAL_ZOME REPORT.json [MOTION.json]
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 
-const [assetsArg, modulesArg, originalPath, reportPath] = process.argv.slice(2);
+const [assetsArg, modulesArg, originalPath, reportPath, motionOverride] = process.argv.slice(2);
 if (!reportPath) throw new Error('Expected ASSETS NODE_MODULES ORIGINAL_ZOME REPORT.json');
 const assets = path.resolve(assetsArg), modules = path.resolve(modulesArg);
 const url = relative => pathToFileURL(path.join(modules, relative)).href;
@@ -16,7 +16,7 @@ const moduleSource = (await fs.readFile(path.join(assets, 'retarget.mjs'), 'utf8
   .replace("from 'three'", `from '${url('three/build/three.module.js')}'`);
 const { createRetargeter } = await import('data:text/javascript;base64,' + Buffer.from(moduleSource).toString('base64'));
 const bind = JSON.parse(await fs.readFile(path.join(assets, 'bind.json'), 'utf8'));
-const motion = JSON.parse(await fs.readFile(path.join(assets, 'motion.json'), 'utf8'));
+const motion = JSON.parse(await fs.readFile(motionOverride || path.join(assets, 'motion.json'), 'utf8'));
 
 async function load(file) {
   const loader = new GLTFLoader();

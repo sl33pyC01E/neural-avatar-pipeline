@@ -106,6 +106,15 @@ def prepare(avatar, apk, dependencies, output):
         (output / name).write_text(json.dumps(value, separators=(",", ":")), encoding="utf-8")
     module, source_hash = retarget_source(ROOT / "retargetting/motion-control.js")
     (output / "retarget.mjs").write_text(module, encoding="utf-8")
+    face_source = (ROOT / 'retargetting/motion-control.js').read_text(encoding='utf-8')
+    overlay = face_source[face_source.index('function applyAvatarExpressionOverlay('):face_source.index('function setAvatarExpression(')]
+    face = face_source[face_source.index('function applyUnifiedFaceFrame('):face_source.index('function setViewerMode(')]
+    (output / 'face.mjs').write_text(
+        'export function createFaceDriver(vrm) {\n'
+        'const state={vrm,unifiedFaceMorphs:[],avatarExpressions:new Map(),scheduledAvatarExpressions:new Map(),liveSpeechExpressionDurations:new Map()};\n'
+        'vrm.scene.traverse(mesh=>{if(mesh.isMesh&&mesh.morphTargetDictionary)state.unifiedFaceMorphs.push({mesh,lookup:new Map(Object.entries(mesh.morphTargetDictionary).map(([name,i])=>[name.toLowerCase(),i]))});});\n'
+        + overlay + '\n' + face + '\n'
+        'return {apply:applyUnifiedFaceFrame,clear(){vrm.expressionManager?.resetValues();for(const {mesh} of state.unifiedFaceMorphs)mesh.morphTargetInfluences?.fill(0);vrm.expressionManager?.update();}};\n}\n', encoding='utf-8')
     files = {
         "three.module.js": "three/build/three.module.js",
         "loaders/GLTFLoader.js": "three/examples/jsm/loaders/GLTFLoader.js",
@@ -127,6 +136,7 @@ def prepare(avatar, apk, dependencies, output):
                    "packedSha256": sha(packed), "packedBytes": len(packed)},
         "apkSha256": sha(apk.read_bytes()), "clipSha256": sha(clip_bytes),
         "retargetSource": "retargetting/motion-control.js", "retargetCoreSha256": source_hash,
+        "faceCoreSha256": sha((overlay + face).encode()),
         "dependencies": {name: json.loads((dependencies / name / "package.json").read_text())["version"]
                          for name in ["three", "@pixiv/three-vrm"]},
     }

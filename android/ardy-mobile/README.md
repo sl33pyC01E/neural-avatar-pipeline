@@ -14,6 +14,23 @@ The target avatar is `Zome_Cleopatra_v1.vrm`.
 4. Keep a clean, reproducible Ardy baseline once phone validation passes.
 5. Build the larger application separately in its own repository afterward.
 
+## Current implementation instructions
+
+The user approved the avatar appearance and controls on 2026-09-25. Keep them.
+The user explicitly does not want active tests on their phone. Perform further
+builds and validation on the development machine; do not launch phone apps,
+run phone benchmarks, or automate phone controls without a new explicit request.
+
+Next connect Ardy Core-8/Core-40 and the recovered on-device LLM2Vec backend,
+then PocketTTS with **Anna**, followed by the **LAM facial-expression driver**.
+LAM must consume generated speech and follow the audio playback clock.
+
+The intended lifecycle is continuous availability with aggressive idle sleep:
+retain useful model sessions within a configurable memory budget, avoid dummy
+RAM reservations, stop generation/render/audio work when idle, and persist enough
+state to recover from Android memory reclamation. Memory-pressure callbacks
+should trim cached models safely. No permanent wake lock or periodic idle polling.
+
 ## Cleopatra product direction
 
 Once Cleopatra's VRM is updated, optimized, and correctly retargeted to Ardy's
@@ -26,14 +43,23 @@ The intended components are:
 - the compatible 4-bit GGUF LLM2Vec encoder and a precached steering bank;
 - the Cleo/Cleopatra VRM avatar;
 - PocketTTS for speech output;
-- either Gemma 4 E2B, or Qwen 3.5 2B with faster-whisper/WhisperX;
+- **Qwen 3.5 2B**, including its vision encoder, plus a separate transcription
+  model (the user's preferred direction as of 2026-09-25);
 - a small OpenCode/OpenClaw-style agent scaffold;
 - potentially ChromaDB for persistent storage.
 
-The VLM, speech-recognition implementation, agent scaffold, and storage system
-remain candidates. They have not been selected, integrated, or qualified on the
-phone. This is the next product phase; the current acceptance gate is the
-updated avatar and the clean real-time Ardy baseline.
+Qwen integration must preserve image understanding and bounding boxes, a thinking
+toggle, a separate reasoning-token budget, and a per-image token ceiling. Treat
+grounding coordinates as normalized 0–1000, map them through the source image's
+dimensions and any crop/orientation transform, and preserve the image aspect ratio.
+The 1000-coordinate convention does not require a 1000×1000 input image. Keep the
+matching vision encoder/projector in the model package; a language-only GGUF is
+not the complete VLM. Verify each control against the selected native runtime.
+
+Speech recognition, agent scaffold and storage implementations remain candidates.
+None of these product-phase engines is integrated or qualified on the phone yet.
+See [the acceleration assessment](ACCELERATION.md) for model-specific GPU/NPU
+options and the evidence separating available backends from verified execution.
 
 ## Recovered baseline
 
@@ -61,8 +87,9 @@ The installed avatar renderer uses baked mesh/texture assets and a 21-bone
 retarget rig, rather than loading an arbitrary VRM file. The original Zome render
 and retarget metadata is retained under `recovery/assets/vrm`. Cleopatra's node
 hierarchy, rest transforms, skin joint lists, humanoid mappings, and expression
-mappings match the desktop original, but the baked mobile render assets still
-need to be regenerated for her changed geometry, materials, and accessories.
+mappings match the desktop original. The replacement renderer loads her complete
+VRM directly and uses proper rotational skinning; it does not use the old baked
+mobile skin assets.
 
 ## Recovery contents and limits
 
@@ -121,13 +148,13 @@ still require integration and device qualification.
 
 ## Next implementation checkpoints
 
-1. Recover the original source/signing key where possible; otherwise restore a
-   buildable app from the recovered reference and preserve the installed app.
-2. Export Cleopatra's mobile render assets with recorded source checksums and
-   validate rest-pose skinning before changing animation behavior.
-3. Verify retargeting against the source skeleton and the desktop VRM reference
-   through representative idle, walking, turning, and upper-body motions.
-4. Keep generation and playback asynchronous; preserve motion time and history
-   across single Core-40 horizons and steering changes.
-5. Measure generation, retargeting, render timing, and buffer continuity on the
-   phone. Save the tested build and settings as the clean Ardy baseline.
+The buildable checkpoint now connects rolling Ardy, cached/new LLM2Vec embeddings,
+Anna speech and LAM facial output to the approved renderer. CPU checks cover actual
+Ardy weights and generated-motion retargeting, Pocket synthesis, LAM export parity
+and postprocessing. See the checkpoint README for build steps and exact limits.
+
+Remaining acceptance gates are combined Android runtime qualification, perceptual
+motion/speech/face tuning, memory/thermal behavior and any selected accelerator.
+The user currently prohibits active phone testing; do not run these gates until
+explicitly authorized. Preserve this branch and the original installation, then
+save the qualified clean Ardy baseline before creating the separate product repo.

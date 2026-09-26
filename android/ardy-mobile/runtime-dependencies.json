@@ -1,0 +1,46 @@
+{
+  "files": [
+    {
+      "name": "sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
+      "bytes": 38691998,
+      "sha256": "b22c3fc1b6a45666d28892bb2f7694beeb77a8362d7ebd77c1a5431ec9435471"
+    },
+    {
+      "name": "sherpa-onnx-jvm-1.13.8.jar",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-jvm-1.13.8.jar",
+      "bytes": 187490,
+      "sha256": "77b7b047fade4eadada96b568eb92615049aaf1dc317c7244e46c1ea38b9a63b"
+    },
+    {
+      "name": "sherpa-onnx-native-lib-win-x64-1.13.8.jar",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-native-lib-win-x64-1.13.8.jar",
+      "bytes": 8277046,
+      "sha256": "33fbdbd5410e9ba9bdda94aa164ec8f7825bb49246420d8ce9bdd88219d97039"
+    },
+    {
+      "name": "sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+      "bytes": 98336520,
+      "sha256": "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb"
+    },
+    {
+      "name": "onnxruntime-1.24.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime/1.24.3/onnxruntime-1.24.3.jar",
+      "bytes": 39883073,
+      "sha256": "ca7664d1bec1527606629cdae0803beb124ef47cadd90e2f0201b092141ec107"
+    },
+    {
+      "name": "json-20250517.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517.jar",
+      "bytes": 82710,
+      "sha256": "3ea61b2a06e31edf1c91134fe9106b0ebb16628be169f3db75bc7a2b06b45796"
+    },
+    {
+      "name": "anna.wav",
+      "url": "https://huggingface.co/kyutai/tts-voices/resolve/main/vctk/p228_023_enhanced.wav",
+      "bytes": 804630,
+      "sha256": "0a6de25cf12bf1540beb85979f306a92be81fecc051c547c5395e7e5237a3856"
+    }
+  ]
+}

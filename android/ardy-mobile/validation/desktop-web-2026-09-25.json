@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "phoneTest": false,
+  "bridge": "stub",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "faceFollowsPlaybackClock": true,
+  "realGeneratedMotionFrames": 360,
+  "finiteTransforms": true,
+  "hiddenStopsRenderAndRequests": true,
+  "staticRestStopsRendering": true,
+  "bounds": {
+    "canvasHeight": 323.5,
+    "canvasBottom": 416,
+    "panelTop": 426
+  },
+  "limitations": [
+    "Native Android service/JNI/audio path is not exercised by this browser check.",
+    "No phone timing or thermal claim."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "frames": 360,
+  "humanoidBones": 53,
+  "maxHumanoidMatrixError": 0,
+  "maxBoneLengthError": 2.498001805406602e-16,
+  "maxSkinError": 0,
+  "beforeVertices": 253533,
+  "afterVertices": 144860,
+  "halfTurnRadians": {
+    "hips": 3.141592653589793,
+    "chest": 3.141592653589793,
+    "head": 3.141592653589793
+  },
+  "limitations": [
+    "CPU rig/skinning checks; no inference or GPU timing measured here."
+  ]
+}

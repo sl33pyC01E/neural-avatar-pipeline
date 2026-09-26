@@ -1,0 +1,2180 @@
+{
+  "deviceTests": false,
+  "inferenceTests": false,
+  "models": {
+    "ardy-models/core40-onnx/decoder.onnx": {
+      "file": "decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "5a9ba4e1d1f537c61f91d63d63685f7f2176dffc8b9dd12cc88783d205987d2e",
+      "opsets": {
+        "ai.onnx": 17
+      },
+      "inputs": {
+        "latent_tokens": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_tokens",
+            128
+          ]
+        },
+        "external_cond": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            4
+          ]
+        },
+        "motion_pad_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames"
+          ]
+        }
+      },
+      "outputs": {
+        "output": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            "Sliceoutput_dim_2"
+          ]
+        },
+        "2103": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            "Slice2103_dim_2"
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "latent_tokens",
+        "external_cond",
+        "motion_pad_mask"
+      ],
+      "operators": {
+        "ai.onnx:Add": 78,
+        "ai.onnx:Cast": 39,
+        "ai.onnx:Clip": 1,
+        "ai.onnx:Concat": 110,
+        "ai.onnx:Constant": 615,
+        "ai.onnx:ConstantOfShape": 11,
+        "ai.onnx:Div": 27,
+        "ai.onnx:Equal": 8,
+        "ai.onnx:Erf": 8,
+        "ai.onnx:Expand": 8,
+        "ai.onnx:Gather": 73,
+        "ai.onnx:Gemm": 8,
+        "ai.onnx:Greater": 2,
+        "ai.onnx:LayerNormalization": 16,
+        "ai.onnx:MatMul": 43,
+        "ai.onnx:Mod": 8,
+        "ai.onnx:Mul": 60,
+        "ai.onnx:Not": 3,
+        "ai.onnx:ReduceSum": 1,
+        "ai.onnx:Relu": 1,
+        "ai.onnx:Reshape": 116,
+        "ai.onnx:Round": 1,
+        "ai.onnx:Shape": 75,
+        "ai.onnx:Slice": 35,
+        "ai.onnx:Softmax": 8,
+        "ai.onnx:Sqrt": 24,
+        "ai.onnx:Squeeze": 16,
+        "ai.onnx:Sub": 1,
+        "ai.onnx:Transpose": 64,
+        "ai.onnx:Trilu": 1,
+        "ai.onnx:Unsqueeze": 253,
+        "ai.onnx:Where": 10
+      },
+      "initializerDtypes": {
+        "FLOAT": 102
+      }
+    },
+    "ardy-models/core40-onnx/denoiser.onnx": {
+      "file": "denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "c0745f310b373c93858eb02bb7f30bae0ee139258e608ef4a317e8882e9bfac3",
+      "opsets": {
+        "ai.onnx": 17
+      },
+      "inputs": {
+        "cfg_weight_text": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "cfg_weight_cstr": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "x": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens",
+            148
+          ]
+        },
+        "history_len": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "generation_len": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "history_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames"
+          ]
+        },
+        "generation_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames"
+          ]
+        },
+        "history_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "generation_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "future_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "text_feat": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            4096
+          ]
+        },
+        "timesteps": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "first_heading_angle": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "motion_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames",
+            330
+          ]
+        },
+        "observed_motion": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames",
+            330
+          ]
+        }
+      },
+      "outputs": {
+        "output": {
+          "dtype": "FLOAT",
+          "shape": [
+            "Addoutput_dim_0",
+            "num_tokens",
+            148
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "x",
+        "history_mask",
+        "generation_mask",
+        "history_token_mask",
+        "generation_token_mask",
+        "future_token_mask",
+        "motion_mask",
+        "observed_motion"
+      ],
+      "operators": {
+        "ai.onnx:Add": 173,
+        "ai.onnx:Atan": 2,
+        "ai.onnx:Cast": 72,
+        "ai.onnx:Clip": 1,
+        "ai.onnx:Concat": 130,
+        "ai.onnx:Constant": 797,
+        "ai.onnx:ConstantOfShape": 25,
+        "ai.onnx:Cos": 2,
+        "ai.onnx:Div": 55,
+        "ai.onnx:Equal": 2,
+        "ai.onnx:Erf": 16,
+        "ai.onnx:Expand": 3,
+        "ai.onnx:Gather": 81,
+        "ai.onnx:GatherElements": 2,
+        "ai.onnx:Gemm": 6,
+        "ai.onnx:Greater": 7,
+        "ai.onnx:GreaterOrEqual": 1,
+        "ai.onnx:LayerNormalization": 32,
+        "ai.onnx:Less": 2,
+        "ai.onnx:MatMul": 105,
+        "ai.onnx:Mul": 147,
+        "ai.onnx:Not": 2,
+        "ai.onnx:Or": 2,
+        "ai.onnx:Range": 1,
+        "ai.onnx:Reshape": 83,
+        "ai.onnx:ScatterElements": 2,
+        "ai.onnx:Shape": 93,
+        "ai.onnx:Sigmoid": 2,
+        "ai.onnx:Sin": 2,
+        "ai.onnx:Slice": 83,
+        "ai.onnx:Softmax": 16,
+        "ai.onnx:Split": 1,
+        "ai.onnx:Sqrt": 48,
+        "ai.onnx:Squeeze": 2,
+        "ai.onnx:Sub": 11,
+        "ai.onnx:Tile": 1,
+        "ai.onnx:Transpose": 64,
+        "ai.onnx:Unsqueeze": 227,
+        "ai.onnx:Where": 23
+      },
+      "initializerDtypes": {
+        "FLOAT": 224
+      }
+    },
+    "ardy-models/core8-onnx/decoder.onnx": {
+      "file": "decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "8facfe5cb3cdd1a88db77d65ef9d1c1c18a5deaa3f72c2b5fe17c5564ac8b053",
+      "opsets": {
+        "ai.onnx": 17
+      },
+      "inputs": {
+        "latent_tokens": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_tokens",
+            128
+          ]
+        },
+        "external_cond": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            4
+          ]
+        },
+        "motion_pad_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames"
+          ]
+        }
+      },
+      "outputs": {
+        "output": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            "Sliceoutput_dim_2"
+          ]
+        },
+        "2103": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            "num_frames",
+            "Slice2103_dim_2"
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "latent_tokens",
+        "external_cond",
+        "motion_pad_mask"
+      ],
+      "operators": {
+        "ai.onnx:Add": 78,
+        "ai.onnx:Cast": 39,
+        "ai.onnx:Clip": 1,
+        "ai.onnx:Concat": 110,
+        "ai.onnx:Constant": 615,
+        "ai.onnx:ConstantOfShape": 11,
+        "ai.onnx:Div": 27,
+        "ai.onnx:Equal": 8,
+        "ai.onnx:Erf": 8,
+        "ai.onnx:Expand": 8,
+        "ai.onnx:Gather": 73,
+        "ai.onnx:Gemm": 8,
+        "ai.onnx:Greater": 2,
+        "ai.onnx:LayerNormalization": 16,
+        "ai.onnx:MatMul": 43,
+        "ai.onnx:Mod": 8,
+        "ai.onnx:Mul": 60,
+        "ai.onnx:Not": 3,
+        "ai.onnx:ReduceSum": 1,
+        "ai.onnx:Relu": 1,
+        "ai.onnx:Reshape": 116,
+        "ai.onnx:Round": 1,
+        "ai.onnx:Shape": 75,
+        "ai.onnx:Slice": 35,
+        "ai.onnx:Softmax": 8,
+        "ai.onnx:Sqrt": 24,
+        "ai.onnx:Squeeze": 16,
+        "ai.onnx:Sub": 1,
+        "ai.onnx:Transpose": 64,
+        "ai.onnx:Trilu": 1,
+        "ai.onnx:Unsqueeze": 253,
+        "ai.onnx:Where": 10
+      },
+      "initializerDtypes": {
+        "FLOAT": 102
+      }
+    },
+    "ardy-models/core8-onnx/denoiser.onnx": {
+      "file": "denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "b1c7f632622db28033a8092de3386eedec57ae478c8d2a602a0d4d9643874b3d",
+      "opsets": {
+        "ai.onnx": 17
+      },
+      "inputs": {
+        "cfg_weight_text": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "cfg_weight_cstr": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "x": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens",
+            148
+          ]
+        },
+        "history_len": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "generation_len": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "history_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames"
+          ]
+        },
+        "generation_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames"
+          ]
+        },
+        "history_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "generation_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "future_token_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_tokens"
+          ]
+        },
+        "text_feat": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            4096
+          ]
+        },
+        "timesteps": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "first_heading_angle": {
+          "dtype": "FLOAT",
+          "shape": [
+            1
+          ]
+        },
+        "motion_mask": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames",
+            330
+          ]
+        },
+        "observed_motion": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "num_frames",
+            330
+          ]
+        }
+      },
+      "outputs": {
+        "output": {
+          "dtype": "FLOAT",
+          "shape": [
+            "Addoutput_dim_0",
+            "num_tokens",
+            148
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "x",
+        "history_mask",
+        "generation_mask",
+        "history_token_mask",
+        "generation_token_mask",
+        "future_token_mask",
+        "motion_mask",
+        "observed_motion"
+      ],
+      "operators": {
+        "ai.onnx:Add": 173,
+        "ai.onnx:Atan": 2,
+        "ai.onnx:Cast": 72,
+        "ai.onnx:Clip": 1,
+        "ai.onnx:Concat": 130,
+        "ai.onnx:Constant": 797,
+        "ai.onnx:ConstantOfShape": 25,
+        "ai.onnx:Cos": 2,
+        "ai.onnx:Div": 55,
+        "ai.onnx:Equal": 2,
+        "ai.onnx:Erf": 16,
+        "ai.onnx:Expand": 3,
+        "ai.onnx:Gather": 81,
+        "ai.onnx:GatherElements": 2,
+        "ai.onnx:Gemm": 6,
+        "ai.onnx:Greater": 7,
+        "ai.onnx:GreaterOrEqual": 1,
+        "ai.onnx:LayerNormalization": 32,
+        "ai.onnx:Less": 2,
+        "ai.onnx:MatMul": 105,
+        "ai.onnx:Mul": 147,
+        "ai.onnx:Not": 2,
+        "ai.onnx:Or": 2,
+        "ai.onnx:Range": 1,
+        "ai.onnx:Reshape": 83,
+        "ai.onnx:ScatterElements": 2,
+        "ai.onnx:Shape": 93,
+        "ai.onnx:Sigmoid": 2,
+        "ai.onnx:Sin": 2,
+        "ai.onnx:Slice": 83,
+        "ai.onnx:Softmax": 16,
+        "ai.onnx:Split": 1,
+        "ai.onnx:Sqrt": 48,
+        "ai.onnx:Squeeze": 2,
+        "ai.onnx:Sub": 11,
+        "ai.onnx:Tile": 1,
+        "ai.onnx:Transpose": 64,
+        "ai.onnx:Unsqueeze": 227,
+        "ai.onnx:Where": 23
+      },
+      "initializerDtypes": {
+        "FLOAT": 224
+      }
+    },
+    "pocket/decoder.int8.onnx": {
+      "file": "decoder.int8.onnx",
+      "bytes": 22693618,
+      "sha256": "12b0857402d31aead94df19d6783b4350d1f740e811f3a3202c70ad89ae11eea",
+      "opsets": {
+        "ai.onnx": 14
+      },
+      "inputs": {
+        "latent": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "seq_len",
+            32
+          ]
+        },
+        "state_0": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_1": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            6
+          ]
+        },
+        "state_2": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_3": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            2
+          ]
+        },
+        "state_4": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            6
+          ]
+        },
+        "state_5": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_6": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            2
+          ]
+        },
+        "state_7": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_8": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            0
+          ]
+        },
+        "state_9": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            5
+          ]
+        },
+        "state_10": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_11": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            2
+          ]
+        },
+        "state_12": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_13": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            0
+          ]
+        },
+        "state_14": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            4
+          ]
+        },
+        "state_15": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_16": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            2
+          ]
+        },
+        "state_17": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_18": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            32,
+            0
+          ]
+        },
+        "state_19": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "state_20": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_21": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_22": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "state_23": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_24": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_25": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_26": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            16
+          ]
+        },
+        "state_27": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_28": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            6
+          ]
+        },
+        "state_29": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_30": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            2
+          ]
+        },
+        "state_31": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_32": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            32,
+            0
+          ]
+        },
+        "state_33": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_34": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            2
+          ]
+        },
+        "state_35": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_36": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            4
+          ]
+        },
+        "state_37": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_38": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            2
+          ]
+        },
+        "state_39": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_40": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            0
+          ]
+        },
+        "state_41": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_42": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            5
+          ]
+        },
+        "state_43": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_44": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            2
+          ]
+        },
+        "state_45": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_46": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            0
+          ]
+        },
+        "state_47": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "state_48": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            6
+          ]
+        },
+        "state_49": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "state_50": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_51": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_52": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "state_53": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_54": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_55": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            16
+          ]
+        }
+      },
+      "outputs": {
+        "audio_frame": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            "Convaudio_frame_dim_2"
+          ]
+        },
+        "out_state_0": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_1": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            "Sliceout_state_1_dim_2"
+          ]
+        },
+        "out_state_2": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_3": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            "Sliceout_state_3_dim_2"
+          ]
+        },
+        "out_state_4": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            "Subout_state_4_dim_2"
+          ]
+        },
+        "out_state_5": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_6": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            "Sliceout_state_6_dim_2"
+          ]
+        },
+        "out_state_7": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_8": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            0
+          ]
+        },
+        "out_state_9": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            "Subout_state_9_dim_2"
+          ]
+        },
+        "out_state_10": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_11": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            "Sliceout_state_11_dim_2"
+          ]
+        },
+        "out_state_12": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_13": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            0
+          ]
+        },
+        "out_state_14": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            "Subout_state_14_dim_2"
+          ]
+        },
+        "out_state_15": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_16": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            "Sliceout_state_16_dim_2"
+          ]
+        },
+        "out_state_17": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_18": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            32,
+            0
+          ]
+        },
+        "out_state_19": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "out_state_20": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_21": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_22": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "out_state_23": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_24": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_25": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_26": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            16
+          ]
+        },
+        "out_state_27": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_28": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            6
+          ]
+        },
+        "out_state_29": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_30": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            2
+          ]
+        },
+        "out_state_31": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_32": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            32,
+            0
+          ]
+        },
+        "out_state_33": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_34": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            2
+          ]
+        },
+        "out_state_35": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_36": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            4
+          ]
+        },
+        "out_state_37": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_38": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            2
+          ]
+        },
+        "out_state_39": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_40": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            64,
+            0
+          ]
+        },
+        "out_state_41": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_42": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            5
+          ]
+        },
+        "out_state_43": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_44": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            2
+          ]
+        },
+        "out_state_45": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_46": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            128,
+            0
+          ]
+        },
+        "out_state_47": {
+          "dtype": "BOOL",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_48": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            256,
+            6
+          ]
+        },
+        "out_state_49": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "out_state_50": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_51": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_52": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            8,
+            1000,
+            64
+          ]
+        },
+        "out_state_53": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_54": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_55": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            512,
+            "Sliceout_state_55_dim_2"
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "latent",
+        "state_8",
+        "state_13",
+        "state_18",
+        "state_32",
+        "state_40",
+        "state_46"
+      ],
+      "operators": {
+        "ai.onnx:Add": 44,
+        "ai.onnx:And": 4,
+        "ai.onnx:Cast": 52,
+        "ai.onnx:Concat": 35,
+        "ai.onnx:Constant": 323,
+        "ai.onnx:ConstantOfShape": 2,
+        "ai.onnx:Conv": 9,
+        "ai.onnx:ConvTranspose": 4,
+        "ai.onnx:Cos": 2,
+        "ai.onnx:Div": 12,
+        "ai.onnx:DynamicQuantizeLinear": 8,
+        "ai.onnx:Elu": 10,
+        "ai.onnx:Equal": 2,
+        "ai.onnx:Erf": 2,
+        "ai.onnx:Exp": 2,
+        "ai.onnx:Expand": 8,
+        "ai.onnx:Gather": 51,
+        "ai.onnx:GreaterOrEqual": 6,
+        "ai.onnx:Identity": 39,
+        "ai.onnx:Less": 2,
+        "ai.onnx:LessOrEqual": 2,
+        "ai.onnx:MatMul": 4,
+        "ai.onnx:MatMulInteger": 8,
+        "ai.onnx:Mod": 4,
+        "ai.onnx:Mul": 64,
+        "ai.onnx:Pow": 4,
+        "ai.onnx:Range": 8,
+        "ai.onnx:Reciprocal": 2,
+        "ai.onnx:ReduceMean": 8,
+        "ai.onnx:Reshape": 32,
+        "ai.onnx:ScatterElements": 4,
+        "ai.onnx:ScatterND": 6,
+        "ai.onnx:Shape": 51,
+        "ai.onnx:Sin": 2,
+        "ai.onnx:Slice": 29,
+        "ai.onnx:Softmax": 2,
+        "ai.onnx:Split": 2,
+        "ai.onnx:Sqrt": 10,
+        "ai.onnx:Squeeze": 6,
+        "ai.onnx:Sub": 19,
+        "ai.onnx:Transpose": 17,
+        "ai.onnx:Unsqueeze": 66,
+        "ai.onnx:Where": 8
+      },
+      "initializerDtypes": {
+        "FLOAT": 49,
+        "INT8": 16
+      }
+    },
+    "pocket/encoder.onnx": {
+      "file": "encoder.onnx",
+      "bytes": 72713165,
+      "sha256": "e8f2f6d301ffb96e398b138a7dc6d3038622d236044636b73d920bab85890260",
+      "opsets": {
+        "ai.onnx": 14
+      },
+      "inputs": {
+        "audio": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1,
+            "audio_len"
+          ]
+        }
+      },
+      "outputs": {
+        "latents": {
+          "dtype": "FLOAT",
+          "shape": [
+            "MatMullatents_dim_0",
+            "MatMullatents_dim_1",
+            "latent_len"
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "audio"
+      ],
+      "operators": {
+        "ai.onnx:Add": 27,
+        "ai.onnx:And": 4,
+        "ai.onnx:Cast": 46,
+        "ai.onnx:Concat": 42,
+        "ai.onnx:Constant": 232,
+        "ai.onnx:ConstantOfShape": 15,
+        "ai.onnx:Conv": 12,
+        "ai.onnx:Cos": 2,
+        "ai.onnx:Div": 12,
+        "ai.onnx:Elu": 10,
+        "ai.onnx:Equal": 2,
+        "ai.onnx:Erf": 2,
+        "ai.onnx:Exp": 2,
+        "ai.onnx:Expand": 2,
+        "ai.onnx:Gather": 51,
+        "ai.onnx:GreaterOrEqual": 4,
+        "ai.onnx:Less": 2,
+        "ai.onnx:MatMul": 13,
+        "ai.onnx:Mul": 46,
+        "ai.onnx:Pad": 1,
+        "ai.onnx:Pow": 4,
+        "ai.onnx:Range": 8,
+        "ai.onnx:Reciprocal": 2,
+        "ai.onnx:ReduceMean": 8,
+        "ai.onnx:Reshape": 23,
+        "ai.onnx:Shape": 47,
+        "ai.onnx:Sin": 2,
+        "ai.onnx:Slice": 4,
+        "ai.onnx:Softmax": 2,
+        "ai.onnx:Split": 2,
+        "ai.onnx:Sqrt": 10,
+        "ai.onnx:Squeeze": 6,
+        "ai.onnx:Sub": 12,
+        "ai.onnx:Transpose": 18,
+        "ai.onnx:Unsqueeze": 72,
+        "ai.onnx:Where": 5
+      },
+      "initializerDtypes": {
+        "FLOAT": 44
+      }
+    },
+    "pocket/lm_flow.int8.onnx": {
+      "file": "lm_flow.int8.onnx",
+      "bytes": 9962530,
+      "sha256": "8d627d235c44a597da908e1085ebe241cbbe358964c502c5a5063d18851a5529",
+      "opsets": {
+        "ai.onnx": 14
+      },
+      "inputs": {
+        "c": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            1024
+          ]
+        },
+        "s": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            1
+          ]
+        },
+        "t": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            1
+          ]
+        },
+        "x": {
+          "dtype": "FLOAT",
+          "shape": [
+            "batch",
+            32
+          ]
+        }
+      },
+      "outputs": {
+        "flow_dir": {
+          "dtype": "FLOAT",
+          "shape": [
+            "Gemmflow_dir_dim_0",
+            32
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "c",
+        "s",
+        "t",
+        "x"
+      ],
+      "operators": {
+        "ai.onnx:Add": 70,
+        "ai.onnx:Cast": 30,
+        "ai.onnx:Concat": 2,
+        "ai.onnx:Constant": 71,
+        "ai.onnx:Cos": 2,
+        "ai.onnx:Div": 19,
+        "ai.onnx:DynamicQuantizeLinear": 20,
+        "ai.onnx:Gather": 9,
+        "ai.onnx:Identity": 1,
+        "ai.onnx:MatMulInteger": 26,
+        "ai.onnx:Mul": 117,
+        "ai.onnx:ReduceMean": 25,
+        "ai.onnx:ReduceProd": 2,
+        "ai.onnx:Shape": 9,
+        "ai.onnx:Sigmoid": 9,
+        "ai.onnx:Sin": 2,
+        "ai.onnx:Slice": 20,
+        "ai.onnx:Sqrt": 9,
+        "ai.onnx:Sub": 18
+      },
+      "initializerDtypes": {
+        "FLOAT": 67,
+        "INT8": 52
+      }
+    },
+    "pocket/lm_main.int8.onnx": {
+      "file": "lm_main.int8.onnx",
+      "bytes": 76341079,
+      "sha256": "bfc0c7e7e3d72864fa3bb2ee499f62f21ddc1474b885f5f3ca570f8be73e787e",
+      "opsets": {
+        "ai.onnx": 14
+      },
+      "inputs": {
+        "sequence": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "seq_len",
+            32
+          ]
+        },
+        "text_embeddings": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "text_len",
+            1024
+          ]
+        },
+        "state_0": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_1": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_2": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_3": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_4": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_5": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_6": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_7": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_8": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_9": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_10": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_11": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_12": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_13": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_14": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "state_15": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "state_16": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "state_17": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        }
+      },
+      "outputs": {
+        "conditioning": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1024
+          ]
+        },
+        "eos_logit": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            1
+          ]
+        },
+        "out_state_0": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_1": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_2": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_3": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_4": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_5": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_6": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_7": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_8": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_9": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_10": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_11": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_12": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_13": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_14": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        },
+        "out_state_15": {
+          "dtype": "FLOAT",
+          "shape": [
+            2,
+            1,
+            1000,
+            16,
+            64
+          ]
+        },
+        "out_state_16": {
+          "dtype": "FLOAT",
+          "shape": [
+            0
+          ]
+        },
+        "out_state_17": {
+          "dtype": "INT64",
+          "shape": [
+            1
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "sequence",
+        "text_embeddings",
+        "state_1",
+        "state_4",
+        "state_7",
+        "state_10",
+        "state_13",
+        "state_16"
+      ],
+      "operators": {
+        "ai.onnx:Add": 112,
+        "ai.onnx:Cast": 146,
+        "ai.onnx:Concat": 81,
+        "ai.onnx:Constant": 664,
+        "ai.onnx:ConstantOfShape": 43,
+        "ai.onnx:Cos": 6,
+        "ai.onnx:Div": 31,
+        "ai.onnx:DynamicQuantizeLinear": 26,
+        "ai.onnx:Equal": 36,
+        "ai.onnx:Erf": 6,
+        "ai.onnx:Exp": 6,
+        "ai.onnx:Expand": 48,
+        "ai.onnx:Gather": 119,
+        "ai.onnx:Identity": 6,
+        "ai.onnx:IsNaN": 1,
+        "ai.onnx:LessOrEqual": 6,
+        "ai.onnx:MatMul": 12,
+        "ai.onnx:MatMulInteger": 26,
+        "ai.onnx:Mul": 197,
+        "ai.onnx:Neg": 1,
+        "ai.onnx:Pow": 13,
+        "ai.onnx:Range": 18,
+        "ai.onnx:Reciprocal": 6,
+        "ai.onnx:ReduceMean": 26,
+        "ai.onnx:Reshape": 54,
+        "ai.onnx:ScatterND": 12,
+        "ai.onnx:Shape": 148,
+        "ai.onnx:Sin": 6,
+        "ai.onnx:Slice": 55,
+        "ai.onnx:Softmax": 6,
+        "ai.onnx:Split": 6,
+        "ai.onnx:Sqrt": 31,
+        "ai.onnx:Squeeze": 18,
+        "ai.onnx:Sub": 25,
+        "ai.onnx:Transpose": 24,
+        "ai.onnx:Unsqueeze": 201,
+        "ai.onnx:Where": 43
+      },
+      "initializerDtypes": {
+        "FLOAT": 54,
+        "INT8": 52
+      }
+    },
+    "pocket/text_conditioner.onnx": {
+      "file": "text_conditioner.onnx",
+      "bytes": 16388343,
+      "sha256": "0b84e837d7bfaf2c896627b03e3f080320309f37f4fc7df7698c644f7ba5e6b1",
+      "opsets": {
+        "ai.onnx": 14
+      },
+      "inputs": {
+        "token_ids": {
+          "dtype": "INT64",
+          "shape": [
+            1,
+            "seq_len"
+          ]
+        }
+      },
+      "outputs": {
+        "embeddings": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            "seq_len",
+            1024
+          ]
+        }
+      },
+      "dynamicInputs": [
+        "token_ids"
+      ],
+      "operators": {
+        "ai.onnx:Gather": 1
+      },
+      "initializerDtypes": {
+        "FLOAT": 1
+      }
+    },
+    "lam/lam-window64-24k.onnx": {
+      "file": "lam-window64-24k.onnx",
+      "bytes": 402298879,
+      "sha256": "62db1d8b52b32b63143957955e57a131da88b4f09c68f713f46ff8bb1e655ab1",
+      "opsets": {
+        "ai.onnx": 17
+      },
+      "inputs": {
+        "audio": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            51200
+          ]
+        },
+        "identity": {
+          "dtype": "FLOAT",
+          "shape": [
+            1,
+            12
+          ]
+        }
+      },
+      "outputs": {
+        "expressions": {
+          "dtype": "FLOAT",
+          "shape": [
+            "Sigmoidexpressions_dim_0",
+            "Sigmoidexpressions_dim_1",
+            52
+          ]
+        }
+      },
+      "dynamicInputs": [],
+      "operators": {
+        "ai.onnx:Add": 136,
+        "ai.onnx:Cast": 4,
+        "ai.onnx:Ceil": 1,
+        "ai.onnx:Concat": 55,
+        "ai.onnx:Constant": 336,
+        "ai.onnx:ConstantOfShape": 3,
+        "ai.onnx:Conv": 17,
+        "ai.onnx:Div": 20,
+        "ai.onnx:Equal": 1,
+        "ai.onnx:Erf": 20,
+        "ai.onnx:Expand": 2,
+        "ai.onnx:Flatten": 1,
+        "ai.onnx:Gather": 29,
+        "ai.onnx:GreaterOrEqual": 1,
+        "ai.onnx:InstanceNormalization": 1,
+        "ai.onnx:LayerNormalization": 32,
+        "ai.onnx:MatMul": 99,
+        "ai.onnx:Mul": 54,
+        "ai.onnx:Pad": 1,
+        "ai.onnx:Range": 1,
+        "ai.onnx:Relu": 6,
+        "ai.onnx:Reshape": 57,
+        "ai.onnx:Resize": 1,
+        "ai.onnx:Shape": 33,
+        "ai.onnx:Sigmoid": 1,
+        "ai.onnx:Slice": 5,
+        "ai.onnx:Softmax": 12,
+        "ai.onnx:Tile": 1,
+        "ai.onnx:Transpose": 67,
+        "ai.onnx:Unsqueeze": 108,
+        "ai.onnx:Where": 2
+      },
+      "initializerDtypes": {
+        "FLOAT": 242
+      }
+    }
+  },
+  "binaries": {
+    "installed/libQnnGpu.so": {
+      "bytes": 6366528,
+      "sha256": "b6f5526f9d110c17342dd20be495cdd887e1761aa3ea0bf2e5479f76744d76f2",
+      "qnnStringCount": 229,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libQnnHtp.so": {
+      "bytes": 2642248,
+      "sha256": "429b74453f3dc95c6b94ca20894b4e5f08fbf8604bf339e37ef30fc17819e542",
+      "qnnStringCount": 3537,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libQnnHtpPrepare.so": {
+      "bytes": 83686128,
+      "sha256": "6db1ae82a43610030e3be326f36cf5f5323ed0f2adf4bb9222e5445e98b86e03",
+      "qnnStringCount": 2740,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libQnnHtpV79Skel.so": {
+      "bytes": 16141624,
+      "sha256": "b378e9dc83ab255058ff962b4ed334eaa791869c031e9db1c6ec2c780029ddd0",
+      "qnnStringCount": 804,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libQnnHtpV79Stub.so": {
+      "bytes": 638216,
+      "sha256": "9954e242900de0b40cc7a13c1d28696a3e867aa7584a00afaff8191a12f002eb",
+      "qnnStringCount": 203,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libQnnSystem.so": {
+      "bytes": 2689368,
+      "sha256": "dcdef54ab054072c5713974feada8af8c56558da184b7d9228e2e116aa3c7016",
+      "qnnStringCount": 104,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libardy_llm2vec.so": {
+      "bytes": 5853304,
+      "sha256": "23e5339d22ddf46f1fb4572203160ce4a49f1cdc993745b6600e809d09205193",
+      "qnnStringCount": 0,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": true,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libonnxruntime.so": {
+      "bytes": 23990744,
+      "sha256": "e2a6d0c78ef47a0696495b64b05a1fbc0b85571481215bd0c9051cf8834b7181",
+      "qnnStringCount": 424,
+      "symbolStrings": {
+        "QNNExecutionProvider": true,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "installed/libonnxruntime4j_jni.so": {
+      "bytes": 83152,
+      "sha256": "c11da66294c10ce22542d1f38849d0307c507e32c10d8f2d02d512e2536da328",
+      "qnnStringCount": 0,
+      "symbolStrings": {
+        "QNNExecutionProvider": false,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    },
+    "stock-ort-1.24.3/libonnxruntime.so": {
+      "bytes": 25831632,
+      "sha256": "4d2318b3849abb8862133d3068fc7e807ed8b2671cc6d83657fff2fcb9e1caad",
+      "qnnStringCount": 3,
+      "symbolStrings": {
+        "QNNExecutionProvider": true,
+        "QnnExecutionProvider": false,
+        "ggml_backend_cpu_init": false,
+        "ggml_backend_vk_init": false,
+        "ggml_backend_opencl_init": false,
+        "ggml_backend_hexagon_init": false
+      }
+    }
+  }
+}
