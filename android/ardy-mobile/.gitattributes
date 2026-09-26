@@ -1,0 +1,4 @@
+# These are exact APK-extracted payloads with recorded SHA-256 fingerprints.
+# Preserve original bytes, including line endings in JSON asset metadata.
+recovery/assets/** -text
+recovery/lib/** -text

@@ -14,6 +14,27 @@ The target avatar is `Zome_Cleopatra_v1.vrm`.
 4. Keep a clean, reproducible Ardy baseline once phone validation passes.
 5. Build the larger application separately in its own repository afterward.
 
+## Cleopatra product direction
+
+Once Cleopatra's VRM is updated, optimized, and correctly retargeted to Ardy's
+core body, package a neat, fully self-contained AI Android app named
+**Cleopatra** in its own repository.
+
+The intended components are:
+
+- Ardy Core-8 and Core-40 for motion;
+- the compatible 4-bit GGUF LLM2Vec encoder and a precached steering bank;
+- the Cleo/Cleopatra VRM avatar;
+- PocketTTS for speech output;
+- either Gemma 4 E2B, or Qwen 3.5 2B with faster-whisper/WhisperX;
+- a small OpenCode/OpenClaw-style agent scaffold;
+- potentially ChromaDB for persistent storage.
+
+The VLM, speech-recognition implementation, agent scaffold, and storage system
+remain candidates. They have not been selected, integrated, or qualified on the
+phone. This is the next product phase; the current acceptance gate is the
+updated avatar and the clean real-time Ardy baseline.
+
 ## Recovered baseline
 
 The S25 Ultra's installed APK was copied and inspected on 2026-09-25. Its version
