@@ -78,7 +78,7 @@
       "revision": "4327b7425533c26da2aec1d7b915e9742eead2cb",
       "source": "Qwen3.5-2B-VL_int8.litertlm",
       "provision": false,
-      "purpose": "Local comparison and metadata tooling check; app uses the custom 768/8K export",
+      "purpose": "Premade 512/4K source; app uses a metadata-only repack with the checked conversation template and reasoning channel",
       "file": "Qwen3.5-2B-VL_int8.litertlm",
       "sha256": "f8821e403dcfc939a033f6b2c9633a5d6b78c29a380ca825e0b90a62df61afe5",
       "bytes": 3148905040

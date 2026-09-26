@@ -73,4 +73,4 @@ for engine in ENGINES:
     with patch('sys.argv',['run_phone_benchmark.py','--engine',engine,'--load','idle']),patch('run_phone_benchmark.Device',side_effect=AssertionError('Dry run accessed the phone')),contextlib.redirect_stdout(io.StringIO()) as output:
         main()
     assert json.loads(output.getvalue())['phoneExecution'] is False
-print(json.dumps(dict(passed=True,phoneExecution=False,coordinateScaling=True,malformedOutputsFail=True,silenceScoredSeparately=True,failuresRemainInAccuracyDenominator=True,mockedNativeAndLiteRTTimingAdapters=True,qwenSamplerAndReasoningBudget=True,customQwenSelectedForBothLiteRTBackends=True,allEngineDryRunsAvoidPhone=True)))
+print(json.dumps(dict(passed=True,phoneExecution=False,coordinateScaling=True,malformedOutputsFail=True,silenceScoredSeparately=True,failuresRemainInAccuracyDenominator=True,mockedNativeAndLiteRTTimingAdapters=True,qwenSamplerAndReasoningBudget=True,qwenLiteRTSelectedForBothBackends=True,allEngineDryRunsAvoidPhone=True)))

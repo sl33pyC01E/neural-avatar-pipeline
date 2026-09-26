@@ -48,7 +48,7 @@ public final class BenchmarkService extends Service {
                     case "load":
                         closeEngine();
                         modelName=config.getString("model");backendName=config.getString("backend");
-                        qwen=modelName.equals("Qwen3.5-2B-Cleo-768-8k-int8.litertlm");
+                        qwen=modelName.equals("Qwen3.5-2B-Cleo-512-4k-int8.litertlm");
                         if(!qwen&&!modelName.equals("gemma-4-E2B-it.litertlm"))throw new IllegalArgumentException("Unknown benchmark model");
                         File model=privateFile(modelName);
                         Backend backend;
@@ -56,7 +56,7 @@ public final class BenchmarkService extends Service {
                         else if("gpu".equals(backendName))backend=new Backend.GPU();
                         else throw new IllegalArgumentException("Only CPU/GPU backends are available in this adapter");
                         Backend vision="gpu".equals(backendName)?new Backend.GPU():new Backend.CPU(2,null);
-                        engine=new Engine(new EngineConfig(model.getPath(),backend,vision,qwen?null:new Backend.CPU(2,null),qwen?8192:4096,qwen?1:8,getCacheDir().getPath()));
+                        engine=new Engine(new EngineConfig(model.getPath(),backend,vision,qwen?null:new Backend.CPU(2,null),4096,qwen?1:8,getCacheDir().getPath()));
                         engine.initialize();result.put("loadMs",elapsed(started));break;
                     case "infer":
                         if(engine==null||!engine.isInitialized())throw new IllegalStateException("Load a model first");
@@ -66,7 +66,7 @@ public final class BenchmarkService extends Service {
                 }
                 result.put("model",modelName).put("backendRequested",backendName).put("runtime","LiteRT-LM 0.17.1")
                     .put("pid",android.os.Process.myPid()).put("elapsedRealtimeMs",SystemClock.elapsedRealtime())
-                    .put("contextTokens",qwen?8192:4096)
+                    .put("contextTokens",4096)
                     .put("imageBudgetControl","fixed by LiteRT artifact; not exposed by this adapter");
                 Debug.MemoryInfo memory=new Debug.MemoryInfo();Debug.getMemoryInfo(memory);
                 result.put("endPssKb",memory.getTotalPss());

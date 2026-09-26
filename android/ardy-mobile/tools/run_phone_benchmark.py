@@ -19,6 +19,7 @@ import time
 import uuid
 import requests
 from benchmark_score import image_prompt,score_image,score_audio
+from prepare_benchmark import QWEN_LITERT,load_qwen_litert
 
 ROOT=Path(__file__).resolve().parents[1]
 PAYLOAD=ROOT/'payloads/benchmark'
@@ -27,7 +28,6 @@ PACKAGE='ai.cleo.ardyavatarvalidation'
 SERVICE=PACKAGE+'/ai.cleo.ardyavatarvalidation.BenchmarkService'
 ASR_PROMPT='Transcribe this English speech exactly. Return only the spoken words. Return an empty answer for silence.'
 ENGINES=['qwen-whisper','qwen-litert-cpu','qwen-litert-gpu','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu']
-QWEN_LITERT='Qwen3.5-2B-Cleo-768-8k-int8.litertlm'
 
 def chat_sampling(model_family,thinking):
     if model_family=='qwen':
@@ -241,11 +241,9 @@ def main():
     if a.image_tokens<70 or a.image_tokens>2048 or a.reasoning_budget<0 or a.reasoning_budget>512 or a.repeats<1 or a.limit<0:p.error('Invalid budget/repetition limit')
     if a.thinking!=(a.reasoning_budget>0):p.error('Use --thinking together with a positive --reasoning-budget, or leave both disabled')
     if 'litert' in a.engine and a.backend!='cpu':p.error('Select the LiteRT GPU engine, not --backend opencl')
-    custom=None
+    qwen_litert=None
     if a.engine.startswith('qwen-litert'):
-        custom=json.loads((ROOT/'benchmark/qwen-litert/build-receipt.json').read_text())
-        if custom.get('file')!=QWEN_LITERT or not custom.get('graphExported') or custom.get('contextTokens')!=8192 or custom.get('imageSize')!=768 or not custom.get('generationQuality',{}).get('passed') or custom['generationQuality'].get('sha256')!=custom.get('sha256'):
-            raise ValueError('A matching, quality-checked custom Qwen export is required')
+        qwen_litert=load_qwen_litert()
     d=Device(a.adb,a.transport);out=PAYLOAD/'results'/(time.strftime('%Y%m%d-%H%M%S')+'-'+a.engine+'-'+a.load);out.mkdir(parents=True)
     manifest=json.loads((ROOT/'benchmark/fixtures.json').read_text());cases=[]
     for modality in ['image','audio']:
@@ -270,9 +268,9 @@ def main():
         'RSS sums can double-count shared pages. PSS is the ranking metric.',
         'No real taps or sends. Controlled targets/read speech do not establish production accuracy.'])
     if a.backend=='opencl':report['openclRuntime']=json.loads((PAYLOAD/'runtime-opencl.json').read_text())
-    if custom is not None:report['customQwen']=custom
+    if qwen_litert is not None:report['qwenLiteRT']=qwen_litert
     report['samplingPreset']=chat_sampling(a.engine.split('-',1)[0],a.thinking)
-    report['contextTokens']=8192 if a.engine.startswith('qwen-litert') else 4096
+    report['contextTokens']=4096
     try:
         with Monitor(d,[]) as loading:
             if 'litert' in a.engine:

@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "concreteDexCallback": "invoke([F)Ljava/lang/Integer;",
+  "sherpaJniDescriptorMatches": true,
+  "apkSha256": "e40fde0b25a52dae84c2fc8bf0d8c8b83ab9502935129886f4380c434dde2278",
+  "apkBytes": 1097491991,
+  "lamPayloadBundled": true,
+  "lamPayloadHashVerified": true,
+  "packagedWebMatchesSource": true,
+  "repairedEncoderSha256": "f5e1147dd9bd5330b1e3f2ecd8a671d1639f33bf771774e793e476d1698439aa",
+  "allPocketPayloadHashesVerified": true,
+  "packagedModelRuntimes": {
+    "libcleo_llama.so": "93333ae09c375948434a170a39adaa596571f96465ef4e50f85fa654b5c9de57",
+    "libcleo_llama_opencl.so": "cafb2698476c68069880d9075c1651d0d68ed95cf675228db24cac5ced1f9d0f",
+    "libcleo_whisper.so": "8e64ea8edce79a2266adc69b813c6e69ce700a0c8b8b4fd55948d319151ea328",
+    "libcleo_whisperx.so": "cc815d639f22f1c1135d41943c0ff7b524b711b3f4fce68691a231bc93faf7a9"
+  },
+  "phoneTest": false,
+  "limitation": "Verifies packaged ABI and payloads, not Android synthesis/model/browser execution."
+}

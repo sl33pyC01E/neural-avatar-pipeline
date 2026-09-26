@@ -1,12 +1,11 @@
-# In-app models and browser: 0.5.1
+# In-app models and browser: 0.5.2
 
 Tabs 7 and 8 run from **Cleopatra · Avatar Check**. No computer launcher is
 needed after installation and model provisioning. The agent installs; the user
 opens the app and tests it. No phone model execution was performed for this change.
-Version code 12 is installed. WhisperX and full Gemma payloads are verified;
-the custom Qwen artifact is still compiling. Its separate delivery job provisions
-it only after the conversion checks pass, without another APK update. Availability
-is recorded in `payloads/benchmark/qwen-delivery-status.json`.
+Version code 13 selects the premade Qwen 512/4K artifact. WhisperX and full Gemma
+payloads remain available. The custom 768/8K export and its transfer were cancelled
+at the user's request; there is no pending compilation or automatic model transfer.
 
 ## Tab 7: Models
 
@@ -25,7 +24,7 @@ The native runtime keeps one conversation slot and resends its exact conversatio
 prefix with `cache_prompt` enabled. Failed/incomplete turns are excluded from
 history. LiteRT keeps a persistent Conversation. New chat resets history; it does
 not reload the weights. History is in memory, so unloading or process reclamation
-starts a fresh conversation. The custom Qwen LiteRT context is 8,192 tokens; other runtimes use 4,096. Start a new chat when it
+starts a fresh conversation. All current runtimes use a 4,096-token context. Start a new chat when it
 fills. This debug build does not silently summarize or trim the conversation.
 
 Settings expose llama.cpp's minimum and maximum image tokens plus maximum image
@@ -46,8 +45,9 @@ This does not eliminate the 2B model's documented tendency to loop; output and
 reasoning remain bounded. See [Qwen's model notes](https://huggingface.co/Qwen/Qwen3.5-2B#thinking-mode).
 
 CPU and Adreno OpenCL are selectable for both GGUF models. Both models also offer
-LiteRT CPU/GPU. Qwen uses our 768×768 / 576-visual-token / 8K-context build,
-with its thinking channel and a template that retains the exact conversation prefix.
+LiteRT CPU/GPU. Qwen uses the premade 512×512 / 256-visual-token / 4K-context model,
+with a metadata-only repack for its thinking channel and checked conversation template.
+No Qwen weights or compiled graph sections were changed.
 Gemma uses the full audio/vision package on both LiteRT backends: the separate
 `-gpu` artifact is text-only and caused the missing audio encoder failure. OpenCL loading requires evidence of nonzero layer offload in the
 startup log. Backend selection is not a claim of full operator coverage or NPU
@@ -58,7 +58,7 @@ Silero VAD, CTranslate2 INT8 greedy decoding, and wav2vec2 INT8 word alignment,
 all on CPU. Its additional stage times are shown beside total ASR time. It is an
 English native pipeline port without Python, temperature retries, or speaker
 diarization. See [the Android WhisperX implementation](benchmark/WHISPERX_ANDROID.md)
-and [the custom Qwen build](benchmark/qwen-litert/README.md).
+and [the Qwen package](benchmark/qwen-litert/README.md).
 
 The bottom strip reports load time, time to first answer text, response duration,
 Whisper duration, model CPU time, decode rate, sampled PSS and prefix reuse. Missing
@@ -103,7 +103,7 @@ agent tab, and neither navigation accuracy nor autonomous completion is qualifie
 The APK packages three ARM64 executables in its extracted native library folder:
 CPU/OpenCL llama-server and whisper-server, plus the WhisperX JNI library. Models live in private app storage
 under `files/benchmark`, copied and hash-verified by `prepare_benchmark.py --install`.
-Pinned source artifacts and a separately fingerprinted custom Qwen export are
+Pinned source artifacts and a separately fingerprinted premade Qwen repack are
 provisioned; only the selected contender is loaded. This checkpoint is self-contained at runtime, but model provisioning is
 still separate from the APK download. The final distribution bundle is future work.
 
@@ -130,8 +130,8 @@ include model, backend and timestamp and retain the latest twelve files.
 The user reported Gemma CPU and the old text-only LiteRT GPU package loading.
 That does not qualify the full multimodal package or Qwen GPU. Android also
 recorded app-update exits during earlier installations; those are not GPU crash
-evidence. Version 0.5.1 was delivered in one installation, with execution left
-to the user. Adding the finished Qwen model file does not reinstall or start the app.
+evidence. Version 0.5.2 follows the user's request to package the premade Qwen
+artifact, with execution left to the user.
 
 ## Verification
 
@@ -140,8 +140,8 @@ to the user. Adding the finished Qwen model file does not reinstall or start the
   prefix history, media routing, reasoning key, failed streams and action parsing.
 - `check_qwen_litert_quality.py`: native Spark CPU conversion check with eight
   text questions, reasoning on/off retained conversations and two basic images.
-  The reference 512/4K bundle passes after sampling adjustment; the custom
-  768/8K artifact must pass this gate before provisioning.
+  The delivered premade 512/4K bundle has exactly the bytes that passed after
+  sampling adjustment. This does not establish phone performance or GPU coverage.
 - `check_desktop_web.mjs`: CPU-rendered eight-tab UI with a stub Android bridge;
   settings, chat controls, metrics, follow-up actions and compact layouts, plus
   regressions for the existing avatar, face and scheduled speech views.

@@ -1,0 +1,16 @@
+{
+  "provisionedAt": "2026-09-26T19:43:41.380497+00:00",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "file": "files/benchmark/Qwen3.5-2B-Cleo-512-4k-int8.litertlm",
+  "bytes": 3148905040,
+  "sha256": "f8a98ec4431086801e6794a698dca11c374ef8bca1da9245e3cee26b1ceafb47",
+  "imageSize": 512,
+  "visualTokens": 256,
+  "contextTokens": 4096,
+  "usesPrebuiltGraphs": true,
+  "complete": true,
+  "appLaunched": false,
+  "inferenceTest": false,
+  "phoneQualified": false,
+  "verification": "Local, transfer and private model SHA-256 verified"
+}

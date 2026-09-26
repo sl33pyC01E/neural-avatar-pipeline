@@ -15,7 +15,7 @@ export function createModelChat(){
     $('#reasoning-budget').disabled=!$('#chat-reasoning').checked||busy;
     for(const id of ['chat-model','chat-backend','chat-reasoning'])$(`#${id}`).disabled=busy;
     $('#chat-reasoning').disabled=busy;
-    $('#image-token-note').textContent=lite?(qwen?'Cleopatra Qwen LiteRT: 768 × 768 images, 576 visual tokens, 8,192-token context. Reasoning and its budget apply on load. Image size is fixed by this profile.':'Gemma LiteRT uses the full audio/vision package on CPU and GPU. Image allocation is fixed by that artifact; reasoning remains adjustable.'):'Minimum 0 uses the model default. Maximum bounds each image’s token allocation; screenshots keep their aspect ratio. Encoder batch tokens limits image work per batch. Applies on load.';
+    $('#image-token-note').textContent=lite?(qwen?'Premade Qwen LiteRT: 512 × 512 images, 256 visual tokens, 4,096-token context. Reasoning and its budget apply on load. Image size is fixed by this model.':'Gemma LiteRT uses the full audio/vision package on CPU and GPU. Image allocation is fixed by that artifact; reasoning remains adjustable.'):'Minimum 0 uses the model default. Maximum bounds each image’s token allocation; screenshots keep their aspect ratio. Encoder batch tokens limits image work per batch. Applies on load.';
     $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload model':`Load ${qwen?'Qwen + Whisper':'Gemma'}`;
     $('#chat-send').disabled=!loaded||busy||recording||dirty();$('#chat-new').disabled=busy||!loaded;$('#chat-unload').disabled=!loaded&&!busy;
     $('#chat-record').textContent=recording?'Finish recording':'Record';

@@ -18,7 +18,7 @@ ordinary chat and browser operation do not require a computer.
 | Qwen 3.5 2B + Whisper tiny/base/small English | llama.cpp Q4_K_M + FP16 vision projector; whisper.cpp Q5_1 | CPU binaries cross-compiled; optional Adreno OpenCL build for the VLM; user qualification pending |
 | Gemma 4 E2B baseline | Same llama.cpp build; Q4_0 + Q8_0 multimodal projector (vision and audio) | CPU and optional OpenCL; user qualification pending |
 | Gemma 4 E2B mobile | LiteRT-LM 0.17.1, full multimodal artifact on CPU/GPU | The separately named `-gpu` file is text-only; full audio/vision artifact is selected on both backends. User qualification pending |
-| Custom Qwen mobile | LiteRT-LM 0.17.1, 768×768 / 576 visual tokens / 8K | Custom graph export in progress; see `qwen-litert/`. GPU requested backend remains subject to user qualification |
+| Premade Qwen mobile | LiteRT-LM 0.17.1, INT8, 512×512 / 256 visual tokens / 4K | Checked template/reasoning metadata repack; compiled graphs unchanged. CPU/GPU phone qualification pending |
 | faster-whisper | CTranslate2 + Python frontend | Not an installed Android runtime. Do not substitute desktop CPU/CUDA numbers into this phone contest. Android port remains unqualified. |
 | WhisperX native | Silero + CTranslate2 base.en INT8 + wav2vec2 INT8 alignment, CPU | Experimental tab 7 option; native library and Java pipeline built. English, greedy decoding, no diarization. User qualification pending |
 
@@ -32,8 +32,9 @@ runs, not certified as working on the phone.
 
 `models.json` pins ten source model/projector artifacts by repository revision,
 bytes and SHA-256. Nine previously provisioned artifacts have private app copies.
-The community Qwen LiteRT file is a local tooling reference and is not provisioned;
-the custom Qwen build has its own receipt. `whisperx-models.json` pins the extra
+The community Qwen LiteRT source receives only the checked conversation metadata;
+the app uses the resulting `qwen-litert/prebuilt-receipt.json` artifact.
+The custom 768/8K export was cancelled. `whisperx-models.json` pins the extra
 ASR/VAD/alignment files. Only the selected contender is loaded.
 These payloads stay outside Git. App-owned servers bind authenticated localhost;
 the separate browser WebView can access the internet. The optional comparison
@@ -60,7 +61,7 @@ From PowerShell, run this file yourself:
 The wrapper waits for you to prepare the phone. Use `-Load idle` after warming
 Together and pressing Stop all. Keep the app/VRM visible and sessions resident.
 Use `-Backend opencl` with Qwen or Gemma GGUF to compare Adreno, or
-`-Engine gemma-litert-cpu` for the LiteRT CPU candidate. Custom Qwen uses
+`-Engine gemma-litert-cpu` for the LiteRT CPU candidate. Premade Qwen uses
 `-Engine qwen-litert-cpu` or `-Engine qwen-litert-gpu`, with the separately
 resident whisper.cpp engine. WhisperX remains an interactive tab 7 option.
 `-Whisper tiny` or
@@ -70,8 +71,8 @@ set; the default 3 cases per modality × 3 repeats is only a setup check.
 The underlying `tools/run_phone_benchmark.py` does nothing to the phone without
 `--run`. Advanced controls include `--image-tokens`, `--thinking` and
 `--reasoning-budget`. Disable thinking first; compare a bounded thinking variant
-separately. Context is 8192 tokens for custom Qwen LiteRT and 4096 for other
-contenders, output is bounded at 256 plus any reasoning budget, and CPU threads
+separately. Context is 4096 tokens for all current contenders,
+output is bounded at 256 plus any reasoning budget, and CPU threads
 at two. Model-specific sampling matches tab 7, with seed 42; each model's preset
 is retained in the report. LiteRT's image budget is artifact-controlled and
 is explicitly recorded as not adjustable through this adapter.

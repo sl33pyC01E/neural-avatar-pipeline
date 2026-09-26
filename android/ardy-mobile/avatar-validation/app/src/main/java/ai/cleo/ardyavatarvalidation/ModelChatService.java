@@ -96,9 +96,9 @@ public final class ModelChatService extends Service {
         long start=SystemClock.elapsedRealtimeNanos();
         if(backend.startsWith("litert")){
             emit(json("phase","Loading "+(qwen?"Qwen + vision":"Gemma + vision/audio")+" LiteRT…"));boolean gpu=backend.endsWith("gpu");
-            File file=modelFile(qwen?"Qwen3.5-2B-Cleo-768-8k-int8.litertlm":"gemma-4-E2B-it.litertlm");
+            File file=modelFile(qwen?"Qwen3.5-2B-Cleo-512-4k-int8.litertlm":"gemma-4-E2B-it.litertlm");
             Backend selected=gpu?new Backend.GPU():new Backend.CPU(2,null);
-            engine=new Engine(new EngineConfig(file.getPath(),selected,gpu?new Backend.GPU():new Backend.CPU(2,null),qwen?null:new Backend.CPU(2,null),qwen?8192:4096,qwen?1:8,getCacheDir().getPath()));
+            engine=new Engine(new EngineConfig(file.getPath(),selected,gpu?new Backend.GPU():new Backend.CPU(2,null),qwen?null:new Backend.CPU(2,null),4096,qwen?1:8,getCacheDir().getPath()));
             engine.initialize();
             if(qwen){nativeRuntime=new NativeChatRuntime(this);emit(json("phase","Qwen LiteRT ready · loading Whisper…"));nativeRuntime.loadWhisper(asr,message->emit(json("phase",message)));}
         }else{

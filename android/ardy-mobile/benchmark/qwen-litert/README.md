@@ -1,4 +1,33 @@
-# Cleopatra Qwen LiteRT build
+# Cleopatra Qwen LiteRT package
+
+## Active package: premade 512/4K
+
+The user cancelled the custom graph export on September 26. Its Spark workspace,
+container and unused image were deleted; the finishing and transfer jobs are
+stopped. Do not resume that export without a new user request.
+
+The app now uses `Qwen3.5-2B-Cleo-512-4k-int8.litertlm`: **512×512 input images,
+256 visual tokens, 4,096 context tokens**. Image size and context capacity come
+from the premade graph. Context includes conversation, image tokens, reasoning
+and the answer. CPU and GPU are selectable; actual phone coverage is unqualified.
+
+Source: `litert-community/Qwen3.5-2B`, revision
+`4327b7425533c26da2aec1d7b915e9742eead2cb`, `Qwen3.5-2B-VL_int8.litertlm`.
+Only the chat template and thought-channel metadata are changed. Every other
+section, including weights and compiled graphs, is hash-verified unchanged.
+The delivered hash is identical to the file that passed the native reference
+conversation and image checks described below. `prebuilt-receipt.json` records
+the source, preserved sections and generation report. It explicitly sets
+`graphExported: false` and `phoneQualified: false`.
+
+`tools/prepare_qwen_prebuilt.py` promotes that checked local bundle under its
+delivery name and verifies source, template and bundle hashes. To reproduce it
+from the source download, use `repack_qwen_litert.py` with `chat.jinja`, then the
+native quality gate and the metadata/quality reports referenced by the promotion
+script. `prepare_benchmark.py --install` provisions the premade artifact; it no
+longer requires a custom graph build. Provisioning never starts phone code.
+
+## Cancelled custom export recipe
 
 Requested profile: **768×768, 576 visual tokens, 8,192 context tokens**.
 `profile.json` pins the original Qwen checkpoint and the converter/fork revisions.

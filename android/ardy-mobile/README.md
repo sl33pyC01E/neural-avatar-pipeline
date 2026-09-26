@@ -4,21 +4,22 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.5.1
+## Latest checkpoint: 0.5.2
 
-The **0.5.1 model-loading update** is installed, without launching it. It repairs the
-Whisper server arguments, selects Gemma's complete audio/vision LiteRT artifact,
-adds an experimental native WhisperX option, and prepares Qwen LiteRT CPU/GPU at
-768×768 / 576 visual tokens / 8K context. The phone has the verified WhisperX
-payloads and full Gemma audio/vision file. `validation/installation-model-loading-2026-09-26.json`
-records version code 12 and confirms the original Ardy app is preserved.
+The **0.5.2 Qwen prebuilt update** uses the premade Qwen LiteRT model on CPU/GPU:
+**512×512 images, 256 visual tokens and a 4,096-token context**. The conversation
+template and thought-channel metadata retain the checked reasoning toggle,
+budget and prefix behavior; weights and compiled graph sections are unchanged.
+It retains the 0.5.1 Whisper-server repair, full Gemma audio/vision package and
+experimental native WhisperX option. The original Ardy app is preserved.
+Version code 13 and the Qwen private model are installed and hash-verified;
+the agent did not launch the app or run phone inference. Installation and
+provisioning receipts are under `validation/*qwen-prebuilt-2026-09-26.json`.
 
-Custom Qwen delivery proceeds separately from the APK: its vision export passes
-the numerical check, and the decoder is compiling on Spark. A one-shot delivery
-job waits for the completed artifact and native correctness checks, then copies
-and hash-verifies it on the same phone without restarting the app. Its live
-status is `payloads/benchmark/qwen-delivery-status.json`; only `ready` means the
-custom model has been provisioned. See
+The user cancelled the custom 768/8K export because of its compilation time.
+The Spark compiler, finishing job and Windows transfer queue were stopped;
+the owned workspace, container and unused image were removed (about 17.6 GB).
+Do not restart that build without a new user request. See
 [the Qwen build](benchmark/qwen-litert/README.md) and
 [WhisperX Android](benchmark/WHISPERX_ANDROID.md).
 

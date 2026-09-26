@@ -13,6 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'payloads/benchmark'
 REMOTE = '/data/local/tmp/cleopatra-bench'
 PACKAGE = 'ai.cleo.ardyavatarvalidation'
+QWEN_LITERT = 'Qwen3.5-2B-Cleo-512-4k-int8.litertlm'
+
+def load_qwen_litert():
+    receipt=json.loads((ROOT/'benchmark/qwen-litert/prebuilt-receipt.json').read_text(encoding='utf-8'))
+    quality=receipt.get('generationQuality',{})
+    if (receipt.get('file')!=QWEN_LITERT or receipt.get('imageSize')!=512
+        or receipt.get('visualTokens')!=256 or receipt.get('contextTokens')!=4096
+        or receipt.get('graphExported') is not False or not receipt.get('usesPrebuiltGraphs')
+        or not quality.get('passed') or quality.get('sha256')!=receipt.get('sha256')
+        or quality.get('contextTokens')!=4096 or quality.get('imageSize')!=512):
+        raise ValueError('Expected the checked premade Qwen 512-pixel / 4096-token bundle')
+    source=next(row for row in json.loads((ROOT/'benchmark/models.json').read_text())['models'] if row['file']=='Qwen3.5-2B-VL_int8.litertlm')
+    if receipt.get('sourceSha256')!=source['sha256']:raise ValueError('Unexpected premade Qwen source')
+    return receipt
 
 def sha(path):
     with Path(path).open('rb') as stream:
@@ -144,16 +158,7 @@ def main():
         if not a.ndk:p.error('--ndk is required for OpenCL build')
         build_opencl(a.ndk)
     if a.install:
-        custom_receipt=ROOT/'benchmark/qwen-litert/build-receipt.json'
-        if not custom_receipt.is_file():
-            p.error('The custom Qwen LiteRT build receipt is required before provisioning this app version')
-        custom=json.loads(custom_receipt.read_text(encoding='utf-8'))
-        if custom.get('imageSize')!=768 or custom.get('contextTokens')!=8192 or not custom.get('graphExported'):
-            p.error('Expected the custom 768-pixel / 8192-token Qwen graph export')
-        quality=custom.get('generationQuality',{})
-        if not quality.get('passed') or quality.get('sha256')!=custom.get('sha256'):
-            p.error('The custom Qwen bundle must pass its native conversion-quality gate before provisioning')
-        install(a.adb,a.transport,[*[model for model in models if model.get('provision',True)],custom])
+        install(a.adb,a.transport,[*[model for model in models if model.get('provision',True)],load_qwen_litert()])
     elif a.install_runtimes_only:install(a.adb,a.transport,[])
 
 if __name__=='__main__':main()

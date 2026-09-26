@@ -1,0 +1,11 @@
+{
+  "completedAt": "2026-09-26T19:37:47.877206+00:00",
+  "workspace": "/home/sleepy/cleopatra-qwen-litert",
+  "workspaceBytesRemoved": 16266166272,
+  "containerWritableBytesRemoved": 1246988832,
+  "baseImageRemoved": true,
+  "baseImageBytes": 124356299,
+  "workspaceAbsent": true,
+  "otherProjectsModified": false,
+  "sharedCachesPruned": false
+}
