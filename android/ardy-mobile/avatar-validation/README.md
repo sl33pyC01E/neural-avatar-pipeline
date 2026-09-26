@@ -141,9 +141,11 @@ reservation or a hard allocator cap. Memory pressure closes warm sessions safely
 LLM2Vec uses the original opaque JNI contract; its internal caching/cancellation
 behavior has not been qualified in the restored app.
 
-Pocket audio now goes directly to AudioTrack. No LAM driver is constructed in the
-resident service. The retained LAM implementation is for the next milestone;
-its frames carry audio sample timestamps for the renderer's AudioTrack clock.
+Pocket audio goes directly to AudioTrack. Tab 2 isolates Pocket; tabs 3, 4 and 6
+use the resident LAM driver. Its frames carry audio sample timestamps for the
+renderer’s AudioTrack clock. Tab 6 schedules speech/face at an adjustable cue
+on fresh Ardy motion and eases to a held pose after an adjustable tail; see
+`../SCHEDULED_TAKES.md`. Tab 4 starts speech/face immediately after preparation.
 The shared desktop facial mapping is extracted verbatim with a checksum. LAM uses
 the original 64-frame context, silence/blending/SG/symmetry processing and separate
 random blinks. Its exported sinc resampler differs from the desktop librosa/soxr
@@ -170,8 +172,9 @@ python tools/install_checkpoint.py --adb "PATH/TO/adb.exe" --transport TRANSPORT
 
 The user opens **Cleopatra · Avatar Check** at tab 2 and presses **Speak** to test
 Anna alone. Runtime tuning exposes CPU threads, flow steps and decoder chunk size.
-The next run reuses warm sessions and the Anna voice cache. Tab 1 holds Ardy controls
-and its embedding submenu. Installation and checksums are not inference qualification.
+The next run reuses warm sessions and the Anna voice cache. Tab 5 holds Ardy controls
+and its embedding submenu; tab 1 is Welcome. Installation and checksums
+are not inference qualification.
 
 The matching signing key is still required to replace the original Ardy Mobile
 package. Never uninstall it or clear its model/embedding storage. GPU/NPU routes

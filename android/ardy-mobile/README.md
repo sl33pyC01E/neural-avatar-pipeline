@@ -162,10 +162,12 @@ still require integration and device qualification.
 The checkpoint separates the debug modules into tabs. Pocket runs alone on tab 2;
 tab 3 prepares LAM facial animation from the last completed Anna clip, then replays
 the same PCM with audio-clock synchronization and independent amplitude controls.
-Rolling Ardy and the embedding submenu remain on tab 1. The user's quality report
+Tab 1 is Welcome, tab 4 combines speech and face, tab 5 holds rolling Ardy and
+the embedding submenu, and tab 6 runs Together. The user's quality report
 led to repairing an encoder export that cropped Anna's conditioning to 1.04 seconds
 and correcting the distinction between raw callbacks and finalized pause-shortened
 audio. See `POCKET_DEBUG.md` for evidence and the remaining perceptual checks.
+See `SCHEDULED_TAKES.md` for tab 6's shared audio clock, speech cue and motion tail.
 
 Remaining acceptance gates are combined Android runtime qualification, perceptual
 motion/speech/face tuning, memory/thermal behavior and any selected accelerator.

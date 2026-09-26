@@ -44,12 +44,13 @@ try {
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
     window.Cleo={state(){emit({type:'state',pocketClip:true,lastProfile:'core40',bank:[{id:'bank:check',text:'Recorded Ardy generation'}],llmNative:true,llmModel:true,core8:true,core40:true,memoryBudgetMiB:6144});},
       start(profile,embedding,stream){if(stream!==currentStream)cursor=0;currentProfile=profile;currentStream=stream;window.lastStartedStream=stream;run=true;paused=false;emit({type:'configured'});},stop(){run=false;},pause(){paused=true;},
+      startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.Cleo.start(profile,embedding,stream);},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
       tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
       speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
         emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
-      speakWithFace(...args){window.talkArguments=args;emit({type:'speechStart',tab:window.nativeTab,withFace:true,streamId:'pipe-check',message:'Pipeline check'});},
+      speakWithFace(...args){window.talkArguments=args;window.testClock=-1;emit({type:'speechStart',tab:window.nativeTab,withFace:true,streamId:'pipe-check',cueSeconds:args[6],tailSeconds:args[7],message:'Pipeline check'});},
       animateLastClip(){window.faceRequested=true;},faceReady(run){window.faceReadyRun=run;},quiet(){},memoryBudget(){},importModels(){}};`});
   await call('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
@@ -127,7 +128,7 @@ try {
     document.querySelector('#face-mouth').value='.8';document.querySelector('#face-mouth').dispatchEvent(new Event('input'));window.debugTabs.select('talk')`);
   const beforeTalk=await evaluate('window.bridgeRequests');
   await evaluate(`document.querySelector('#talk-text').value='One complete pipeline';document.querySelector('#talk-send').click()`);await sleep(100);
-  assert.deepEqual(await evaluate('window.talkArguments'),['One complete pipeline',4,5,8,'mixed',false],'Combined speech ignored tab 2 settings');
+  assert.deepEqual(await evaluate('window.talkArguments'),['One complete pipeline',4,5,8,'mixed',false,0,0],'Combined speech ignored tab 2 settings');
   assert.match(await evaluate('document.querySelector("#talk-settings").textContent'),/mouth 0.8×/);
   assert.equal(await evaluate('window.bridgeRequests'),beforeTalk,'Face-only tab ran body inference');
   await evaluate(`window.testClock=.5;window.pipelineFace={type:'face',tab:'talk',withFace:true,prepared:true,streamId:'pipe-check',runId:'window-0',fps:30,startSeconds:0,names:['jawOpen',...Array.from({length:51},(_,i)=>'unused'+i)],frames:Array.from({length:30},()=>[.5,...Array(51).fill(0)])};window.cleoEvent(window.pipelineFace)`);
@@ -146,10 +147,32 @@ try {
   await evaluate(`document.querySelector('#full-text').value='Everything together';document.querySelector('#full-send').click()`);await sleep(350);
   assert(await evaluate('window.bridgeRequests')>beforeTalk,'Together did not start cached Ardy');
   assert.match(await evaluate('document.querySelector("#full-body").textContent'),/core8/,'Together lost selected Ardy profile');
-  await evaluate(`window.testClock=.5;window.cleoEvent({...window.pipelineFace,tab:'full',runId:'full-window'})`);await sleep(120);
+  assert.equal(await evaluate('window.validationState.performance.motionSeconds'),0,'Ardy advanced during speech preparation');
+  assert.equal(await evaluate('window.validationState.performance.origin'),0,'Take did not start at frame zero');
+  assert.deepEqual(await evaluate('window.talkArguments.slice(6)'),[.5,1]);
+  await evaluate(`window.cleoEvent({...window.pipelineFace,tab:'full',runId:'full-window',requiredMotionSeconds:1.5})`);await sleep(200);
   assert.equal(await evaluate('window.faceReadyRun'),'full-window');
+  assert.equal(await evaluate('window.validationState.performance.motionSeconds'),0,'Ardy advanced before AudioTrack started');
+  await evaluate(`window.testClock=.25;window.cleoEvent({type:'talkPlayback',tab:'full',playbackStartMs:1000})`);await sleep(120);
+  assert(Math.abs(await evaluate('window.validationState.performance.motionSeconds')-.25)<1e-5,'Body did not use the audio clock');
+  assert.equal(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")'),0,'Face fired before the cue');
+  await evaluate(`window.testClock=.75`);await sleep(120);
+  assert(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.4)<1e-4,'Face missed the scheduled cue');
+  const anchored=await evaluate('window.validationState.performance.motionSeconds');await sleep(200);
+  assert.equal(await evaluate('window.validationState.performance.motionSeconds'),anchored,'Body advanced while the playback clock was held');
+  await evaluate(`window.cleoEvent({type:'performanceTail',tab:'full',withFace:true,streamId:'pipe-check',runId:'tail-window',audioSeconds:1,requiredMotionSeconds:2.5})`);await sleep(150);
+  assert.equal(await evaluate('window.faceReadyRun'),'tail-window','Tail ran before body coverage');
+  await evaluate(`window.testClock=2.25`);await sleep(120);
+  assert.equal(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")'),0,'Face did not release after speech');
   const fullImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'together-tab.png'),Buffer.from(fullImage.data,'base64'));
-  await evaluate(`window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,message:'Ready'});window.avatarValidation.setMode('rest')`);
+  await evaluate(`window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,completed:true,message:'Ready'})`);await sleep(120);
+  assert.equal(await evaluate('window.validationState.performance.motionSeconds'),2.25,'Scheduled finish skipped or overran the eased endpoint');
+  const stoppedFrame=await evaluate('window.avatarValidation.renderer.info.render.frame');await sleep(200);
+  assert.equal(await evaluate('window.avatarValidation.renderer.info.render.frame'),stoppedFrame,'Completed take kept rendering');
+  await evaluate(`document.querySelector('#full-send').click()`);await sleep(150);
+  assert.equal(await evaluate('window.performanceStarts'),2,'Second take did not start a new motion stream');
+  assert.equal(await evaluate('window.validationState.performance.motionSeconds'),0,'Second take reused the old cursor');
+  await evaluate(`document.querySelector('#full-stop').click();window.cleoEvent({type:'speechEnd',tab:'full',withFace:true,completed:false,message:'Stopped'});window.avatarValidation.setMode('rest')`);
   const bodyOverlay=await evaluate(`(()=>{const {vrm,faceControls:c}=window.avatarValidation,head=vrm.humanoid.getNormalizedBoneNode('head');c.clear();head.quaternion.set(0,.1,0,Math.sqrt(.99));const base=head.quaternion.toArray();c.captureBodyPose();c.set('head',0);c.apply({names:['jawOpen']},[.4],.5,true);const zero=head.quaternion.toArray();c.set('head',1);c.apply({names:['jawOpen']},[.4],.5,true);const once=head.quaternion.toArray();c.apply({names:['jawOpen']},[.4],.5,true);const twice=head.quaternion.toArray();c.clear();return {base,zero,once,twice}})()`);
   assert.deepEqual(bodyOverlay.base,bodyOverlay.zero,'Zero facial head gain erased Ardy head pose');
   assert.notDeepEqual(bodyOverlay.base,bodyOverlay.once);assert.deepEqual(bodyOverlay.once,bodyOverlay.twice,'Facial overlay accumulated on the body pose');
@@ -162,7 +185,7 @@ try {
   const bounds=await evaluate('(()=>{const c=document.querySelector("canvas").getBoundingClientRect(),p=document.querySelector("#panel").getBoundingClientRect();return {canvasHeight:c.height,canvasBottom:c.bottom,panelTop:p.top}})()');
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
-    sixTabsAndWelcome:true,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,talkBounds,
+    sixTabsAndWelcome:true,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};

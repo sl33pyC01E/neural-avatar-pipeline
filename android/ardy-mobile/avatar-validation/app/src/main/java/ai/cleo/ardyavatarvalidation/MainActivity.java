@@ -92,14 +92,15 @@ public final class MainActivity extends Activity implements ResidentService.List
         @JavascriptInterface public void state(){if(engines!=null)engines.state();}
         @JavascriptInterface public void tab(String tab){selectedTab=tab;if(engines!=null)engines.tab(tab);}
         @JavascriptInterface public void start(String profile,String embedding,String stream){if(engines!=null)engines.configureMotion(profile,embedding,stream);}
+        @JavascriptInterface public void startPerformance(String profile,String embedding,String stream){if(engines!=null)engines.configurePerformanceMotion(profile,embedding,stream);}
         @JavascriptInterface public boolean next(){return engines!=null&&engines.nextMotion();}
         @JavascriptInterface public void stop(){if(engines!=null)engines.stopMotion();}
         @JavascriptInterface public void pause(){if(engines!=null)engines.pauseMotion();}
         @JavascriptInterface public void embed(String text){if(engines!=null)engines.createEmbedding(text);}
         @JavascriptInterface public void speak(String text,int threads,int steps,int chunkSize,String precision,boolean buffered){if(engines!=null)engines.speak(text,threads,steps,chunkSize,precision,buffered);}
-        @JavascriptInterface public void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered){
+        @JavascriptInterface public void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds){
             runOnUiThread(()->{if(view!=null)((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(),0);});
-            if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered);
+            if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds);
         }
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}
         @JavascriptInterface public void animateLastClip(){if(engines!=null)engines.animateLastClip();}

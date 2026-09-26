@@ -13,11 +13,12 @@ export function createFaceControls(vrm,driver) {
   let bodyHead=headRest?.clone(),bodyNeck=neckRest?.clone();
   const gaze=vrm.lookAt?.applier,usesEyeBones=gaze?.constructor.type==='bone';
   function resetBones(){head?.quaternion.copy(headRest);neck?.quaternion.copy(neckRest);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
-  function apply(track,values,time,withBody=false) {
+  function apply(track,values,time,withBody=false,weight=1) {
     const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
-    driver.apply({...track,scales:settings,naturalMotion:settings.naturalMotion},values,time);
+    const scales={...settings,eyes:settings.eyes*weight,mouth:settings.mouth*weight,head:settings.head*weight};
+    driver.apply({...track,scales,naturalMotion:settings.naturalMotion},values,time);
     if(settings.naturalMotion) {
-      const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*settings.head,Math.sin(time*.49)*.055*settings.head,Math.sin(time*.31+1.7)*.018*settings.head,'YXZ');
+      const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*scales.head,Math.sin(time*.49)*.055*scales.head,Math.sin(time*.31+1.7)*.018*scales.head,'YXZ');
       const n=new THREE.Euler(h.x*.35,h.y*.3,h.z*.4,'YXZ');
       head?.quaternion.copy(headBase).multiply(new THREE.Quaternion().setFromEuler(h));
       neck?.quaternion.copy(neckBase).multiply(new THREE.Quaternion().setFromEuler(n));
@@ -32,7 +33,11 @@ export function createFaceControls(vrm,driver) {
     }
     vrm.humanoid.update();vrm.expressionManager?.update();
   }
-  return {settings,apply,captureBodyPose(){bodyHead=head?.quaternion.clone();bodyNeck=neck?.quaternion.clone();},clear(){driver.clear();resetBones();bodyHead=headRest?.clone();bodyNeck=neckRest?.clone();},set(key,value){
+  return {settings,apply,captureBodyPose(){bodyHead=head?.quaternion.clone();bodyNeck=neck?.quaternion.clone();},clear(withBody=false){
+    driver.clear();
+    if(withBody){head?.quaternion.copy(bodyHead);neck?.quaternion.copy(bodyNeck);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
+    else {resetBones();bodyHead=headRest?.clone();bodyNeck=neckRest?.clone();}
+  },set(key,value){
     if(key==='naturalMotion')settings[key]=Boolean(value);
     else if(['eyes','mouth','head'].includes(key)&&Number.isFinite(Number(value)))settings[key]=THREE.MathUtils.clamp(Number(value),0,key==='mouth'?2.5:2);
     try{localStorage.setItem('cleo-face-controls',JSON.stringify(settings));}catch{}

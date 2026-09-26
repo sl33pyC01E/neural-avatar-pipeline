@@ -77,6 +77,9 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <section id="full-panel" class="composer" role="tabpanel" aria-labelledby="tab-full" hidden>
 <form id="full-form"><textarea id="full-text" maxlength="2000" rows="2" aria-label="Text for Cleopatra with body motion" placeholder="Speak with face and body motion…"></textarea><div class="row"><button id="full-send" type="submit" disabled>Send</button><button id="full-stop" type="button">Stop all</button></div></form>
 <div id="full-status" role="status" aria-live="polite">Uses settings from tabs 2, 3 and 5.</div><p id="full-latency" class="hint">Send → playback: —</p><p id="full-body" class="hint"></p>
-<details><summary>Timing and settings</summary><p id="full-settings" class="hint"></p><p id="full-metrics" class="hint">Speech and face run alongside the selected cached Ardy motion.</p></details></section>
+<details><summary>Timing and settings</summary>
+<div class="row"><label>Speech cue (s) <input id="full-cue" type="number" min="0" max="3" step="0.05" value="0.5" style="width:75px"></label><label>Motion tail (s) <input id="full-tail" type="number" min="0.5" max="3" step="0.05" value="1" style="width:75px"></label></div>
+<p class="hint">Each take starts at Ardy frame zero after motion and speech are ready. Speech and face fire at the cue. The body continues through the tail and eases to a stop.</p>
+<p id="full-settings" class="hint"></p><p id="full-metrics" class="hint">One playback clock drives body, voice and face.</p></details></section>
 <script type="module" src="./main.mjs"></script>
 </html>

@@ -3,6 +3,7 @@ import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from './vendor/three-vrm.module.js';
 import { createRetargeter } from './retarget.mjs';
 import { MotionBuffer } from './motion-buffer.mjs';
+import { PerformanceTrack } from './performance-track.mjs';
 import { createFaceDriver } from './face.mjs';
 import { createFaceControls } from './face-controls.mjs';
 
@@ -94,9 +95,11 @@ export async function createAvatarView() {
   document.querySelector('#physics').onclick = e => { physics = !physics; vrm.springBoneManager?.setInitState(); e.target.setAttribute('aria-pressed', physics); invalidate(); };
   let mode = 'replay', started = performance.now();
   const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false,liveStream='';
+  let performanceTrack=null,performanceGate=null,entryPose=null,entryRoot=null,heldRoot=[0,0,0];
   function setMode(value) {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
     if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;liveStream='';}
+    performanceTrack=null;performanceGate=null;entryPose=null;
     mode = value; started = performance.now(); retarget.reset(); vrm.springBoneManager?.setInitState();
     if(value==='rest')status.textContent=`Rest pose · display sleeps until input\n${after.vertices.toLocaleString()} vertices`;
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
@@ -112,9 +115,30 @@ export async function createAvatarView() {
   const engineStatus=document.querySelector('#engine-status'), bank=document.querySelector('#bank');let restoredSelection=false;
   function requestMotion() {
     const horizon=liveProfile==='core40'?40:8;
-    if(mode==='live'&&visible&&!pending&&!liveError&&!livePaused&&liveBuffer.remaining<=horizon+1&&window.Cleo) {
+    const needed=performanceGate?Math.max(horizon+1,(performanceGate.seconds-liveBuffer.seconds)*20+1):horizon+1;
+    if(mode==='live'&&visible&&!pending&&!liveError&&!livePaused&&liveBuffer.remaining<=needed&&liveBuffer.frames.length+horizon<=liveBuffer.capacity&&window.Cleo) {
       pending=true;window.Cleo.next(); // Ready events retry rejected requests; no idle polling.
     }
+  }
+  function performanceReady(){
+    if(!performanceGate||!performanceTrack||liveError||performanceTrack.finished)return;
+    if(liveBuffer.origin!==null&&liveBuffer.origin!==0)throw new Error('Scheduled Ardy track must start at frame zero');
+    if(liveBuffer.covers(performanceGate.seconds)){
+      const ack=performanceGate.ack;performanceGate=null;window.Cleo?.faceReady(ack);
+    }else requestMotion();
+  }
+  function gatePerformance(event){
+    if(!Number.isFinite(event.requiredMotionSeconds)||event.requiredMotionSeconds<0)throw new Error('Invalid scheduled motion window');
+    performanceGate={ack:event.runId,seconds:event.requiredMotionSeconds};performanceReady();
+  }
+  function beginPerformance(event){
+    // Preserve the displayed pose while generation prepares a new frame-zero take.
+    entryPose=Object.values(vrm.humanoid.normalizedHumanBones).map(({node})=>({node,position:node.position.clone(),quaternion:node.quaternion.clone()}));
+    entryRoot=[...heldRoot];
+    liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=document.querySelector('#profile').value;
+    mode='live';liveError=false;livePaused=false;performanceGate=null;
+    performanceTrack=new PerformanceTrack(event.cueSeconds,event.tailSeconds);
+    window.Cleo?.startPerformance(liveProfile,bank.value,liveStream);requestMotion();invalidate();
   }
   const eventHandler=event=>{
     // A queued native result may arrive after a profile switch or a recreated WebView.
@@ -132,7 +156,7 @@ export async function createAvatarView() {
       if(mode!=='live'||event.profile!==liveProfile)return;
       try{liveBuffer.append(event);engineStatus.textContent=`${liveProfile} · ${(event.generationMs/1000).toFixed(2)} s generation · ${(liveBuffer.remaining/20).toFixed(1)} s buffered`;}
       catch(error){liveError=true;window.Cleo?.stop();engineStatus.textContent=error.message;}
-      pending=false;requestMotion();invalidate();
+      pending=false;performanceReady();requestMotion();invalidate();
     } else if(event.type==='ready'||event.type==='configured') {pending=false;requestMotion();}
     else if(event.type==='face') {
       if(!speaking||(faceStream&&event.streamId!==faceStream))return false;
@@ -141,21 +165,36 @@ export async function createAvatarView() {
       for(const frame of event.frames)if(frame.length!==52||frame.some(v=>!Number.isFinite(v)))throw new Error('Invalid LAM expression');
       const previous=faceSegments.at(-1);
       if(previous&&event.startSeconds<previous.startSeconds+previous.frames.length/30-1e-5)throw new Error('Overlapping LAM windows');
-      faceSegments.push(event);if(faceSegments.length>8)throw new Error('LAM playback queue exceeded its bound');invalidate();return true;
+      faceSegments.push(event);if(faceSegments.length>8)throw new Error('LAM playback queue exceeded its bound');invalidate();
+      if(event.tab==='full'&&performanceTrack){gatePerformance(event);return false;}
+      return true;
     }
-    else if(event.type==='speechStart'&&event.withFace){speaking=true;faceStream=event.streamId??null;faceSegments.length=0;faceControls.clear();engineStatus.textContent=event.message;invalidate();}
-    else if(event.type==='speechEnd'){stopFace();engineStatus.textContent=event.message;}
+    else if(event.type==='speechStart'&&event.withFace){
+      if(event.tab==='full')beginPerformance(event);
+      speaking=true;faceStream=event.streamId??null;faceSegments.length=0;faceControls.clear(mode==='live');engineStatus.textContent=event.message;invalidate();
+    }
+    else if(event.type==='performanceTail'){
+      if(!performanceTrack||!speaking||event.streamId!==faceStream)return false;
+      performanceTrack.setSpeechDuration(event.audioSeconds);gatePerformance(event);invalidate();return false;
+    }
+    else if(event.type==='talkPlayback')invalidate();
+    else if(event.type==='speechEnd'){
+      if(performanceTrack&&event.completed){performanceTrack.finish();livePaused=true;performanceGate=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(true);invalidate();}
+      else stopFace();
+      engineStatus.textContent=event.message;
+    }
     else if(event.type==='embedding') {
       const option=document.createElement('option');option.value=event.record.id;option.textContent=event.record.nickname||event.record.text;
       if(![...bank.options].some(o=>o.value===option.value))bank.append(option);bank.value=option.value;engineStatus.textContent='Embedding cached';
     }
     else if(event.message) {
       engineStatus.textContent=event.message;
-      if(event.type==='motionError'||event.type==='stopped'){liveError=true;pending=false;window.Cleo?.stop();invalidate();}
+      if(event.type==='motionError'||event.type==='stopped'){liveError=true;pending=false;window.Cleo?.stop();if(performanceTrack){window.Cleo?.quiet();stopFace();}invalidate();}
     }
     fitViewport();
   };
   function startMotion(){
+    performanceTrack=null;performanceGate=null;entryPose=null;
     const selected=document.querySelector('#profile').value;
     if(mode!=='live'||selected!==liveProfile||liveError){liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();setMode('live');}
     liveProfile=selected;liveError=false;livePaused=false;window.Cleo?.start(selected,bank.value,liveStream);requestMotion();invalidate();
@@ -167,6 +206,7 @@ export async function createAvatarView() {
   document.querySelector('#memory').onchange=e=>window.Cleo?.memoryBudget(Number(e.target.value));
   if(!window.Cleo)engineStatus.textContent='Native engines are available in the Android app.';
   const standing = bind.restJoints[0][1] - Math.min(...bind.restJoints.map(p => p[1]));
+  heldRoot=[0,standing,0];
   let last = performance.now(), reportAt = last, ticks = 0, samples = [];
   Object.assign(window.validationState,{ready:true,before,after,provenance,alignment});
   console.log('CLEO_READY ' + JSON.stringify(window.validationState));
@@ -175,9 +215,10 @@ export async function createAvatarView() {
     const workStarted = performance.now();
     const dt = Math.min((now-last)/1000, .05); last = now;
     const elapsed = Math.max(0,now - started)/1000;
-    const currentRoot = [0, standing, 0];let bodyApplied=false;
+    const trackClock=performanceTrack?performanceTrack.sample(window.Cleo?.playbackSeconds()??-1):null;
+    const currentRoot = performanceTrack?[...heldRoot]:[0, standing, 0];let bodyApplied=false;
     if(mode==='live') {
-      const sample=liveBuffer.sample(liveError||livePaused?0:dt);
+      const sample=performanceTrack?(performanceTrack.started?liveBuffer.sampleAt(trackClock.bodySeconds):null):liveBuffer.sample(liveError||livePaused?0:dt);
       if(sample) {
         const {a,b,alpha}=sample;
         const joints=a.joints.map((p,j)=>p.map((v,k)=>THREE.MathUtils.lerp(v,b.joints[j][k],alpha)));
@@ -185,6 +226,12 @@ export async function createAvatarView() {
         a.quaternions??=a.rotations.map(matrixQuaternion);b.quaternions??=b.rotations.map(matrixQuaternion);
         const local=a.quaternions.map((q,j)=>toMatrix(q.clone().slerp(b.quaternions[j],alpha)));
         retarget.apply(joints,currentRoot,local);
+        if(entryPose&&trackClock.entryWeight<1){
+          for(const saved of entryPose){saved.node.position.lerpVectors(saved.position,saved.node.position,trackClock.entryWeight);saved.node.quaternion.slerpQuaternions(saved.quaternion,saved.node.quaternion.clone(),trackClock.entryWeight);}
+          for(let k=0;k<3;k++)currentRoot[k]=THREE.MathUtils.lerp(entryRoot[k],currentRoot[k],trackClock.entryWeight);
+          vrm.humanoid.update();
+        }
+        if(entryPose&&trackClock.entryWeight>=1)entryPose=null;
         bodyApplied=true;
       }
       requestMotion();
@@ -204,18 +251,20 @@ export async function createAvatarView() {
     if(bodyApplied)faceControls.captureBodyPose();
     // Dynamics are opt-in so geometry/retargeting can first be checked deterministically.
     if(speaking&&faceSegments.length) {
-      const time=window.Cleo?.playbackSeconds()??-1;
+      const time=trackClock?trackClock.faceSeconds:window.Cleo?.playbackSeconds()??-1;
       if(time>=0) {
         while(faceSegments.length>1&&faceSegments[1].startSeconds<=time)faceSegments.shift();
         const segment=faceSegments[0];
         const position=THREE.MathUtils.clamp((time-segment.startSeconds)*30,0,segment.frames.length-1);
         const a=Math.floor(position),b=Math.min(a+1,segment.frames.length-1),alpha=position-a;
-        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live');
+        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1);
       }
     }
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
     vrm.scene.updateMatrixWorld(true);
+    heldRoot=[...currentRoot];
+    if(trackClock)window.validationState.performance={...trackClock,motionSeconds:liveBuffer.seconds,motionEndSeconds:liveBuffer.endSeconds,origin:liveBuffer.origin,gate:performanceGate?.seconds??null,finished:performanceTrack.finished};
     target.x = currentRoot[0]; target.z = currentRoot[2];
     camera.position.set(target.x + radius*Math.sin(pitch)*Math.sin(yaw), target.y + radius*Math.cos(pitch), target.z + radius*Math.sin(pitch)*Math.cos(yaw));
     camera.lookAt(target);
@@ -234,14 +283,15 @@ export async function createAvatarView() {
       fitViewport();
       console.log('CLEO_METRICS '+JSON.stringify(metrics)); samples=[];ticks=0;reportAt=now;
     }
-    if((speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
+    const activePerformance=performanceTrack?.started&&!performanceTrack.finished;
+    if(activePerformance||(!performanceTrack&&speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(!performanceTrack&&mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
   }
   const setVisible=value=>{
     visible=Boolean(value)&&!document.hidden;
     if(!visible){if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
-  function stopFace(){speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear();invalidate();}
+  function stopFace(){speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
   initialized=true;
   return {event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

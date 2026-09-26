@@ -1,10 +1,13 @@
 // Module shell. Welcome and isolated speech load no avatar or WebGL context.
-let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk';
+let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
 const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel'};
 const usesAvatar=tab=>['face','talk','avatar','full'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
+const timingControls=[$('#full-cue'),$('#full-tail')];
+try{const saved=JSON.parse(localStorage.getItem('cleo-performance-timing')||'{}');for(const input of timingControls)if(Number.isFinite(saved[input.id])&&saved[input.id]>=Number(input.min)&&saved[input.id]<=Number(input.max))input.value=saved[input.id];}catch{}
+for(const input of timingControls)input.onchange=()=>{try{localStorage.setItem('cleo-performance-timing',JSON.stringify(Object.fromEntries(timingControls.map(item=>[item.id,Number(item.value)]))));}catch{}};
 try {
   const saved=JSON.parse(localStorage.getItem('cleo-pocket-settings')||'{}');
   for(const control of runtimeControls)if([...control.options].some(option=>option.value===saved[control.id]))control.value=saved[control.id];
@@ -18,6 +21,7 @@ function buttons(){
   animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';
   for(const tab of ['talk','full'])$(`#${tab}-send`).disabled=speechBusy||!avatar||!lastState||currentTab!==tab;
   for(const control of runtimeControls)control.disabled=speechBusy;
+  for(const control of timingControls)control.disabled=speechBusy;
 }
 function describeSettings(tab){
   const [threads,steps,chunk,precision,buffered]=settings(),face=avatar?.faceSettings();
@@ -76,18 +80,23 @@ window.cleoEvent=event=>{
   if(event.type==='speechStart'){
     speechBusy=true;status.textContent=event.message;buttons();
     if(['talk','full'].includes(tab))pipelineTab=tab;
-    if(tab==='full'&&currentTab==='full')avatar?.startMotion();
+    if(tab==='full')performanceCue=event.cueSeconds;
   }
   if(['pocketStage','speechBusy','speechEnd'].includes(event.type))status.textContent=event.message;
   if(event.type==='faceStage')faceStatus.textContent=event.message;
   if(event.type==='talkStage')$(`#${pipelineTab}-status`).textContent=event.message;
   if(event.type==='talkRejected'){speechBusy=false;$(`#${pipelineTab}-status`).textContent=event.message;buttons();}
   if(event.type==='talkPlayback'){
-    $(`#${tab}-status`).textContent='Speaking';$(`#${tab}-latency`).textContent=`Send → playback: ${ms(event.playbackStartMs)}`;
+    $(`#${tab}-status`).textContent=tab==='full'?`Playing take · speech cue ${performanceCue.toFixed(2)} s`:'Speaking';
+    $(`#${tab}-latency`).textContent=tab==='full'?`Send → track: ${ms(event.playbackStartMs)} · speech scheduled +${ms(performanceCue*1000)}`:`Send → playback: ${ms(event.playbackStartMs)}`;
   }
   if(event.type==='talkMetrics'){
     const p=event.pocket;$(`#${tab}-latency`).textContent=`Send → playback: ${ms(event.playbackStartMs)} · ${event.underruns} underruns`;
     $(`#${tab}-metrics`).textContent=`Pocket ${p.warm?'warm':'cold'} · load ${ms(p.loadMs)} · synthesis ${ms(p.computeMs)}\nLAM ${event.lamWarm?'warm':'cold'} · load ${ms(event.lamLoadMs)} · compute ${ms(event.lamComputeMs)}\nFirst face ${ms(event.firstFaceMs)} · ${event.faceFrames} frames · ${event.audioSeconds.toFixed(2)} s audio\nComplete ${ms(event.totalMs)} (includes playback)`;
+    if(tab==='full'){
+      $('#full-latency').textContent=`Send → track: ${ms(event.playbackStartMs)} · speech cue ${event.cueSeconds.toFixed(2)} s · ${event.underruns} underruns`;
+      $('#full-metrics').textContent+=`\nMotion/renderer wait ${ms(event.motionGateWaitMs)} · tail ${event.tailSeconds.toFixed(2)} s\nSpeech scheduled ${ms(event.speechStartMs)} after Send · track ${event.trackSeconds.toFixed(2)} s`;
+    }
     window.validationState.talkMetrics=event;
   }
   if(event.type==='faceMetrics')$('#face-metrics').textContent=`${event.cached?'Cached face':event.warm?'Warm LAM':'Cold LAM'} · ${event.frames} frames · ${ms(event.prepareMs)} preparation · ${ms(event.playbackStartMs)} to playback · ${event.audioSeconds.toFixed(2)} s audio · ${event.underruns} underruns`;
@@ -125,7 +134,7 @@ for(const tab of ['talk','full']){
     if(tab==='full'&&!$('#bank').value){$('#full-status').textContent='Select a cached motion in tab 5 first.';return;}
     $(`#${tab}-text`).blur();pipelineTab=tab;speechBusy=true;buttons();describeSettings(tab);
     $(`#${tab}-status`).textContent='Starting…';$(`#${tab}-latency`).textContent='Send → playback: measuring…';
-    window.Cleo.speakWithFace(text,...settings());
+    window.Cleo.speakWithFace(text,...settings(),tab==='full'?Number($('#full-cue').value):0,tab==='full'?Number($('#full-tail').value):0);
   };
   $(`#${tab}-stop`).onclick=()=>{window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();$(`#${tab}-status`).textContent='Stopping…';};
 }
