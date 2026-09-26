@@ -1,0 +1,9 @@
+{
+  "key": "ec6c1e33fea9852feb9fdfde",
+  "text": "A person performs one controlled squat and returns to a fully upright standing position.",
+  "nickname": "One squat",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.8650692,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

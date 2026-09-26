@@ -1,0 +1,9 @@
+{
+  "key": "6b14eab84b1a0ed5a0fd590f",
+  "text": "A person speaks naturally.",
+  "nickname": "Broad \u00b7 Speak naturally",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.7544496,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

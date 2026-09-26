@@ -1,0 +1,9 @@
+{
+  "key": "fe1dd76bdb05ec8bc09ba075",
+  "text": "A person places their right hand under their chin and leans slightly forward in thought.",
+  "nickname": "Thinking pose",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.682278,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

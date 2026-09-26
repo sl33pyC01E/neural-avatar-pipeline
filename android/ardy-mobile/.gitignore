@@ -1,0 +1,11 @@
+# Model and avatar payloads are local, fingerprinted dependencies.
+*.apk
+*.gguf
+*.onnx
+*.vrm
+*.keystore
+*.jks
+.gradle/
+local.properties
+**/build/
+payloads/

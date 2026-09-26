@@ -1,0 +1,9 @@
+{
+  "key": "4207a5c05ae1d5b5b77251b6",
+  "text": "A person moves sideways to the left using a steady sequence of side steps.",
+  "nickname": "Sidestep left",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.2008698,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

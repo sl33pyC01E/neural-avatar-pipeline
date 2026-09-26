@@ -1,0 +1,9 @@
+{
+  "key": "6e487a6dd396ce01cfbc0088",
+  "text": "A person raises both fists above their shoulders and celebrates with an excited victory cheer.",
+  "nickname": "Victory cheer",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.27167,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

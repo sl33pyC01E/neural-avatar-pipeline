@@ -1,0 +1,9 @@
+{
+  "key": "dd0e6b907025251515047156",
+  "text": "A person raises their right arm straight above their head and leaves it there, as if asking a question.",
+  "nickname": "Right arm question",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082996.073526,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

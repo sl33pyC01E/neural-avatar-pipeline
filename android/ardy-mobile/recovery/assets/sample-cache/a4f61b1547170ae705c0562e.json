@@ -1,0 +1,9 @@
+{
+  "key": "a4f61b1547170ae705c0562e",
+  "text": "A person jogs forward at a light steady pace with relaxed rhythmic arm swings.",
+  "nickname": "Light jog",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.4419749,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

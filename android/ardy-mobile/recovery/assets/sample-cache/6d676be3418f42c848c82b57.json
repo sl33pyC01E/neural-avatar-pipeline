@@ -1,0 +1,9 @@
+{
+  "key": "6d676be3418f42c848c82b57",
+  "text": "A person acts sad.",
+  "nickname": "Broad \u00b7 Sad",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.4323552,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

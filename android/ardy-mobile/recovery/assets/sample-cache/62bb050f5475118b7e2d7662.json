@@ -1,0 +1,9 @@
+{
+  "key": "62bb050f5475118b7e2d7662",
+  "text": "A person walks backward several steps, slows down, and stops in an upright balanced stance.",
+  "nickname": "Retreat and stop",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.7706192,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

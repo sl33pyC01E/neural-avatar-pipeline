@@ -1,0 +1,9 @@
+{
+  "key": "2d8edd5f65e19a91619c511e",
+  "text": "A person leans backward in fear and holds both hands defensively near their chest.",
+  "nickname": "Afraid posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.4907596,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

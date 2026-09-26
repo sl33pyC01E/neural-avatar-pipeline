@@ -1,0 +1,9 @@
+{
+  "key": "3e69e746cd0d48fa0831c573",
+  "text": "A person places both hands over their chest and makes a warm grateful gesture.",
+  "nickname": "Thankful gesture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.9774795,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

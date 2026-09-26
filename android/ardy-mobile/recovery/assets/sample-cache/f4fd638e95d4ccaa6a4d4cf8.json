@@ -1,0 +1,9 @@
+{
+  "key": "f4fd638e95d4ccaa6a4d4cf8",
+  "text": "A person raises both fists in front of their face and holds a balanced boxing guard stance.",
+  "nickname": "Boxing guard",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083005.8028977,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

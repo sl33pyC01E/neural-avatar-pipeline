@@ -1,0 +1,9 @@
+{
+  "key": "7cdaa65b75bf040e3341eacc",
+  "text": "A person stands upright and uses relaxed alternating hand gestures while explaining something.",
+  "nickname": "Natural explaining",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.0269246,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "08a57757db571318dc42a8be",
+  "text": "A person leans forward with curiosity and maintains an attentive open posture.",
+  "nickname": "Curious posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.3419468,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

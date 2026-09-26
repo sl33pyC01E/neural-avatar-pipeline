@@ -1,0 +1,9 @@
+{
+  "key": "bd747cc68be16fdaf00cabd6",
+  "text": "A person leans their upper body forward slightly and cups their right hand behind their ear.",
+  "nickname": "Listen closely",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.8335726,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

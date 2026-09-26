@@ -1,0 +1,9 @@
+{
+  "key": "89e646c888b9ce00eed1a575",
+  "text": "A person bends their right elbow and raises their right hand beside their head with the palm facing forward.",
+  "nickname": "Right hand raised",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082997.9035904,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "d544b35c741bf3a5d0d87357",
+  "text": "A person walks forward and waves.",
+  "nickname": "",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789049766.0042727,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "3e93ccf48159e5fcfbc73016",
+  "text": "A person lowers both arms.",
+  "nickname": "Broad \u00b7 Lower both arms",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083010.1978939,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

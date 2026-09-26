@@ -1,0 +1,9 @@
+{
+  "key": "1965d341ebe1ae00527261fc",
+  "text": "A person places their right hand flat against the center of their chest and holds it there.",
+  "nickname": "Right hand on chest",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082997.471805,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

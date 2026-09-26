@@ -1,0 +1,9 @@
+{
+  "key": "ef2972f93e9a2711eded0f7d",
+  "text": "A person acts angry.",
+  "nickname": "Broad \u00b7 Angry",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.5402293,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

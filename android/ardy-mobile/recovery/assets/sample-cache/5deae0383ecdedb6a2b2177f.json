@@ -1,0 +1,9 @@
+{
+  "key": "5deae0383ecdedb6a2b2177f",
+  "text": "A person bends both elbows and holds both open palms upward in front of their waist.",
+  "nickname": "Palms up",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082997.1839507,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

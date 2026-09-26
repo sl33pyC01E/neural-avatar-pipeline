@@ -1,0 +1,9 @@
+{
+  "key": "58073b372bab6c8682a1f3b9",
+  "text": "A person keeps both feet planted and leans their upper body clearly to the right.",
+  "nickname": "Lean right",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.2879975,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

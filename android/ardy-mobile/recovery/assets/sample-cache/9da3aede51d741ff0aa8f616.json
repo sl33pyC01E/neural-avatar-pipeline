@@ -1,0 +1,9 @@
+{
+  "key": "9da3aede51d741ff0aa8f616",
+  "text": "A person raises their right hand to their forehead in a clear salute and holds it briefly.",
+  "nickname": "Right salute",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082998.391194,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

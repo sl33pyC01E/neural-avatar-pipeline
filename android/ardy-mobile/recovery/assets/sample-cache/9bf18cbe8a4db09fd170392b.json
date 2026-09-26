@@ -1,0 +1,9 @@
+{
+  "key": "9bf18cbe8a4db09fd170392b",
+  "text": "A person walks forward angrily with tense shoulders and forceful heavy steps.",
+  "nickname": "Angry walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.9591668,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

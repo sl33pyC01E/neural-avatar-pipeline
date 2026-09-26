@@ -1,0 +1,9 @@
+{
+  "key": "2020ad554aafa93d9e8da638",
+  "text": "A person runs.",
+  "nickname": "Broad \u00b7 Run",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083012.7349882,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

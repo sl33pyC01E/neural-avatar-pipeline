@@ -1,0 +1,9 @@
+{
+  "key": "02bbebb24fbfd7943fa2951e",
+  "text": "A person raises their right arm overhead and bends their upper body into a left side stretch.",
+  "nickname": "Side stretch left",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083005.3420005,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

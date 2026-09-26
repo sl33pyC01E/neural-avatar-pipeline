@@ -1,0 +1,9 @@
+{
+  "key": "d3e0fc5ad6fb92be31010dc5",
+  "text": "A person raises their right hand beside their head and gives a friendly side-to-side wave.",
+  "nickname": "Right hand wave",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082998.6461203,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

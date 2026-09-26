@@ -1,0 +1,65 @@
+{
+  "recoveredAt": "2026-09-25",
+  "package": "ai.cleo.ardymobile",
+  "label": "Ardy Mobile",
+  "versionName": "0.1.0-stored-embeddings",
+  "versionCode": 1,
+  "abi": "arm64-v8a",
+  "minSdk": 29,
+  "targetSdk": 35,
+  "apk": {
+    "bytes": 117154010,
+    "sha256": "8966e82f82334fbdb258a9cb755de3311e289f17599e1232ed8cdbe6bd72b23a",
+    "localBackup": "C:\\Users\\forre\\Documents\\unified\\artifacts\\ardy-mobile-inspection\\2026-09-25\\ardy-mobile-installed.apk",
+    "signingCertificateSha256": "44283780bde218b06d744341796b461eee31a8b9754ced12de6666b52b4d881a"
+  },
+  "installedModels": [
+    {
+      "appRelativePath": "files/ardy-models/core8-onnx/denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "b1c7f632622db28033a8092de3386eedec57ae478c8d2a602a0d4d9643874b3d"
+    },
+    {
+      "appRelativePath": "files/ardy-models/core8-onnx/decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "8facfe5cb3cdd1a88db77d65ef9d1c1c18a5deaa3f72c2b5fe17c5564ac8b053"
+    },
+    {
+      "appRelativePath": "files/ardy-models/core40-onnx/denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "c0745f310b373c93858eb02bb7f30bae0ee139258e608ef4a317e8882e9bfac3"
+    },
+    {
+      "appRelativePath": "files/ardy-models/core40-onnx/decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "5a9ba4e1d1f537c61f91d63d63685f7f2176dffc8b9dd12cc88783d205987d2e"
+    },
+    {
+      "appRelativePath": "files/embedding-models/ardy-llm2vec-q4_k_m.gguf",
+      "bytes": 4625232928,
+      "sha256": "60ec43402975a1fa520c7c05193c02e63d793f0311a0f7e59cd17690ebca5fd4"
+    }
+  ],
+  "bundledEmbeddingCount": 141,
+  "embeddingWidth": 4096,
+  "sourceRecovery": {
+    "tool": "jadx",
+    "version": "1.5.6",
+    "files": 27,
+    "status": "Decompiled reference; not yet rebuilt or verified for behavioral equivalence."
+  },
+  "targetAvatar": {
+    "file": "C:\\Users\\forre\\Documents\\unified\\artifacts\\zome-edit\\versions\\Zome_Cleopatra_v1.vrm",
+    "sha256": "9120c484fe2781e8e3dbbb56f5b0b3a00e94db0d34bce7512d4d22275593534f",
+    "bytes": 49594304,
+    "rigMatchesOriginal": true,
+    "nodeCount": 355,
+    "humanoidBones": 53,
+    "expressionGroups": 24
+  },
+  "performanceBaseline": {
+    "source": "User-reported proven behavior",
+    "mode": "Core-40 single-batch rolling with cached embeddings",
+    "target": "Real time; preserve this generation strategy during retargeting."
+  }
+}

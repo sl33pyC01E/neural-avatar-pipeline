@@ -1,0 +1,9 @@
+{
+  "key": "9803fe0e5bb3d76f799dcab0",
+  "text": "A person places both hands naturally at their sides and holds a relaxed standing pose.",
+  "nickname": "Hands at sides",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.7676642,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

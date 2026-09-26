@@ -1,0 +1,9 @@
+{
+  "key": "25e0241051b1414671cedf12",
+  "text": "A person stands upright in a neutral pose with both arms relaxed at their sides.",
+  "nickname": "Neutral stand",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082994.6061993,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

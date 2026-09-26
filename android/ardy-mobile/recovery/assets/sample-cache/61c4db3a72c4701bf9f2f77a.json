@@ -1,0 +1,9 @@
+{
+  "key": "61c4db3a72c4701bf9f2f77a",
+  "text": "A person slowly lowers their right arm from a raised position until it rests at their side.",
+  "nickname": "Lower right arm",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082998.1582317,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "cf3bee162bfa5e8962080e84",
+  "text": "A person turns around.",
+  "nickname": "Broad \u00b7 Turn around",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.1000957,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

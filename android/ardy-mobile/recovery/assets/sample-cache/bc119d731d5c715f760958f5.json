@@ -1,0 +1,9 @@
+{
+  "key": "bc119d731d5c715f760958f5",
+  "text": "A person reacts with confusion by leaning slightly and raising both palms in uncertainty.",
+  "nickname": "Confused reaction",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.745066,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

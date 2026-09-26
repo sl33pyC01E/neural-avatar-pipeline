@@ -1,0 +1,9 @@
+{
+  "key": "d3b3024b749c5c0254862e63",
+  "text": "A person limps forward carefully while favoring their right leg as if injured.",
+  "nickname": "Injured walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.6783192,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

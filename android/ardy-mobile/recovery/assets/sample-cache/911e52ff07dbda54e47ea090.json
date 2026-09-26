@@ -1,0 +1,9 @@
+{
+  "key": "911e52ff07dbda54e47ea090",
+  "text": "A person opens both arms wide to the sides in a welcoming gesture and holds the pose.",
+  "nickname": "Open arms welcome",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082997.0775561,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

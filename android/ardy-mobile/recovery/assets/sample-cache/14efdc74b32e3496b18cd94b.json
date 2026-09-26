@@ -1,0 +1,9 @@
+{
+  "key": "14efdc74b32e3496b18cd94b",
+  "text": "A person keeps both feet planted and leans their upper body backward while staying balanced.",
+  "nickname": "Lean backward",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.5191658,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

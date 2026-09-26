@@ -1,0 +1,9 @@
+{
+  "key": "085d6a739881d6d73ab11c0c",
+  "text": "A person relaxes their shoulders in relief and slowly lowers both hands with a deep exhale.",
+  "nickname": "Relieved reaction",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.892905,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "45531ae7e8ddba668f281401",
+  "text": "A person brings their hands together for three gentle deliberate claps.",
+  "nickname": "Small clap",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.9603913,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

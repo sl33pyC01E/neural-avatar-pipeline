@@ -1,0 +1,9 @@
+{
+  "key": "053179d23e759f43c9e650b7",
+  "text": "A person strolls forward casually with loose shoulders and easy relaxed steps.",
+  "nickname": "Relaxed stroll",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.0306158,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

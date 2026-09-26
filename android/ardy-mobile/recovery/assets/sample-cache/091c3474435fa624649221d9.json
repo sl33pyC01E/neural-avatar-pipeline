@@ -1,0 +1,9 @@
+{
+  "key": "091c3474435fa624649221d9",
+  "text": "A person explains something.",
+  "nickname": "Broad \u00b7 Explain",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.4863698,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

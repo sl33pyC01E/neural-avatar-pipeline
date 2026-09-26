@@ -1,0 +1,9 @@
+{
+  "key": "31f4386ed12da7c83722363d",
+  "text": "A person raises their right arm.",
+  "nickname": "Broad \u00b7 Raise right arm",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.7380223,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

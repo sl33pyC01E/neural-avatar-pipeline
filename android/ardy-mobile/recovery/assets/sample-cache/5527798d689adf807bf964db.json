@@ -1,0 +1,9 @@
+{
+  "key": "5527798d689adf807bf964db",
+  "text": "A person raises both arms straight above their head and holds them there.",
+  "nickname": "Both arms overhead",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082996.9473407,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

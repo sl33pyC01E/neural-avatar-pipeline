@@ -1,0 +1,9 @@
+{
+  "key": "86766d52aed7011ac90e10e0",
+  "text": "A person stands tall with a confident open posture and their arms relaxed.",
+  "nickname": "Confident idle",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.1096663,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

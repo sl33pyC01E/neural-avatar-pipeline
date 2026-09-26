@@ -1,0 +1,9 @@
+{
+  "key": "38de7bb655ea4f8a31b7d0cd",
+  "text": "A person turns slightly right and extends an open right palm to present something beside them.",
+  "nickname": "Present to right",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.5128334,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

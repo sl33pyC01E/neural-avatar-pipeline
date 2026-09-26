@@ -1,0 +1,9 @@
+{
+  "key": "8d07895ee1304c6f505de81b",
+  "text": "A person walks forward several steps, slows down, and stops in an upright balanced stance.",
+  "nickname": "Approach and stop",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.6617868,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

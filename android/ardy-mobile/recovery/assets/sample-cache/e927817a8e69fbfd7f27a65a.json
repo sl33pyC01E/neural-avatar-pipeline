@@ -1,0 +1,9 @@
+{
+  "key": "e927817a8e69fbfd7f27a65a",
+  "text": "A person reacts with surprise by quickly lifting both hands near their face and recoiling slightly.",
+  "nickname": "Surprised reaction",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.6062634,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

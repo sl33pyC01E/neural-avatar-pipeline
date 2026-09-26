@@ -1,0 +1,9 @@
+{
+  "key": "268c56735e5482cdf2e47303",
+  "text": "A person walks forward confidently with an upright posture and strong purposeful strides.",
+  "nickname": "Confident walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.9215505,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

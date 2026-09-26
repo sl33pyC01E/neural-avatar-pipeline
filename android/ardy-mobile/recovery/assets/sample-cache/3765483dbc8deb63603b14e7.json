@@ -1,0 +1,9 @@
+{
+  "key": "3765483dbc8deb63603b14e7",
+  "text": "A person stretches.",
+  "nickname": "Broad \u00b7 Stretch",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083011.7194157,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

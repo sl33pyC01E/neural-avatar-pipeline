@@ -1,0 +1,9 @@
+{
+  "key": "e6101f686513fe52bd3d2815",
+  "text": "A person stands naturally.",
+  "nickname": "Broad \u00b7 Stand naturally",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.1433992,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

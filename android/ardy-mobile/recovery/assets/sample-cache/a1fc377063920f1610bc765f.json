@@ -1,0 +1,9 @@
+{
+  "key": "a1fc377063920f1610bc765f",
+  "text": "A person turns their entire body ninety degrees to the left while remaining in the same spot.",
+  "nickname": "Turn left in place",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.5998182,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

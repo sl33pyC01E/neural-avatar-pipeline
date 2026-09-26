@@ -1,0 +1,9 @@
+{
+  "key": "7382888d236b5fc6a01f5a19",
+  "text": "A person turns their entire body around one hundred eighty degrees and stops.",
+  "nickname": "Turn around",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.8474824,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

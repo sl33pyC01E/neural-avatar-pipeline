@@ -1,0 +1,9 @@
+{
+  "key": "7fa92790a1650954cd51ca26",
+  "text": "A person claps both hands repeatedly in enthusiastic applause.",
+  "nickname": "Applause",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.1069307,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "e9147eed70906a4944e519de",
+  "text": "A person walks slowly.",
+  "nickname": "Broad \u00b7 Walk slowly",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083012.470594,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

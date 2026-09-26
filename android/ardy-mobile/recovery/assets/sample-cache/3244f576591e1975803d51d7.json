@@ -1,0 +1,9 @@
+{
+  "key": "3244f576591e1975803d51d7",
+  "text": "A person places both hands firmly on their hips and stands upright.",
+  "nickname": "Hands on hips",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082997.3129683,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

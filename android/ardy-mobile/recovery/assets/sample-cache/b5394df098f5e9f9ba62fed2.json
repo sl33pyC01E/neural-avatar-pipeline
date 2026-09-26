@@ -1,0 +1,9 @@
+{
+  "key": "b5394df098f5e9f9ba62fed2",
+  "text": "A person thinks.",
+  "nickname": "Broad \u00b7 Think",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083011.4703147,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

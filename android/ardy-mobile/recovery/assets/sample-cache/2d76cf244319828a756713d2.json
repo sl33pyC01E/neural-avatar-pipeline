@@ -1,0 +1,9 @@
+{
+  "key": "2d76cf244319828a756713d2",
+  "text": "A person gives a brief polite bow by leaning their upper body forward slightly.",
+  "nickname": "Small bow",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.4929967,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

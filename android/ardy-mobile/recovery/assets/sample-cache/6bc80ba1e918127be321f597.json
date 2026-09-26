@@ -1,0 +1,9 @@
+{
+  "key": "6bc80ba1e918127be321f597",
+  "text": "A person straightens their spine and returns to a balanced upright standing pose.",
+  "nickname": "Reset upright",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.4750469,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

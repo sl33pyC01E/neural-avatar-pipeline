@@ -1,0 +1,9 @@
+{
+  "key": "404befe7ef9b29263095763f",
+  "text": "A person reacts with embarrassment by drawing their shoulders inward and bringing both hands close to their chest.",
+  "nickname": "Embarrassed posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.131936,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

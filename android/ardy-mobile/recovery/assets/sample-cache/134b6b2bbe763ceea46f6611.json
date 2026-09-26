@@ -1,0 +1,9 @@
+{
+  "key": "134b6b2bbe763ceea46f6611",
+  "text": "A person speaks excitedly while making quick enthusiastic gestures with both hands.",
+  "nickname": "Excited speaking",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.719385,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

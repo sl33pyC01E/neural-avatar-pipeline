@@ -1,0 +1,9 @@
+{
+  "key": "dcfc27fd9444d506a97653d1",
+  "text": "A person walks forward slowly using careful measured steps.",
+  "nickname": "Slow walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.8017123,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

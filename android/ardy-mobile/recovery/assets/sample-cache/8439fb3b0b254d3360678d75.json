@@ -1,0 +1,9 @@
+{
+  "key": "8439fb3b0b254d3360678d75",
+  "text": "A person begins from a still upright pose and smoothly accelerates into a natural forward walk.",
+  "nickname": "Start walking",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.0334842,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

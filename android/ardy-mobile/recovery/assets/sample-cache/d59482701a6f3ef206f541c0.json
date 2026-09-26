@@ -1,0 +1,9 @@
+{
+  "key": "d59482701a6f3ef206f541c0",
+  "text": "A person shrugs.",
+  "nickname": "Broad \u00b7 Shrug",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083011.0396464,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "56ea10e2385b86cecb435037",
+  "text": "A person stands comfortably and shifts their weight subtly while keeping a relaxed natural posture.",
+  "nickname": "Natural idle",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082994.7376144,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

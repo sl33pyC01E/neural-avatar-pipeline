@@ -1,0 +1,9 @@
+{
+  "key": "1558e8143b33bb9de747302d",
+  "text": "A person brings their hands together in front of their chest and gives a small apologetic bow.",
+  "nickname": "Apologetic gesture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.0975447,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

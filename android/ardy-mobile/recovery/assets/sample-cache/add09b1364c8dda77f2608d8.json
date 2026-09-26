@@ -1,0 +1,9 @@
+{
+  "key": "add09b1364c8dda77f2608d8",
+  "text": "A person opens both hands toward the audience in a warm welcoming gesture.",
+  "nickname": "Welcome audience",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.8690615,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

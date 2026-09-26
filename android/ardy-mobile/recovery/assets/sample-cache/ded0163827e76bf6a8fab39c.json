@@ -1,0 +1,9 @@
+{
+  "key": "ded0163827e76bf6a8fab39c",
+  "text": "A person acts happy.",
+  "nickname": "Broad \u00b7 Happy",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.3261597,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

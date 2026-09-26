@@ -1,0 +1,9 @@
+{
+  "key": "d3557c6f28057144d1c4c196",
+  "text": "A person stands proudly with their chest lifted and both hands resting at their waist.",
+  "nickname": "Proud posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.0274057,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

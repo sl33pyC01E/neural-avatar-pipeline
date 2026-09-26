@@ -1,0 +1,9 @@
+{
+  "key": "6d7bd38538efdc792629640e",
+  "text": "A person jumps.",
+  "nickname": "Broad \u00b7 Jump",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083011.950792,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

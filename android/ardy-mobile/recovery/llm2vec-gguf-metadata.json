@@ -1,0 +1,61 @@
+{
+  "magic": "GGUF",
+  "version": 3,
+  "tensorCount": 290,
+  "metadataCount": 36,
+  "metadata": {
+    "general.architecture": "llama",
+    "general.type": "model",
+    "general.name": "Ardy Llm2Vec Fp16 Hf Stream",
+    "general.finetune": "hf-stream",
+    "general.basename": "ardy-llm2vec",
+    "general.size_label": "7.5B",
+    "general.license": "llama3",
+    "general.base_model.count": 1,
+    "general.base_model.0.name": "Meta Llama 3 8B Instruct",
+    "general.base_model.0.organization": "Meta Llama",
+    "general.base_model.0.repo_url": "https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct",
+    "general.tags": [
+      "llm2vec",
+      "feature-extraction",
+      "sentence-similarity",
+      "text-to-motion",
+      "ardy",
+      "bitsandbytes",
+      "4-bit"
+    ],
+    "llama.block_count": 32,
+    "llama.context_length": 8192,
+    "llama.embedding_length": 4096,
+    "llama.feed_forward_length": 14336,
+    "llama.attention.head_count": 32,
+    "llama.attention.head_count_kv": 8,
+    "llama.rope.freq_base": 500000.0,
+    "llama.attention.layer_norm_rms_epsilon": 9.999999747378752e-06,
+    "llama.attention.key_length": 128,
+    "llama.attention.value_length": 128,
+    "llama.vocab_size": 128256,
+    "llama.rope.dimension_count": 128,
+    "tokenizer.ggml.model": "gpt2",
+    "tokenizer.ggml.pre": "llama-bpe",
+    "tokenizer.ggml.tokens": {
+      "arrayType": 8,
+      "count": 128256
+    },
+    "tokenizer.ggml.token_type": {
+      "arrayType": 5,
+      "count": 128256
+    },
+    "tokenizer.ggml.merges": {
+      "arrayType": 8,
+      "count": 280147
+    },
+    "tokenizer.ggml.bos_token_id": 128000,
+    "tokenizer.ggml.eos_token_id": 128009,
+    "tokenizer.ggml.add_bos_token": true,
+    "tokenizer.ggml.add_sep_token": false,
+    "tokenizer.chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
+    "general.quantization_version": 2,
+    "general.file_type": 15
+  }
+}

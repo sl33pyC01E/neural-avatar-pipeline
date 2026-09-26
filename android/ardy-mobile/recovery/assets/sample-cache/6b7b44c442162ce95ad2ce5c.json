@@ -1,0 +1,9 @@
+{
+  "key": "6b7b44c442162ce95ad2ce5c",
+  "text": "A person stands upright and speaks happily with light buoyant gestures from both hands.",
+  "nickname": "Happy speaking",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.607084,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

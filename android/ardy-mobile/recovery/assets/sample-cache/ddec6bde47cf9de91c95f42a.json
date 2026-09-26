@@ -1,0 +1,9 @@
+{
+  "key": "ddec6bde47cf9de91c95f42a",
+  "text": "A person extends both arms straight forward at shoulder height and holds them there.",
+  "nickname": "Both arms forward",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082996.79734,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

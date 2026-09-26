@@ -1,0 +1,9 @@
+{
+  "key": "74081e528f373c61f46ee562",
+  "text": "A person stands comfortably and makes small natural hand movements while speaking.",
+  "nickname": "Relaxed speaking idle",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.230635,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

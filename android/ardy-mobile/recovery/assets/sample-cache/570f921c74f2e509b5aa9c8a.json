@@ -1,0 +1,9 @@
+{
+  "key": "570f921c74f2e509b5aa9c8a",
+  "text": "A person throws one straight punch forward with their right fist and returns to a guarded stance.",
+  "nickname": "Right punch",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083005.9207768,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

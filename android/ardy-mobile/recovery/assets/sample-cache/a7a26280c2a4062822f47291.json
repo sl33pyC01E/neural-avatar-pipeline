@@ -1,0 +1,9 @@
+{
+  "key": "a7a26280c2a4062822f47291",
+  "text": "A person bends both knees into a low balanced crouch and holds the position.",
+  "nickname": "Crouch and hold",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.6439834,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

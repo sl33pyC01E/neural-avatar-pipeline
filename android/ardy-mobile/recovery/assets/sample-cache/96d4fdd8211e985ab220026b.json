@@ -1,0 +1,9 @@
+{
+  "key": "96d4fdd8211e985ab220026b",
+  "text": "A person stands firmly and speaks seriously with restrained deliberate hand gestures.",
+  "nickname": "Serious speaking",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.9547431,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

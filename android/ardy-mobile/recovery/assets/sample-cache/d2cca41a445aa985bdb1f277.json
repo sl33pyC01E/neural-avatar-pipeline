@@ -1,0 +1,9 @@
+{
+  "key": "d2cca41a445aa985bdb1f277",
+  "text": "A person gently lowers both arms until they rest naturally at their sides.",
+  "nickname": "Lower both arms",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.9519668,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

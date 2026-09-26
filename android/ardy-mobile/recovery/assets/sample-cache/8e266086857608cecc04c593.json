@@ -1,0 +1,9 @@
+{
+  "key": "8e266086857608cecc04c593",
+  "text": "A person acts afraid.",
+  "nickname": "Broad \u00b7 Afraid",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083013.6410847,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

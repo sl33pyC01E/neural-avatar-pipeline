@@ -1,0 +1,9 @@
+{
+  "key": "423b9a38164b6640bf513b53",
+  "text": "A person stands balanced with their feet apart and their arms relaxed, ready to move.",
+  "nickname": "Ready stance",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082995.3517096,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

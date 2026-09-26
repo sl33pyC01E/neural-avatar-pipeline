@@ -1,0 +1,9 @@
+{
+  "key": "e4d3b25080a154fb7a3971f2",
+  "text": "A person claps.",
+  "nickname": "Broad \u00b7 Clap",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083010.6332195,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

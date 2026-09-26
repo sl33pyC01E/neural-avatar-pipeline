@@ -1,0 +1,9 @@
+{
+  "key": "610ea750ada413b34384e3b3",
+  "text": "A person walks forward naturally at a comfortable pace with relaxed arm swings.",
+  "nickname": "Natural walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.463626,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

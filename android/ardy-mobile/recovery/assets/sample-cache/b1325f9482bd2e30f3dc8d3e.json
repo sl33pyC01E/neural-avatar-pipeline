@@ -1,0 +1,9 @@
+{
+  "key": "b1325f9482bd2e30f3dc8d3e",
+  "text": "A person shifts their weight impatiently and places one hand on their hip.",
+  "nickname": "Impatient posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.2377717,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

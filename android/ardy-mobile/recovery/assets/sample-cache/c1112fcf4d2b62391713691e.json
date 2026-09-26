@@ -1,0 +1,9 @@
+{
+  "key": "c1112fcf4d2b62391713691e",
+  "text": "A person stands sadly with lowered shoulders and subdued movement.",
+  "nickname": "Sad posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.0987544,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

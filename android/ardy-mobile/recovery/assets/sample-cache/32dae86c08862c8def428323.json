@@ -1,0 +1,9 @@
+{
+  "key": "32dae86c08862c8def428323",
+  "text": "A person raises both hands near shoulder height and waves them enthusiastically.",
+  "nickname": "Two hand wave",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082998.9160929,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

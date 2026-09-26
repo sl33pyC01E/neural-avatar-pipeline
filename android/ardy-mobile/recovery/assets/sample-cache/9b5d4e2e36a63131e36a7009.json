@@ -1,0 +1,9 @@
+{
+  "key": "9b5d4e2e36a63131e36a7009",
+  "text": "A person makes slow gentle downward motions with both open hands to reassure someone.",
+  "nickname": "Reassuring gesture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.4010806,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

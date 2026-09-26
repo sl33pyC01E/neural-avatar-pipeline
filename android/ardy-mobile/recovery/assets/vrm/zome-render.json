@@ -1,0 +1,337 @@
+{
+  "format": "ardy-mobile-vrm-render-v1",
+  "source": "models\\avatars\\Zome.vrm",
+  "vertexAsset": "vrm/zome-render.vertices.f32",
+  "indexAsset": "vrm/zome-render.indices.u16",
+  "boneIndexAsset": "vrm/zome-render.bone-indices.u8",
+  "boneWeightAsset": "vrm/zome-render.bone-weights.f32",
+  "vertexCount": 109151,
+  "indexCount": 197412,
+  "strideFloats": 8,
+  "boneNames": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ],
+  "boundsMin": [
+    -0.6432111263275146,
+    -0.0008006748976185918,
+    -0.16675283014774323
+  ],
+  "boundsMax": [
+    0.6432111263275146,
+    1.4545637369155884,
+    0.5586389899253845
+  ],
+  "materials": [
+    {
+      "name": "M_Zome_Skin",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Skin_Co.png",
+      "alphaMode": "OPAQUE"
+    },
+    {
+      "name": "M_Zome_Clothes",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Clothes_Co.png",
+      "alphaMode": "OPAQUE"
+    },
+    {
+      "name": "M_Zome_Clothes_Tp1",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Clothes_Co.png",
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "M_Zome_Clothes_Tp2",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Clothes_Co.png",
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "M_Zome_Face",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Face_Co.png",
+      "alphaMode": "OPAQUE"
+    },
+    {
+      "name": "M_Zome_Skin_Hd",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Skin_Co.png",
+      "alphaMode": "OPAQUE"
+    },
+    {
+      "name": "M_Zome_Hair_No",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Hair_Co.png",
+      "alphaMode": "OPAQUE"
+    },
+    {
+      "name": "M_Zome_Face_Tp",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Face_Co.png",
+      "alphaMode": "BLEND"
+    },
+    {
+      "name": "M_Zome_Hair",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "texture": "vrm/textures/T_Zome_Hair_Co.png",
+      "alphaMode": "OPAQUE"
+    }
+  ],
+  "primitives": [
+    {
+      "name": "Body.baked:0",
+      "vertexOffset": 0,
+      "vertexCount": 10374,
+      "indexOffset": 0,
+      "indexCount": 39912,
+      "material": 0,
+      "node": 344,
+      "mesh": 0
+    },
+    {
+      "name": "ClothesA.baked:0",
+      "vertexOffset": 10374,
+      "vertexCount": 7819,
+      "indexOffset": 39912,
+      "indexCount": 28032,
+      "material": 1,
+      "node": 345,
+      "mesh": 1
+    },
+    {
+      "name": "ClothesA.baked:1",
+      "vertexOffset": 18193,
+      "vertexCount": 7819,
+      "indexOffset": 67944,
+      "indexCount": 660,
+      "material": 2,
+      "node": 345,
+      "mesh": 1
+    },
+    {
+      "name": "ClothesB.baked:0",
+      "vertexOffset": 26012,
+      "vertexCount": 6140,
+      "indexOffset": 68604,
+      "indexCount": 21054,
+      "material": 1,
+      "node": 346,
+      "mesh": 2
+    },
+    {
+      "name": "ClothesB.baked:1",
+      "vertexOffset": 32152,
+      "vertexCount": 6140,
+      "indexOffset": 89658,
+      "indexCount": 834,
+      "material": 3,
+      "node": 346,
+      "mesh": 2
+    },
+    {
+      "name": "Face.baked:0",
+      "vertexOffset": 38292,
+      "vertexCount": 4309,
+      "indexOffset": 90492,
+      "indexCount": 6054,
+      "material": 4,
+      "node": 347,
+      "mesh": 3
+    },
+    {
+      "name": "Face.baked:1",
+      "vertexOffset": 42601,
+      "vertexCount": 4309,
+      "indexOffset": 96546,
+      "indexCount": 8634,
+      "material": 5,
+      "node": 347,
+      "mesh": 3
+    },
+    {
+      "name": "Face.baked:2",
+      "vertexOffset": 46910,
+      "vertexCount": 4309,
+      "indexOffset": 105180,
+      "indexCount": 66,
+      "material": 6,
+      "node": 347,
+      "mesh": 3
+    },
+    {
+      "name": "Face.baked:3",
+      "vertexOffset": 51219,
+      "vertexCount": 4309,
+      "indexOffset": 105246,
+      "indexCount": 3096,
+      "material": 7,
+      "node": 347,
+      "mesh": 3
+    },
+    {
+      "name": "Hair.baked:0",
+      "vertexOffset": 55528,
+      "vertexCount": 15028,
+      "indexOffset": 108342,
+      "indexCount": 45783,
+      "material": 8,
+      "node": 348,
+      "mesh": 4
+    },
+    {
+      "name": "Hair.baked:1",
+      "vertexOffset": 70556,
+      "vertexCount": 15028,
+      "indexOffset": 154125,
+      "indexCount": 648,
+      "material": 6,
+      "node": 348,
+      "mesh": 4
+    },
+    {
+      "name": "HairShadow.baked:0",
+      "vertexOffset": 85584,
+      "vertexCount": 99,
+      "indexOffset": 154773,
+      "indexCount": 285,
+      "material": 7,
+      "node": 349,
+      "mesh": 5
+    },
+    {
+      "name": "HeadDress.baked:0",
+      "vertexOffset": 85683,
+      "vertexCount": 5824,
+      "indexOffset": 155058,
+      "indexCount": 1572,
+      "material": 3,
+      "node": 350,
+      "mesh": 6
+    },
+    {
+      "name": "HeadDress.baked:1",
+      "vertexOffset": 91507,
+      "vertexCount": 5824,
+      "indexOffset": 156630,
+      "indexCount": 18456,
+      "material": 1,
+      "node": 350,
+      "mesh": 6
+    },
+    {
+      "name": "LongSleeve.baked:0",
+      "vertexOffset": 97331,
+      "vertexCount": 4084,
+      "indexOffset": 175086,
+      "indexCount": 11256,
+      "material": 1,
+      "node": 351,
+      "mesh": 7
+    },
+    {
+      "name": "LongSleeve.baked:1",
+      "vertexOffset": 101415,
+      "vertexCount": 4084,
+      "indexOffset": 186342,
+      "indexCount": 2256,
+      "material": 3,
+      "node": 351,
+      "mesh": 7
+    },
+    {
+      "name": "Skirt_Long.baked:0",
+      "vertexOffset": 105499,
+      "vertexCount": 1415,
+      "indexOffset": 188598,
+      "indexCount": 4914,
+      "material": 1,
+      "node": 352,
+      "mesh": 8
+    },
+    {
+      "name": "Skirt_Long.baked:1",
+      "vertexOffset": 106914,
+      "vertexCount": 1415,
+      "indexOffset": 193512,
+      "indexCount": 936,
+      "material": 3,
+      "node": 352,
+      "mesh": 8
+    },
+    {
+      "name": "Wing.baked:0",
+      "vertexOffset": 108329,
+      "vertexCount": 822,
+      "indexOffset": 194448,
+      "indexCount": 2964,
+      "material": 1,
+      "node": 353,
+      "mesh": 9
+    }
+  ]
+}

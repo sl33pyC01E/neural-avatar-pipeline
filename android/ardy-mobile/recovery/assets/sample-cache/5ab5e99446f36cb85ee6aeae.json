@@ -1,0 +1,9 @@
+{
+  "key": "5ab5e99446f36cb85ee6aeae",
+  "text": "A person walks forward tiredly with heavy slow steps and lowered shoulders.",
+  "nickname": "Tired walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.3840916,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

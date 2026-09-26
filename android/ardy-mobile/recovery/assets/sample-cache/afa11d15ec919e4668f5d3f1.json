@@ -1,0 +1,9 @@
+{
+  "key": "afa11d15ec919e4668f5d3f1",
+  "text": "A person bends both knees, jumps straight upward once, and lands on both feet.",
+  "nickname": "One jump",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.9998572,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

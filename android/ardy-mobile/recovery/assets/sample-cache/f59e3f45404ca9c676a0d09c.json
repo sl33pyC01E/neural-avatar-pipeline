@@ -1,0 +1,9 @@
+{
+  "key": "f59e3f45404ca9c676a0d09c",
+  "text": "A person raises both shoulders and turns both palms upward in a clear uncertain shrug.",
+  "nickname": "Unsure shrug",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.219801,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

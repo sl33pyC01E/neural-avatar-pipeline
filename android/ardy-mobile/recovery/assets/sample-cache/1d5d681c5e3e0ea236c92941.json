@@ -1,0 +1,9 @@
+{
+  "key": "1d5d681c5e3e0ea236c92941",
+  "text": "A person runs forward quickly using long energetic strides and strong arm swings.",
+  "nickname": "Fast run",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.5505595,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

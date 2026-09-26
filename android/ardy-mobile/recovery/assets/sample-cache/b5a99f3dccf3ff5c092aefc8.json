@@ -1,0 +1,9 @@
+{
+  "key": "b5a99f3dccf3ff5c092aefc8",
+  "text": "A person walks forward cautiously while carefully testing each slow step.",
+  "nickname": "Cautious walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.1416516,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

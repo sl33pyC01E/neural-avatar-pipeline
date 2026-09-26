@@ -1,0 +1,9 @@
+{
+  "key": "5b64e2396b5b73ec2692e2b6",
+  "text": "A person moves forward stealthily in a low posture using quiet careful steps.",
+  "nickname": "Stealthy walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.250318,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

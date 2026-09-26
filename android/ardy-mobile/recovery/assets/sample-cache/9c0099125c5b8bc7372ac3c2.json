@@ -1,0 +1,9 @@
+{
+  "key": "9c0099125c5b8bc7372ac3c2",
+  "text": "A person walks forward naturally.",
+  "nickname": "Broad \u00b7 Walk naturally",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083012.1848426,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

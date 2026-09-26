@@ -1,0 +1,9 @@
+{
+  "key": "cff21f4a86643ede383ab192",
+  "text": "A person keeps both feet planted and leans their upper body forward from the hips.",
+  "nickname": "Lean forward",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.39581,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

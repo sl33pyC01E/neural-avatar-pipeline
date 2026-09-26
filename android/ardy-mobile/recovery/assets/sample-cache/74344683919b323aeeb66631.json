@@ -1,0 +1,9 @@
+{
+  "key": "74344683919b323aeeb66631",
+  "text": "A person walks forward happily with light springy steps and lively arm movement.",
+  "nickname": "Happy walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083007.8077793,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "134a74b3b185991ed6a2bf34",
+  "text": "A person rises smoothly from a low crouch into an upright standing position.",
+  "nickname": "Rise from crouch",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083004.7549622,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

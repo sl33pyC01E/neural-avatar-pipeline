@@ -1,0 +1,9 @@
+{
+  "key": "5449e96c8d124863bf9823e4",
+  "text": "A person stands angrily with clenched fists and rigid shoulders.",
+  "nickname": "Angry posture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083002.3757522,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

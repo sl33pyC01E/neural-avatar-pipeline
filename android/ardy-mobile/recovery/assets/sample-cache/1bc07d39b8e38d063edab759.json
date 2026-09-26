@@ -1,0 +1,9 @@
+{
+  "key": "1bc07d39b8e38d063edab759",
+  "text": "A person gestures naturally.",
+  "nickname": "Broad \u00b7 Gesture naturally",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.3656595,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

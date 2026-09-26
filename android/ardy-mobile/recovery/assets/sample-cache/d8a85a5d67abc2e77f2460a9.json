@@ -1,0 +1,9 @@
+{
+  "key": "d8a85a5d67abc2e77f2460a9",
+  "text": "A person shifts playfully from side to side with light energetic movements and relaxed arms.",
+  "nickname": "Playful stance",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083003.487687,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

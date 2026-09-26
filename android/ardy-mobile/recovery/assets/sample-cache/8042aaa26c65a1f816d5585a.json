@@ -1,0 +1,9 @@
+{
+  "key": "8042aaa26c65a1f816d5585a",
+  "text": "A person jumps upward once while raising both arms in celebration, then lands upright.",
+  "nickname": "Celebrate jump",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.3404493,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

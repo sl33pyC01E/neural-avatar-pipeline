@@ -1,0 +1,9 @@
+{
+  "key": "60bc2f99f9ef4be1b6253f2b",
+  "text": "A person stands upright and attentive with their hands relaxed near their sides.",
+  "nickname": "Attentive idle",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082994.8521316,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

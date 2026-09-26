@@ -1,0 +1,9 @@
+{
+  "key": "5200096702bc5baafedad3fe",
+  "text": "A person performs a steady sequence of jumping jacks with synchronized arms and legs.",
+  "nickname": "Jumping jacks",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083005.1132483,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

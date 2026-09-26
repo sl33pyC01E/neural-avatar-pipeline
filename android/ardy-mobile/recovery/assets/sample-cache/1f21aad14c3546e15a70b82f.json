@@ -1,0 +1,9 @@
+{
+  "key": "1f21aad14c3546e15a70b82f",
+  "text": "A person explains something energetically using broad expressive movements with both hands.",
+  "nickname": "Animated explaining",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.164907,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

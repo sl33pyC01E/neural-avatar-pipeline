@@ -1,0 +1,9 @@
+{
+  "key": "445297b4ea2bbab01de9e3ea",
+  "text": "A person keeps their feet planted and bends forward from the waist in a slow graceful bow.",
+  "nickname": "Graceful bow",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.3895314,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

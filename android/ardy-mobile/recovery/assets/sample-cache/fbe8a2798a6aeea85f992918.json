@@ -1,0 +1,9 @@
+{
+  "key": "fbe8a2798a6aeea85f992918",
+  "text": "A person bows.",
+  "nickname": "Broad \u00b7 Bow",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083010.7458045,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

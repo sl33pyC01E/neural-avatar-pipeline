@@ -1,0 +1,9 @@
+{
+  "key": "fb65935e8dea5af2949d15ec",
+  "text": "A person walks backward carefully using steady alternating steps while staying upright.",
+  "nickname": "Backward walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.076035,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

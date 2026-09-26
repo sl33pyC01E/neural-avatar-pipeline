@@ -1,0 +1,9 @@
+{
+  "key": "2892f5c006e5c873a9572f99",
+  "text": "A person celebrates.",
+  "nickname": "Broad \u00b7 Celebrate",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083011.1599503,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

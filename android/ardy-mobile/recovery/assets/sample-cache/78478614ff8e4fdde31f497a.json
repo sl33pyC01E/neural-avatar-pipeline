@@ -1,0 +1,9 @@
+{
+  "key": "78478614ff8e4fdde31f497a",
+  "text": "A person waves.",
+  "nickname": "Broad \u00b7 Wave",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.6292264,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

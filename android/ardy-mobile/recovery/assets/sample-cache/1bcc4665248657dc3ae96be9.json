@@ -1,0 +1,9 @@
+{
+  "key": "1bcc4665248657dc3ae96be9",
+  "text": "A person makes a firm deliberate gesture with both hands to strongly emphasize a point.",
+  "nickname": "Strong emphasis",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.3988397,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

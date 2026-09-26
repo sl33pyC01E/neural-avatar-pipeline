@@ -1,0 +1,9 @@
+{
+  "key": "7c979a5d0873d6bcfc76206f",
+  "text": "A person places their hands on their hips.",
+  "nickname": "Broad \u00b7 Hands on hips",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083010.5085814,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

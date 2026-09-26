@@ -1,0 +1,9 @@
+{
+  "key": "f3358417e484793e7872237a",
+  "text": "A person raises one finger in front of their lips and holds a clear request for silence.",
+  "nickname": "Quiet gesture",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083000.5485322,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

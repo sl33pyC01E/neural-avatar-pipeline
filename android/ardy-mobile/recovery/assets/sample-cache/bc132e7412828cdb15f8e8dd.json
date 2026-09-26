@@ -1,0 +1,9 @@
+{
+  "key": "bc132e7412828cdb15f8e8dd",
+  "text": "A person walks forward naturally, comes to a smooth stop, and settles into a relaxed standing pose.",
+  "nickname": "Walk then idle",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083008.8956053,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

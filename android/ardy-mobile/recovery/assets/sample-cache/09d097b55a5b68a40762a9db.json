@@ -1,0 +1,9 @@
+{
+  "key": "09d097b55a5b68a40762a9db",
+  "text": "A person stands in a neutral pose.",
+  "nickname": "Broad \u00b7 Neutral pose",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083009.2533596,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

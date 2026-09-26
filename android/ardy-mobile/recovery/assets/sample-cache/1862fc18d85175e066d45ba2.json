@@ -1,0 +1,9 @@
+{
+  "key": "1862fc18d85175e066d45ba2",
+  "text": "A person makes one small deliberate downward hand gesture to emphasize a spoken point.",
+  "nickname": "Gentle emphasis",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082999.2734015,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

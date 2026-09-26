@@ -1,0 +1,9 @@
+{
+  "key": "d8b358d1c2d2aa8b19024490",
+  "text": "A person stands still and breathes calmly with subtle movement through their shoulders and chest.",
+  "nickname": "Calm breathing",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082994.9948428,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

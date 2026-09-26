@@ -1,0 +1,9 @@
+{
+  "key": "b60883b02b092c77aa74f49c",
+  "text": "A person speaks calmly while making slow controlled gestures near their waist.",
+  "nickname": "Calm speaking",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083001.8423204,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

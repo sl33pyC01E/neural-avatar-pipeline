@@ -1,0 +1,9 @@
+{
+  "key": "08020b00c4cb5a37666248e9",
+  "text": "A person raises their left arm straight out to the side at shoulder height and holds it there.",
+  "nickname": "Left arm side",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789082996.688168,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

@@ -1,0 +1,9 @@
+{
+  "key": "25547f8693f50870b9697726",
+  "text": "A person sways rhythmically from side to side while moving both arms gently with the beat.",
+  "nickname": "Dance sway",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.2255354,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

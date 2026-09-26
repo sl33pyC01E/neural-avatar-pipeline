@@ -1,0 +1,9 @@
+{
+  "key": "b53bec009c97ee30e9249f00",
+  "text": "A person walks forward briskly with purposeful steps and active arm swings.",
+  "nickname": "Brisk walk",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083006.5743926,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

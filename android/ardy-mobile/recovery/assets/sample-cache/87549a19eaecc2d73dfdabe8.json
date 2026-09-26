@@ -1,0 +1,9 @@
+{
+  "key": "87549a19eaecc2d73dfdabe8",
+  "text": "A person reaches both arms high overhead and stretches their entire body upward.",
+  "nickname": "Stretch overhead",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083005.2362437,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}

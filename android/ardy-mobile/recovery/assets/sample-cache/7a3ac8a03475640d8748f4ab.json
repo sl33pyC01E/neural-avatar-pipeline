@@ -1,0 +1,9 @@
+{
+  "key": "7a3ac8a03475640d8748f4ab",
+  "text": "A person walks backward.",
+  "nickname": "Broad \u00b7 Walk backward",
+  "width": 4096,
+  "dtype": "float32",
+  "createdAt": 1789083012.861565,
+  "encoder": "LLM2Vec-Meta-Llama-3-8B-Instruct-mntp-supervised"
+}
