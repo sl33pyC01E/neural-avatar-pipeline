@@ -4,12 +4,23 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.4.2
+## Latest checkpoint: 0.4.3
+
+Tab 5 adds two-finger panning alongside one-finger orbit and pinch zoom, plus a
+Reset view button. Pan is a separate offset from Ardy root following, and the
+body/face views retain their own framing. Cancelled touches and hidden views clear
+the active gesture.
+
+**VRM appearance** has exposure, contrast, saturation, fill/key light and tone
+mapping controls. Settings save locally and apply across avatar tabs. Balanced
+uses softer lighting and neutral highlight compression; Original restores the
+previous look. Color grading runs in the VRM materials, without an extra render
+pass or changes to the avatar asset. Idle views still stop rendering.
 
 The six-tab checkpoint now schedules body, voice and face on a shared audio clock
 and corrects four Ardy history/mask/decoder contracts. See
 [scheduled takes](SCHEDULED_TAKES.md) and [the contract audit](ARDY_CONTRACT_AUDIT.md).
-Version 0.4.2 is installed for the user's visual/audio test; the original app and
+Version 0.4.3 is installed for the user's visual/audio test; the original app and
 its models are retained. Desktop checks do not establish phone quality or speed.
 
 The [comparison kit](benchmark/README.md) prepares **Ardy + Pocket + LAM + VRM +

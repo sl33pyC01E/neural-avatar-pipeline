@@ -33,7 +33,18 @@ h2{font-size:20px;margin:0 0 8px}textarea{display:block;width:100%;resize:vertic
 <section id="panel" role="tabpanel" aria-labelledby="tab-avatar" hidden><div id="controls">
 <button data-mode="replay" aria-pressed="true">Walk + wave</button><button data-mode="rest">Rest pose</button>
 <button data-mode="turn">Turn test</button><button id="skeleton" aria-pressed="false">Skeleton</button>
-<button id="physics" aria-pressed="false">Physics</button></div><div id="status">Loading Cleopatra…</div>
+<button id="physics" aria-pressed="false">Physics</button><button id="camera-reset">Reset view</button></div><div id="status">Loading Cleopatra…</div>
+<p class="hint">One finger rotates · two fingers pan · pinch to zoom</p>
+<details id="vrm-settings"><summary>VRM appearance</summary>
+<div class="row"><button id="vrm-balanced">Balanced</button><button id="vrm-original">Original</button></div>
+<label>Tone mapping <select id="vrm-tone"><option value="neutral">Neutral · preserve color</option><option value="filmic">Filmic · soft highlights</option><option value="none">Off · original</option></select></label>
+<label class="face-gain">Exposure<input id="vrm-exposure" type="range" min="0.3" max="2" step="0.01"><output id="vrm-exposure-value"></output></label>
+<label class="face-gain">Contrast<input id="vrm-contrast" type="range" min="0.6" max="1.6" step="0.01"><output id="vrm-contrast-value"></output></label>
+<label class="face-gain">Saturation<input id="vrm-saturation" type="range" min="0" max="2" step="0.01"><output id="vrm-saturation-value"></output></label>
+<label class="face-gain">Fill light<input id="vrm-fill" type="range" min="0" max="3" step="0.01"><output id="vrm-fill-value"></output></label>
+<label class="face-gain">Key light<input id="vrm-key" type="range" min="0" max="4" step="0.01"><output id="vrm-key-value"></output></label>
+<p class="hint">Saves automatically and applies to every avatar tab. Lower fill light for more definition. Balanced softens highlights; Original restores the previous look. Exposure is available with tone mapping.</p>
+</details>
 <details id="motion-controls"><summary>Ardy · cached embeddings</summary><div id="engines">
 <select id="bank" aria-label="Cached motion description"></select>
 <div class="row"><select id="profile" aria-label="Ardy profile"><option value="core40">Core-40</option><option value="core8">Core-8</option></select>

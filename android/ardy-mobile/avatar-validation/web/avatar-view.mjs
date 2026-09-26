@@ -6,6 +6,8 @@ import { MotionBuffer } from './motion-buffer.mjs';
 import { PerformanceTrack } from './performance-track.mjs';
 import { createFaceDriver } from './face.mjs';
 import { createFaceControls } from './face-controls.mjs';
+import { createCameraControls } from './camera-controls.mjs';
+import { createAppearanceControls } from './appearance-controls.mjs';
 
 const status = document.querySelector('#status');
 const canvas = document.querySelector('canvas');
@@ -28,25 +30,13 @@ export async function createAvatarView() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#101b19');
-  scene.add(new THREE.HemisphereLight(0xd7eee5, 0x49435b, 2));
+  const fill = new THREE.HemisphereLight(0xd7eee5, 0x49435b, 2);scene.add(fill);
   const light = new THREE.DirectionalLight(0xffffff, 2.5);
   light.position.set(1.5, 3.5, 2); scene.add(light);
   const grid = new THREE.GridHelper(12, 60, 0x537c6a, 0x243d32); scene.add(grid);
   const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 30);
-  let yaw = 0.18, pitch = 1.4, radius = 3.4;
-  const target = new THREE.Vector3(0, 0.78, 0);
-  const points = new Map(); let pinch = 0;
-  canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); points.set(e.pointerId, [e.clientX, e.clientY]); });
-  canvas.addEventListener('pointerup', e => { points.delete(e.pointerId); pinch = 0; });
-  canvas.addEventListener('pointercancel', e => { points.delete(e.pointerId); pinch = 0; });
-  canvas.addEventListener('pointermove', e => {
-    const old = points.get(e.pointerId); if (!old) return;
-    points.set(e.pointerId, [e.clientX, e.clientY]);
-    if (points.size === 1) { yaw -= (e.clientX - old[0]) * .008; pitch = THREE.MathUtils.clamp(pitch - (e.clientY - old[1]) * .008, .3, 2.6); }
-    else { const [a,b] = [...points.values()]; const d = Math.hypot(a[0]-b[0], a[1]-b[1]); if (pinch && d) radius = THREE.MathUtils.clamp(radius * pinch / d, 1, 7); pinch = d; }
-    invalidate();
-  });
-  canvas.addEventListener('wheel', e => { e.preventDefault(); radius = THREE.MathUtils.clamp(radius * Math.exp(e.deltaY * .001), 1, 7); invalidate(); }, { passive: false });
+  const cameraControls=createCameraControls(canvas,camera,invalidate);
+  document.querySelector('#camera-reset').onclick=()=>cameraControls.reset();
 
   const loader = new GLTFLoader(); loader.register(parser => new VRMLoaderPlugin(parser));
   const [gltf, bind, motion, provenance] = await Promise.all([
@@ -66,6 +56,7 @@ export async function createAvatarView() {
   const after = geometryStats();
   vrm.scene.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
   scene.add(vrm.scene); vrm.scene.updateMatrixWorld(true);
+  const appearance=createAppearanceControls(vrm,renderer,fill,light,invalidate);
   const faceDriver=createFaceDriver(vrm);let speaking=false,faceStream=null;const faceSegments=[];
   const position = name => vrm.humanoid.getRawBoneNode(name)?.getWorldPosition(new THREE.Vector3());
   const feet = ['leftFoot','leftToes','rightFoot','rightToes'].map(position).filter(Boolean);
@@ -73,14 +64,7 @@ export async function createAvatarView() {
   const retarget = createRetargeter(vrm, bind, alignment);
   retarget.reset();
   const faceControls=createFaceControls(vrm,faceDriver);
-  let faceView=false,bodyCamera,faceCamera;
-  function setFaceView(value) {
-    if(faceView===value)return;
-    const current={yaw,pitch,radius,y:target.y};
-    if(value){bodyCamera=current;faceCamera??={yaw:.05,pitch:1.5,radius:.62,y:position('head').y-.02};}
-    else faceCamera=current;
-    const next=value?faceCamera:bodyCamera;({yaw,pitch,radius}=next);target.y=next.y;faceView=value;invalidate();
-  }
+  const setFaceView=value=>cameraControls.setFaceView(value,position('head').y-.02);
   for(const key of ['eyes','mouth','head']) {
     const slider=document.querySelector(`#face-${key}`),output=document.querySelector(`#face-${key}-value`);
     slider.value=faceControls.settings[key];output.textContent=`${Number(slider.value).toFixed(2)}×`;
@@ -107,7 +91,7 @@ export async function createAvatarView() {
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   // Local replay/renderer inspection hook. Native engines are exposed only on the offline asset origin.
-  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls };
+  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls,cameraControls,camera,appearance };
   const matrixQuaternion = values => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
     ...values[0], 0, ...values[1], 0, ...values[2], 0, 0, 0, 0, 1)).normalize();
   const rotations = motion.rotations.map(frame => frame.map(matrixQuaternion));
@@ -265,9 +249,7 @@ export async function createAvatarView() {
     vrm.scene.updateMatrixWorld(true);
     heldRoot=[...currentRoot];
     if(trackClock)window.validationState.performance={...trackClock,motionSeconds:liveBuffer.seconds,motionEndSeconds:liveBuffer.endSeconds,origin:liveBuffer.origin,gate:performanceGate?.seconds??null,finished:performanceTrack.finished};
-    target.x = currentRoot[0]; target.z = currentRoot[2];
-    camera.position.set(target.x + radius*Math.sin(pitch)*Math.sin(yaw), target.y + radius*Math.cos(pitch), target.z + radius*Math.sin(pitch)*Math.cos(yaw));
-    camera.lookAt(target);
+    cameraControls.update(currentRoot);
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (canvas.width !== Math.round(width*renderer.getPixelRatio()) || canvas.height !== Math.round(height*renderer.getPixelRatio())) {
       renderer.setSize(width,height,false); camera.aspect=width/height; camera.updateProjectionMatrix();
@@ -289,7 +271,7 @@ export async function createAvatarView() {
   }
   const setVisible=value=>{
     visible=Boolean(value)&&!document.hidden;
-    if(!visible){if(frameId)cancelAnimationFrame(frameId);frameId=0;}
+    if(!visible){cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
   function stopFace(){speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}

@@ -96,6 +96,48 @@ try {
   await evaluate('window.cleoVisible(true);window.avatarValidation.setMode("rest")');await sleep(150);
   const resting=await evaluate('window.avatarValidation.renderer.info.render.frame');await sleep(300);
   assert.equal(await evaluate('window.avatarValidation.renderer.info.render.frame'),resting,'Static rest kept rendering');
+  // Browser touch dispatch exercises pointer capture and two-touch transitions.
+  const cameraState=()=>evaluate('window.avatarValidation.cameraControls.snapshot()');
+  const cameraBefore=await cameraState();
+  const viewport=await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return {y:r.y,height:r.height}})()');
+  const y=viewport.y+viewport.height*.5;
+  const touch=(type,points)=>call('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,x,y])=>({id,x,y,radiusX:4,radiusY:4,force:1}))});
+  await touch('touchStart',[[1,150,y],[2,250,y]]);
+  await touch('touchMove',[[1,170,y+12],[2,270,y+12]]);
+  await touch('touchEnd',[]);
+  const panned=await cameraState();
+  assert.equal(panned.yaw,cameraBefore.yaw);assert.equal(panned.pitch,cameraBefore.pitch);
+  assert(Math.abs(panned.radius-cameraBefore.radius)<1e-6,'Two-finger translation changed zoom');
+  assert(Math.hypot(...panned.pan)>.03,'Two-finger translation did not pan');
+  await evaluate('window.avatarValidation.setMode("replay")');await sleep(250);
+  assert.deepEqual((await cameraState()).pan,panned.pan,'Motion following erased the pan offset');
+  await evaluate('window.avatarValidation.setMode("rest")');
+  await touch('touchStart',[[1,150,y],[2,250,y]]);
+  await touch('touchMove',[[1,125,y],[2,275,y]]);
+  await touch('touchCancel',[]);
+  const zoomed=await cameraState();assert(zoomed.radius<panned.radius*.8,'Pinch did not zoom');
+  await touch('touchStart',[[3,180,y]]);await touch('touchMove',[[3,200,y]]);await touch('touchEnd',[]);
+  assert(Math.abs((await cameraState()).yaw-zoomed.yaw)>.1,'Cancelled pinch left stale touches');
+  const bodyView=await cameraState();
+  await evaluate('window.debugTabs.select("face")');await evaluate('window.debugTabs.select("avatar")');
+  assert.deepEqual(await cameraState(),bodyView,'Face tab discarded the full body camera offset');
+  await evaluate('document.querySelector("#camera-reset").click()');assert.deepEqual(await cameraState(),cameraBefore);
+  await evaluate('document.querySelector("#vrm-original").click()');await sleep(200);
+  const originalLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-original.png'),Buffer.from(originalLook.data,'base64'));
+  const drawCalls=await evaluate('window.avatarValidation.renderer.info.render.calls');
+  await evaluate('document.querySelector("#vrm-balanced").click()');await sleep(250);
+  const balancedLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-balanced.png'),Buffer.from(balancedLook.data,'base64'));
+  assert.notEqual(balancedLook.data,originalLook.data,'Lighting preset did not change the rendered view');
+  assert.equal(await evaluate('window.avatarValidation.renderer.info.render.calls'),drawCalls,'Appearance added a render pass');
+  await evaluate('document.querySelector("#vrm-saturation").value="0";document.querySelector("#vrm-saturation").dispatchEvent(new Event("input"))');await sleep(150);
+  assert.equal(await evaluate('window.avatarValidation.appearance.uniforms.cleoSaturation.value'),0);
+  const desaturatedLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-desaturated.png'),Buffer.from(desaturatedLook.data,'base64'));
+  assert.notEqual(desaturatedLook.data,balancedLook.data,'Saturation did not change the rendered avatar');
+  await evaluate('document.querySelector("#vrm-balanced").click();document.querySelector("#vrm-settings").open=true');await sleep(150);
+  const tuningLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-controls.png'),Buffer.from(tuningLook.data,'base64'));
+  await evaluate('document.querySelector("#vrm-settings").open=false');
+  assert(await evaluate('window.avatarValidation.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)'),'Avatar shader did not compile');
+  assert.equal(await evaluate('window.avatarValidation.renderer.getContext().getError()'),0);
   await evaluate('window.debugTabs.select("face")');
   await evaluate('document.querySelector("#animate-face").click();window.avatarValidation.faceControls.set("mouth",1);');
   assert(await evaluate('window.faceRequested'),'Face control did not reach the native bridge');
@@ -160,7 +202,8 @@ try {
   assert(Math.abs(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")')-.4)<1e-4,'Face missed the scheduled cue');
   const anchored=await evaluate('window.validationState.performance.motionSeconds');await sleep(200);
   assert.equal(await evaluate('window.validationState.performance.motionSeconds'),anchored,'Body advanced while the playback clock was held');
-  await evaluate(`window.cleoEvent({type:'performanceTail',tab:'full',withFace:true,streamId:'pipe-check',runId:'tail-window',audioSeconds:1,requiredMotionSeconds:2.5})`);await sleep(150);
+  await evaluate(`window.cleoEvent({type:'performanceTail',tab:'full',withFace:true,streamId:'pipe-check',runId:'tail-window',audioSeconds:1,requiredMotionSeconds:2.5})`);
+  for(let i=0;i<50;i++){if(await evaluate('window.faceReadyRun')==='tail-window')break;await sleep(100);}
   assert.equal(await evaluate('window.faceReadyRun'),'tail-window','Tail ran before body coverage');
   await evaluate(`window.testClock=2.25`);await sleep(120);
   assert.equal(await evaluate('window.avatarValidation.vrm.expressionManager.getValue("aa")'),0,'Face did not release after speech');
@@ -190,7 +233,17 @@ try {
   const errors=await evaluate('window.validationState.errors');assert.deepEqual(errors,[]);
   const bounds=await evaluate('(()=>{const c=document.querySelector("canvas").getBoundingClientRect(),p=document.querySelector("#panel").getBoundingClientRect();return {canvasHeight:c.height,canvasBottom:c.bottom,panelTop:p.top}})()');
   assert(bounds.canvasHeight>=100&&bounds.canvasBottom<=bounds.panelTop,'Controls cover the viewport');
+  // Reload restores appearance without waking any phone runtime.
+  await evaluate('document.querySelector("#vrm-contrast").value="1.21";document.querySelector("#vrm-contrast").dispatchEvent(new Event("input"))');
+  await call('Page.reload');await sleep(250);
+  for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
+  await evaluate('window.debugTabs.select("avatar")');
+  for(let i=0;i<150;i++){if(await evaluate('window.validationState.ready'))break;await sleep(200);}
+  assert.equal(await evaluate('window.avatarValidation.appearance.settings.contrast'),1.21,'Appearance did not persist');
+  assert.equal(await evaluate('document.querySelector("#vrm-contrast").value'),'1.21');
+  assert.deepEqual(await evaluate('window.validationState.errors'),[]);
   const report={passed:true,phoneTest:false,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+    twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     sixTabsAndWelcome:true,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
