@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('qwen-whisper','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu')][string]$Engine='qwen-whisper',
+    [ValidateSet('qwen-whisper','qwen-litert-cpu','qwen-litert-gpu','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu')][string]$Engine='qwen-whisper',
     [ValidateSet('idle','full')][string]$Load='full',
     [ValidateSet('cpu','opencl')][string]$Backend='cpu',
     [ValidateSet('tiny','base','small')][string]$Whisper='base',

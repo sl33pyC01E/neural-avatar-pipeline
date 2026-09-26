@@ -1,0 +1,1 @@
+{"passed": true, "phoneExecution": false, "coordinateScaling": true, "malformedOutputsFail": true, "silenceScoredSeparately": true, "failuresRemainInAccuracyDenominator": true, "mockedNativeAndLiteRTTimingAdapters": true, "qwenSamplerAndReasoningBudget": true, "customQwenSelectedForBothLiteRTBackends": true, "allEngineDryRunsAvoidPhone": true}

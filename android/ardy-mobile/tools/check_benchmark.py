@@ -1,10 +1,12 @@
 """Host-only protocol/scoring checks. Does not connect to a device or load models."""
 import json
+import contextlib
+import io
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from benchmark_score import score_image,score_audio,image_prompt
-from run_phone_benchmark import summarize,workload_intervals,NativeServer,LiteRT,ROOT
+from run_phone_benchmark import summarize,workload_intervals,NativeServer,LiteRT,ROOT,main,ENGINES,QWEN_LITERT
 
 case=dict(width=1080,height=2400,targetBox=[400,1000,600,1300],expectedAction='tap')
 pixel=json.dumps(dict(action='tap',point=[500,1150],box=case['targetBox']))
@@ -41,10 +43,20 @@ class Response:
     def json(self):return dict(text='one two',deviceRequestMs=120)
 with tempfile.TemporaryDirectory() as directory:
     server=NativeServer.__new__(NativeServer);server.logpath=Path(directory)/'mock.log';server.logpath.write_bytes(b'')
-    server.url='mock://no-network'
-    with patch('run_phone_benchmark.requests.post',return_value=Response()):
+    server.url='mock://no-network';server.model_family='qwen'
+    with patch('run_phone_benchmark.requests.post',return_value=Response()) as request:
         answer=server.chat('test',fixture,False,0)
         assert answer['text']=='answer' and answer['deviceRequestMs']==100 and answer['deviceFirstTokenMs']==40
+        sent=request.call_args.kwargs['json']
+        assert sent['reasoning_budget_tokens']==0 and sent['chat_template_kwargs']['enable_thinking'] is False
+        assert (sent['temperature'],sent['top_p'],sent['top_k'],sent['presence_penalty'])==(.7,.8,20,1.5)
+        server.chat('test',fixture,True,128)
+        sent=request.call_args.kwargs['json']
+        assert sent['reasoning_budget_tokens']==128 and sent['max_tokens']==384
+        assert (sent['temperature'],sent['top_p'])==(1.0,.95)
+        server.model_family='gemma';server.chat('test',fixture,False,0)
+        sent=request.call_args.kwargs['json']
+        assert sent['temperature']==.3 and 'presence_penalty' not in sent
         audio=next(c for c in json.loads((ROOT/'benchmark/fixtures.json').read_text())['cases'] if c['modality']=='audio')
         assert server.transcribe(audio)['deviceRequestMs']==120
 adapter=LiteRT.__new__(LiteRT);adapter.request=lambda value:dict(text='answer',inferMs=90,firstTokenMs=30)
@@ -52,4 +64,13 @@ answer=adapter.chat('test',fixture,False,0)
 assert answer['deviceRequestMs']==90 and answer['deviceFirstTokenMs']==30 and 'firstTokenMs' not in answer
 report=summarize([dict(modality='image',coordinates='pixels',result=answer,score=dict(correct=True))])
 assert report['image-pixels']['deviceP50Ms']==90 and report['image-pixels']['deviceTimingCoverage']==1
-print(json.dumps(dict(passed=True,phoneExecution=False,coordinateScaling=True,malformedOutputsFail=True,silenceScoredSeparately=True,failuresRemainInAccuracyDenominator=True,mockedNativeAndLiteRTTimingAdapters=True)))
+for model,expected in [('qwen',QWEN_LITERT),('gemma','gemma-4-E2B-it.litertlm')]:
+    for backend in ('cpu','gpu'):
+        with patch.object(LiteRT,'request',return_value=dict(loadMs=1,pid=1)) as request:
+            LiteRT(None,backend,model)
+            assert request.call_args.args[0]==dict(action='load',model=expected,backend=backend,threads=2)
+for engine in ENGINES:
+    with patch('sys.argv',['run_phone_benchmark.py','--engine',engine,'--load','idle']),patch('run_phone_benchmark.Device',side_effect=AssertionError('Dry run accessed the phone')),contextlib.redirect_stdout(io.StringIO()) as output:
+        main()
+    assert json.loads(output.getvalue())['phoneExecution'] is False
+print(json.dumps(dict(passed=True,phoneExecution=False,coordinateScaling=True,malformedOutputsFail=True,silenceScoredSeparately=True,failuresRemainInAccuracyDenominator=True,mockedNativeAndLiteRTTimingAdapters=True,qwenSamplerAndReasoningBudget=True,customQwenSelectedForBothLiteRTBackends=True,allEngineDryRunsAvoidPhone=True)))

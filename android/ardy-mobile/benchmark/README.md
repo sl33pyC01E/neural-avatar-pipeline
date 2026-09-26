@@ -52,6 +52,7 @@ From PowerShell, run this file yourself:
 
 ```powershell
 .\benchmark\Run-Comparison.ps1 -Engine qwen-whisper -Load full
+.\benchmark\Run-Comparison.ps1 -Engine qwen-litert-gpu -Load full
 .\benchmark\Run-Comparison.ps1 -Engine gemma-gguf -Load full
 .\benchmark\Run-Comparison.ps1 -Engine gemma-litert-gpu -Load full
 ```
@@ -59,15 +60,20 @@ From PowerShell, run this file yourself:
 The wrapper waits for you to prepare the phone. Use `-Load idle` after warming
 Together and pressing Stop all. Keep the app/VRM visible and sessions resident.
 Use `-Backend opencl` with Qwen or Gemma GGUF to compare Adreno, or
-`-Engine gemma-litert-cpu` for the LiteRT CPU candidate. `-Whisper tiny` or
+`-Engine gemma-litert-cpu` for the LiteRT CPU candidate. Custom Qwen uses
+`-Engine qwen-litert-cpu` or `-Engine qwen-litert-gpu`, with the separately
+resident whisper.cpp engine. WhisperX remains an interactive tab 7 option.
+`-Whisper tiny` or
 `-Whisper small` changes the separate ASR size. `-AllCases` runs the full fixture
 set; the default 3 cases per modality × 3 repeats is only a setup check.
 
 The underlying `tools/run_phone_benchmark.py` does nothing to the phone without
 `--run`. Advanced controls include `--image-tokens`, `--thinking` and
 `--reasoning-budget`. Disable thinking first; compare a bounded thinking variant
-separately. Context is bounded at 4096 tokens, output at 256 plus any reasoning
-budget, and CPU threads at two. LiteRT's image budget is artifact-controlled and
+separately. Context is 8192 tokens for custom Qwen LiteRT and 4096 for other
+contenders, output is bounded at 256 plus any reasoning budget, and CPU threads
+at two. Model-specific sampling matches tab 7, with seed 42; each model's preset
+is retained in the report. LiteRT's image budget is artifact-controlled and
 is explicitly recorded as not adjustable through this adapter.
 
 Run matched idle/full pairs in alternating order, cool the phone between pairs,

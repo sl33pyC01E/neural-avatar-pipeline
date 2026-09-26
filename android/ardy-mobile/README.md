@@ -11,7 +11,8 @@ Whisper server arguments, selects Gemma's complete audio/vision LiteRT artifact,
 adds an experimental native WhisperX option, and prepares Qwen LiteRT CPU/GPU at
 768×768 / 576 visual tokens / 8K context. The custom vision export passes its
 numerical check; decoder compilation is in progress on Spark. Installation waits
-for the complete Qwen artifact and a connected phone. See
+for the complete Qwen artifact. The reconnected phone has the verified WhisperX
+payloads and full Gemma audio/vision file; its installed APK is still 0.5.0. See
 [the Qwen build](benchmark/qwen-litert/README.md) and
 [WhisperX Android](benchmark/WHISPERX_ANDROID.md).
 

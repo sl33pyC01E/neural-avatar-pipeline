@@ -1,0 +1,73 @@
+{
+  "provisionedAt": "2026-09-26T19:15:18.198302+00:00",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "deviceModel": "SM_S938U",
+  "installedVersion": {
+    "versionCode": 11,
+    "versionName": "0.5.0-model-chat"
+  },
+  "apkUpdated": false,
+  "appLaunched": false,
+  "inferenceTest": false,
+  "complete": true,
+  "verification": "Local, ADB staging and app-private SHA-256 verified by prepare_whisperx_models.py",
+  "totalBytes": 243174455,
+  "models": [
+    {
+      "path": "files/whisperx/base.en/model.bin",
+      "bytes": 145216508,
+      "sha256": "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"
+    },
+    {
+      "path": "files/whisperx/base.en/config.json",
+      "bytes": 2227,
+      "sha256": "f3bc3821e9fc76a27bae538e11ae5b677dcdd352b4600429ce7951d398569aeb"
+    },
+    {
+      "path": "files/whisperx/base.en/vocabulary.txt",
+      "bytes": 422309,
+      "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"
+    },
+    {
+      "path": "files/whisperx/base.en/README.md",
+      "bytes": 1323,
+      "sha256": "0360e1518671daf4064d44121ad1c4bbb0446dd5b0f8c724c8d3132fd33a1540"
+    },
+    {
+      "path": "files/whisperx/alignment/model.onnx",
+      "bytes": 95286046,
+      "sha256": "cd5040c147381580ed73258143dd8e0c28e800a09e74ee42ee2b3e8cb4d760a3"
+    },
+    {
+      "path": "files/whisperx/alignment/vocab.json",
+      "bytes": 358,
+      "sha256": "4178db26b3c7570f6a47f14ac6a1c7b32950b8c2800fb097287e53776934f1c5"
+    },
+    {
+      "path": "files/whisperx/alignment/preprocessor_config.json",
+      "bytes": 215,
+      "sha256": "8cdfd65ff4115423185a1512bdae100e2e0cd744f5b322417429944aaafd0827"
+    },
+    {
+      "path": "files/whisperx/alignment/README.md",
+      "bytes": 1372,
+      "sha256": "6c235e53bdc82374bd10f9dbff5aad652c0e1c11eaaf9427d85a7c3adcd56fb8"
+    },
+    {
+      "path": "files/whisperx/vad/model.onnx",
+      "bytes": 2243022,
+      "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+    },
+    {
+      "path": "files/whisperx/vad/LICENSE",
+      "bytes": 1075,
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    }
+  ],
+  "existingGemma": {
+    "path": "files/benchmark/gemma-4-E2B-it.litertlm",
+    "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "privateHashVerified": true
+  },
+  "phoneQualified": false
+}

@@ -26,6 +26,14 @@ REMOTE='/data/local/tmp/cleopatra-bench'
 PACKAGE='ai.cleo.ardyavatarvalidation'
 SERVICE=PACKAGE+'/ai.cleo.ardyavatarvalidation.BenchmarkService'
 ASR_PROMPT='Transcribe this English speech exactly. Return only the spoken words. Return an empty answer for silence.'
+ENGINES=['qwen-whisper','qwen-litert-cpu','qwen-litert-gpu','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu']
+QWEN_LITERT='Qwen3.5-2B-Cleo-768-8k-int8.litertlm'
+
+def chat_sampling(model_family,thinking):
+    if model_family=='qwen':
+        return dict(temperature=1.0 if thinking else .7,top_p=.95 if thinking else .8,
+            top_k=20,min_p=0.0,presence_penalty=1.5,repeat_penalty=1.0,seed=42)
+    return dict(temperature=.3,top_k=40,top_p=.95,seed=42)
 
 class Device:
     def __init__(self,adb,transport):self.prefix=[adb,'-t',str(transport)]
@@ -65,8 +73,9 @@ class Monitor:
     def __exit__(self,*args):self.stop.set();self.thread.join(timeout=35)
 
 class NativeServer:
-    def __init__(self,device,binary,args,port,output,loadingPids=None):
+    def __init__(self,device,binary,args,port,output,loadingPids=None,model_family=None):
         self.device=device;self.binary=binary;self.port=port;self.pid=None;self.process=None;self.forward=None
+        self.model_family=model_family
         self.pidfile=REMOTE+'/'+uuid.uuid4().hex+'.pid';self.logpath=output/(binary+'.log')
         self.log=self.logpath.open('wb');self.started=time.perf_counter()
         env=['env','LD_LIBRARY_PATH=/vendor/lib64','GGML_OPENCL_KERNEL_CACHE_DIR='+REMOTE+'/opencl-cache'] if binary.endswith('-opencl') else []
@@ -111,9 +120,9 @@ class NativeServer:
         data=base64.b64encode((PAYLOAD/'fixtures'/case['file']).read_bytes()).decode()
         if case['modality']=='image':content.append(dict(type='image_url',image_url=dict(url='data:image/png;base64,'+data)))
         elif case['modality']=='audio':content.append(dict(type='input_audio',input_audio=dict(data=data,format='wav')))
-        payload=dict(messages=[dict(role='user',content=content)],stream=True,temperature=0,seed=42,
+        payload=dict(messages=[dict(role='user',content=content)],stream=True,**chat_sampling(self.model_family,thinking),
             max_tokens=256+budget,cache_prompt=False,chat_template_kwargs=dict(enable_thinking=thinking),
-            reasoning_budget=budget,timings_per_token=True,stream_options=dict(include_usage=True))
+            reasoning_budget_tokens=budget,timings_per_token=True,stream_options=dict(include_usage=True))
         offset=self.logpath.stat().st_size;start=time.perf_counter();first=None;firstAny=None;text='';timings={};finish=None
         deviceElapsed=None;deviceTotal=None;deviceFirst=None
         with requests.post(self.url+'/v1/chat/completions',json=payload,stream=True,timeout=(10,180)) as response:
@@ -151,9 +160,9 @@ class NativeServer:
             deviceRequestMs=value.get('deviceRequestMs'),timingScope='device handler: WAV bytes received through final transcription')
 
 class LiteRT:
-    def __init__(self,device,backend):
+    def __init__(self,device,backend,model_family='gemma'):
         self.device=device;self.backend=backend;self.pid=None
-        self.model='gemma-4-E2B-it.litertlm'
+        self.model=QWEN_LITERT if model_family=='qwen' else 'gemma-4-E2B-it.litertlm'
         result=self.request(dict(action='load',model=self.model,backend=backend,threads=2))
         self.loadMs=result['loadMs'];self.pid=result['pid']
     def request(self,value):
@@ -217,7 +226,7 @@ def summarize(rows):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run',action='store_true',help='Explicitly start phone inference. User invokes this, never the coding agent.')
-    p.add_argument('--engine',choices=['qwen-whisper','gemma-gguf','gemma-litert-cpu','gemma-litert-gpu'],required=True)
+    p.add_argument('--engine',choices=ENGINES,required=True)
     p.add_argument('--load',choices=['idle','full'],required=True)
     p.add_argument('--whisper',choices=['tiny','base','small'],default='base')
     p.add_argument('--backend',choices=['cpu','opencl'],default='cpu',help='GGUF model backend; LiteRT uses its engine-specific backend')
@@ -232,6 +241,11 @@ def main():
     if a.image_tokens<70 or a.image_tokens>2048 or a.reasoning_budget<0 or a.reasoning_budget>512 or a.repeats<1 or a.limit<0:p.error('Invalid budget/repetition limit')
     if a.thinking!=(a.reasoning_budget>0):p.error('Use --thinking together with a positive --reasoning-budget, or leave both disabled')
     if 'litert' in a.engine and a.backend!='cpu':p.error('Select the LiteRT GPU engine, not --backend opencl')
+    custom=None
+    if a.engine.startswith('qwen-litert'):
+        custom=json.loads((ROOT/'benchmark/qwen-litert/build-receipt.json').read_text())
+        if custom.get('file')!=QWEN_LITERT or not custom.get('graphExported') or custom.get('contextTokens')!=8192 or custom.get('imageSize')!=768 or not custom.get('generationQuality',{}).get('passed') or custom['generationQuality'].get('sha256')!=custom.get('sha256'):
+            raise ValueError('A matching, quality-checked custom Qwen export is required')
     d=Device(a.adb,a.transport);out=PAYLOAD/'results'/(time.strftime('%Y%m%d-%H%M%S')+'-'+a.engine+'-'+a.load);out.mkdir(parents=True)
     manifest=json.loads((ROOT/'benchmark/fixtures.json').read_text());cases=[]
     for modality in ['image','audio']:
@@ -256,10 +270,13 @@ def main():
         'RSS sums can double-count shared pages. PSS is the ranking metric.',
         'No real taps or sends. Controlled targets/read speech do not establish production accuracy.'])
     if a.backend=='opencl':report['openclRuntime']=json.loads((PAYLOAD/'runtime-opencl.json').read_text())
+    if custom is not None:report['customQwen']=custom
+    report['samplingPreset']=chat_sampling(a.engine.split('-',1)[0],a.thinking)
+    report['contextTokens']=8192 if a.engine.startswith('qwen-litert') else 4096
     try:
         with Monitor(d,[]) as loading:
             if 'litert' in a.engine:
-                engine=LiteRT(d,a.engine.rsplit('-',1)[1]);servers.append(engine)
+                engine=LiteRT(d,a.engine.rsplit('-',1)[1],a.engine.split('-',1)[0]);servers.append(engine)
             else:
                 qwen=a.engine=='qwen-whisper'
                 model='Qwen3.5-2B-Q4_K_M.gguf' if qwen else 'gemma-4-E2B-it-Q4_0.gguf'
@@ -267,10 +284,10 @@ def main():
                 args=['-m',REMOTE+'/'+model,'--mmproj',REMOTE+'/'+projector,'-c','4096','-t','2','-tb','2','-ngl','999' if a.backend=='opencl' else '0',
                     '--mmproj-offload' if a.backend=='opencl' else '--no-mmproj-offload','--no-warmup','--parallel','1','--cache-ram','0','--poll','0','--poll-batch','0',
                     '--jinja','--no-webui','--image-max-tokens',str(a.image_tokens),'--reasoning-budget',str(a.reasoning_budget)]
-                engine=NativeServer(d,'llama-server'+('-opencl' if a.backend=='opencl' else ''),args,18761,out,loading.pids);servers.append(engine)
+                engine=NativeServer(d,'llama-server'+('-opencl' if a.backend=='opencl' else ''),args,18761,out,loading.pids,model_family='qwen' if qwen else 'gemma');servers.append(engine)
                 report['backendEvidence']=engine.backendEvidence
             whisper=None
-            if a.engine=='qwen-whisper':
+            if a.engine.startswith('qwen'):
                 whisper=NativeServer(d,'whisper-server',['-m',REMOTE+f'/ggml-{a.whisper}.en-q5_1.bin','-t','2','-ng','-nf','-bo','1','-bs','1','-l','en'],18762,out,loading.pids)
                 servers.append(whisper)
         report['loadMs']=dict(llm=engine.loadMs,asr=whisper.loadMs if whisper else None)
