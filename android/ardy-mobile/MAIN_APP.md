@@ -1,4 +1,7 @@
-# Cleopatra 0.8.0 · Main
+# Cleopatra 0.8.1 · Main
+
+See [the startup/skin fix](LOAD_FIX.md) for the confirmed Android memory-kill
+diagnosis, staged loading, new error reporting and subtle skin warmth default.
 
 Startup is a minimal Launch page. No VRM or model inference starts before Launch.
 The corner Settings menu shares the existing model/context/image/reasoning

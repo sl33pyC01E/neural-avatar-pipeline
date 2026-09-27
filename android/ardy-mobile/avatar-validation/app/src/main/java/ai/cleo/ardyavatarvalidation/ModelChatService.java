@@ -87,6 +87,8 @@ public final class ModelChatService extends Service {
                 default:throw new IOException("Unknown chat command");
             }
         }catch(Throwable failure){
+            android.util.Log.e("CleoGemma",request.optString("action")+" failed",failure);
+            ModelDiagnostics.stage(this,"failed "+request.optString("action"),selection);
             if(request.optString("action").equals("load")){closeModels();loaded=false;}
             if(channel.equals("main"))closeMainConversation();
             else if(channel.equals("avatar"))closeAvatarConversation();
@@ -115,8 +117,10 @@ public final class ModelChatService extends Service {
         File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");
         if(!file.isFile())throw new IOException("Missing full Gemma audio/vision model");
         ExperimentalFlags.INSTANCE.setVisualTokenBudget(visualTokens); // Must precede engine creation: reserves the matching vision buffers.
+        ModelDiagnostics.stage(this,"engine initialization",selection);
         engine=new Engine(new EngineConfig(file.getPath(),gpu?new Backend.GPU():new Backend.CPU(2,null),gpu?new Backend.GPU():new Backend.CPU(2,null),new Backend.CPU(2,null),contextTokens,8,getCacheDir().getPath()));
         engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready · "+contextTokens+"-token context"));
+        ModelDiagnostics.stage(this,"engine ready",selection);
     }
     private Conversation createConversation(AvatarToolApi api)throws Exception {
         List<ToolProvider> tools=new ArrayList<>();Contents instruction=null;
@@ -207,7 +211,9 @@ public final class ModelChatService extends Service {
         if(mainConversation==null||!key.equals(mainToolKey)){
             closeMainConversation();mainTools=new MainAvatarToolApi(catalog,expressions);mainToolKey=key;
             long start=SystemClock.elapsedRealtimeNanos();emit(json("phase","Preparing Cleopatra's situation and avatar controls…"));
+            ModelDiagnostics.stage(this,"avatar prompt preparation",selection);
             mainConversation=createConversation(mainTools);checkCancelled();prefillMs=elapsed(start);try{prefillTokens=mainConversation.getTokenCount();}catch(RuntimeException unavailable){prefillTokens=-1;}mainPrepared=true;
+            ModelDiagnostics.stage(this,"avatar prompt ready",selection);
         }
         emit(json("mainPrepared",true));
     }
@@ -288,7 +294,7 @@ public final class ModelChatService extends Service {
         return row;
     }
     private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident));}catch(JSONException ignored){}}
-    private void emit(JSONObject value){try{value.put("type","chat").put("requestId",requestId).put("channel",channel);Messenger target=client;if(target!=null){android.os.Message message=android.os.Message.obtain(null,EVENT);Bundle bundle=new Bundle();bundle.putString("json",value.toString());message.setData(bundle);target.send(message);}}catch(Exception ignored){}}
+    private void emit(JSONObject value){try{value.put("type","chat").put("modelPid",android.os.Process.myPid()).put("requestId",requestId).put("channel",channel);Messenger target=client;if(target!=null){android.os.Message message=android.os.Message.obtain(null,EVENT);Bundle bundle=new Bundle();bundle.putString("json",value.toString());message.setData(bundle);target.send(message);}}catch(Exception ignored){}}
     private static JSONObject json(String key,Object value){try{return new JSONObject().put(key,value);}catch(JSONException impossible){throw new IllegalArgumentException(impossible);}}
     private void closeAvatarConversation(){if(avatarConversation!=null){avatarConversation.close();avatarConversation=null;}avatarTools=null;avatarToolKey="";avatarHistory=new JSONArray();avatarTurns=0;}
     private void closeMainConversation(){mainPrepared=false;if(mainConversation!=null){mainConversation.close();mainConversation=null;}mainTools=null;mainToolKey="";mainHistory=new JSONArray();mainTurns=0;prefillMs=0;prefillTokens=-1;}

@@ -13,6 +13,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   let prepared=!isMain,preparing=false,prepareFailed=false;
   const context=()=>({motions:embeddingCatalog(hooks.state()?.bank),expressions:hooks.avatar()?.expressions()||['neutral']});
   let active=false,warmId=null,loading=false,nativeReady=false,run=null,nativeConfig='',awaitingReady=false,historyKey='';
+  let loadingStage='',loadRequest=null,loadError='';
   const media=mediaInput(scope,{changed:controls,error:text=>status(text)});
   const components={ardy:'unloaded',pocket:'unloaded',lam:'unloaded'};
   const runtimeKey=()=>JSON.stringify(hooks.runtime());
@@ -20,7 +21,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   function ready(){return active&&Boolean(hooks.avatar())&&nativeReady&&nativeConfig===runtimeKey()&&chat.ready()&&prepared;}
   function controls(){
     const model=chat.status();
-    if(isMain&&active&&nativeReady&&!loading&&chat.ready()&&!prepared&&!preparing&&!prepareFailed){
+    if(isMain&&active&&nativeReady&&!loading&&chat.ready()&&!prepared&&!preparing&&!prepareFailed&&!loadError){
       const value=context();
       if(value.motions.length){preparing=true;chat.request({action:'mainPrepare',...value});status('Preparing Cleopatra’s situation and avatar controls…');}
     }
@@ -31,22 +32,39 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     $('#cleopatra-new').disabled=Boolean(run)||model.busy||!model.loaded;
     document.querySelectorAll('[data-frame]').forEach(button=>{if(isMain)button.disabled=Boolean(run)||loading||preparing;});
     if(ready()&&!run&&!loading&&awaitingReady){status(isMain?'Ready':'All five ready · live Ardy uses cached text embeddings');awaitingReady=false;}
+    if(loadError)status(loadError);
   }
   function stop(message='Stopped'){
     if(run?.phase==='generating')chat.request({action:'cancel'});
     if((loading||preparing)&&chat.status().busy)chat.request({action:'cancel'});
-    media.stop();if(preparing){preparing=false;prepareFailed=true;}run=null;loading=false;awaitingReady=false;warmId=null;window.Cleo?.cancelWarmAll?.();hooks.stopTake();status(message);controls();
+    media.stop();if(preparing){preparing=false;prepareFailed=true;}run=null;loading=false;loadingStage='';loadRequest=null;awaitingReady=false;warmId=null;window.Cleo?.cancelWarmAll?.();hooks.stopTake();status(message);controls();
+  }
+  function failLoad(message){loadError=message;prepareFailed=true;stop(message);}
+  function continueLoading(){
+    if(!loading)return;
+    if(isMain&&!prepared){
+      const value=context();
+      if(!value.motions.length){failLoad('No cached embeddings available; prepare one in tab 5.');return;}
+      loadingStage='prompt';preparing=true;
+      loadRequest=chat.request({action:'mainPrepare',...value});status('Preparing Cleopatra’s situation and avatar controls…');
+    }else{
+      loadingStage='avatar';const [profile,threads,precision]=hooks.runtime();
+      status('Gemma ready · loading Ardy, Pocket and LAM…');window.Cleo.warmAll(profile,threads,precision,warmId);
+    }
   }
   $('#cleopatra-load').onclick=()=>{
     if(!active||run||chat.status().busy||chat.status().recording||!hooks.avatar()||!window.Cleo?.warmAll)return;
-    prepareFailed=false;nativeReady=false;loading=true;awaitingReady=true;nativeConfig=runtimeKey();warmId=crypto.randomUUID();
+    prepareFailed=false;loadError='';nativeReady=false;loading=true;awaitingReady=true;nativeConfig=runtimeKey();warmId=crypto.randomUUID();
     for(const key of Object.keys(components))components[key]='queued';
-    const [profile,threads,precision]=hooks.runtime();
-    window.Cleo.warmAll(profile,threads,precision,warmId);
-    if(!chat.ready())chat.load();status('Loading Gemma, live Ardy, Pocket and LAM…');controls();
+    if(chat.ready())continueLoading();
+    else{
+      prepared=!isMain;loadingStage='release';status('Preparing memory for Gemma…');
+      window.Cleo.prepareModelLoad(warmId);
+    }
+    controls();
   };
   $('#cleopatra-stop').onclick=()=>stop();
-  $('#cleopatra-unload').onclick=()=>{stop('Unloading models…');nativeReady=false;for(const key of Object.keys(components))components[key]='unloaded';window.Cleo?.unloadAvatarModels?.();chat.request({action:'unload'});controls();};
+  $('#cleopatra-unload').onclick=()=>{loadError='';stop('Unloading models…');nativeReady=false;for(const key of Object.keys(components))components[key]='unloaded';window.Cleo?.unloadAvatarModels?.();chat.request({action:'unload'});controls();};
   $('#cleopatra-new').onclick=()=>{if(run||chat.status().busy)return;chat.request({action:isMain?'mainNew':'avatarNew',...(isMain?context():{})});$('#cleopatra-log').replaceChildren();$('#cleopatra-tools').textContent='';status('New Cleopatra conversation');};
   $('#cleopatra-form').onsubmit=event=>{
     event.preventDefault();if(!ready()||run||loading)return;
@@ -60,8 +78,17 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   };
   function event(value){
     if(value.type==='ensemble'&&value.requestId===warmId){
+      if(value.state==='error'){failLoad(value.message);return;}
+      if(value.component==='release'){
+        if(loadingStage==='release'&&value.state==='ready'){
+          for(const key of Object.keys(components))components[key]='queued';
+          loadingStage='gemma';loadRequest=chat.load();status('Loading Gemma with vision and audio…');
+          if(!loadRequest)failLoad('Gemma could not start loading. Try Launch again.');
+        }
+        controls();return;
+      }
       if(value.component in components)components[value.component]=value.state==='ready'?'resident':value.state;
-      if(value.component==='all'){loading=false;nativeReady=value.state==='ready';chat.request({action:'status'});}
+      if(value.component==='all'){loading=false;loadingStage='';nativeReady=value.state==='ready';chat.request({action:'status'});}
       status(value.message);
     }
     if(value.type==='ensembleReleased'){nativeReady=false;for(const key of Object.keys(components))components[key]='unloaded';if(run)stop(value.message);else status(value.message);}
@@ -69,6 +96,11 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
       media.event(value);
       if(isMain&&'mainPrepared' in value){prepared=Boolean(value.mainPrepared);if(prepared)preparing=false;const label=$('#main-prefill');if(value.state)label.textContent=prepared?`Gemma ${value.selection?.model==='gemma-e4b'?'E4B':'E2B'} prompt ready · ${Math.round(value.prefillMs||0)} ms preparation${value.prefillTokens>=0?' · '+value.prefillTokens+' tokens':''}`:'Prompt awaits Launch';}
       if(isMain&&(value.unloaded||value.disconnected||value.error)){prepared=false;preparing=false;prepareFailed=Boolean(value.error);if(value.error&&active)status(value.error);}
+      if(value.error&&active&&(loading||value.channel===channel||value.disconnected)){failLoad(value.error);}
+      if(loading&&value.state&&!value.busy&&value.requestId===loadRequest){
+        if(loadingStage==='gemma'&&chat.ready())continueLoading();
+        else if(loadingStage==='prompt'&&prepared)continueLoading();
+      }
       if(value.state&&!value.busy){
         const history=(isMain?value.mainHistory:value.avatarHistory)||[],key=JSON.stringify(history);
         if(!run&&key!==historyKey){const log=$('#cleopatra-log');log.replaceChildren();for(const item of history)streamMessage(log,item.role,item.text,item.reasoning,'Cleopatra');}

@@ -40,10 +40,13 @@ try {
   await call('Emulation.setDeviceMetricsOverride',{width:412,height:915,deviceScaleFactor:1,mobile:true});
   await call('Page.addScriptToEvaluateOnNewDocument',{source:`
     const source=${JSON.stringify(motion)};let cursor=0,run=false,paused=false,currentProfile='core40',currentStream='';
-    window.bridgeRequests=0;window.testClock=0;window.chatRequests=[];window.browserRequests=[];let modelLoaded=false,modelSelection={},chatHistory=[],mainPrepared=false;
+    window.bridgeRequests=0;window.testClock=0;window.chatRequests=[];window.browserRequests=[];window.loadOrder=[];window.warmRequests=[];let modelLoaded=false,modelSelection={},chatHistory=[],mainPrepared=false;
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
     window.Cleo={
       chat(raw){const r=JSON.parse(raw);window.chatRequests.push(r);
+        if(r.action==='load'&&window.holdLoad){window.heldLoad=raw;return;}
+        if(r.action==='load'||r.action==='mainPrepare')window.loadOrder.push(r.action);
+        if(r.action==='load'&&window.failNextLoad){modelLoaded=false;mainPrepared=false;const error=window.failNextLoad;window.failNextLoad=null;emit({type:'chat',disconnected:true,error});return;}
         if(r.action==='load'){modelSelection=Object.fromEntries(Object.entries(r).filter(([k])=>k!=='action'));modelLoaded=true;chatHistory=[];}
         if(r.action==='newChat')chatHistory=[];if(r.action==='load'||r.action==='unload')mainPrepared=false;if(r.action==='mainPrepare'||r.action==='mainNew')mainPrepared=true;
         if(r.action==='unload'){modelLoaded=false;emit({type:'chat',unloaded:true});}
@@ -61,7 +64,8 @@ try {
       startPerformance(profile,embedding,stream){window.performanceStarts=(window.performanceStarts||0)+1;window.performanceEmbedding=embedding;window.Cleo.start(profile,embedding,stream);},
       next(){if(!run||paused)return false;window.bridgeRequests++;const start=cursor,count=currentProfile==='core40'?40:8;if(start+count>source.joints.length)return false;cursor+=count;
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
-      warmAll(profile,threads,precision,requestId){window.warmRequest={profile,threads,precision,requestId};for(const component of ['ardy','pocket','lam','all'])emit({type:'ensemble',component,requestId,state:'ready',message:'Resident'});},cancelWarmAll(){},unloadAvatarModels(){emit({type:'ensembleReleased',message:'Unloaded'});},
+      prepareModelLoad(requestId){window.releaseRequest=requestId;window.loadOrder.push('release');if(!window.holdRelease)emit({type:'ensemble',component:'release',requestId,state:'ready',message:'Released'});},
+      warmAll(profile,threads,precision,requestId){window.loadOrder.push('warm');window.warmRequest={profile,threads,precision,requestId};window.warmRequests.push(window.warmRequest);for(const component of ['ardy','pocket','lam','all'])emit({type:'ensemble',component,requestId,state:'ready',message:'Resident'});},cancelWarmAll(){},unloadAvatarModels(){emit({type:'ensembleReleased',message:'Unloaded'});},
       mainFrame(value){window.nativeFrame=value;},residencyStatus(){emit({type:"residency",enabled:true,notifications:true,batteryExempt:true});},residency(value){window.residentEnabled=value;},tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
       speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
         emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
@@ -95,6 +99,7 @@ try {
   let ready;
   for(let i=0;i<150;i++){ready=await evaluate('window.validationState');if(ready?.ready)break;await sleep(200);}
   assert(ready?.ready,'Avatar did not load: '+JSON.stringify({logs,state:ready,page:await evaluate('({url:location.href,text:document.body?.innerText})')}));assert.deepEqual(ready.errors,[]);
+  assert.equal(await evaluate('window.avatarValidation.appearance.settings.skin'),1,'Subtle skin warmth is not the default');
   const graphics=await evaluate('(()=>{const gl=window.avatarValidation.renderer.getContext(),ext=gl.getExtension("WEBGL_debug_renderer_info");return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):"unknown"})()');
   assert(/swiftshader/i.test(graphics),'CPU renderer not selected: '+graphics);
   const relaxed=await evaluate(`(()=>{const v=window.avatarValidation.vrm,n=name=>v.humanoid.getNormalizedBoneNode(name),y=name=>n(name).matrixWorld.elements[13];return ['left','right'].every(side=>y(side+'Hand')<y(side+'UpperArm')-.25&&y(side+'LowerArm')<y(side+'UpperArm')-.15)})()`);
@@ -448,10 +453,33 @@ try {
   assert.equal(await evaluate('document.querySelector("#chat-context").value'),'8192','Context choice did not persist');
   await evaluate('window.debugTabs.select("cleopatra")');
   for(let i=0;i<150;i++){if(await evaluate('window.validationState.ready'))break;await sleep(200);}
-  await evaluate('document.querySelector("#cleopatra-load").click()');await sleep(150);
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).contextTokens'),8192,'Cleopatra Load all did not inherit the saved context');
+  for(let i=0;i<50;i++){if(await evaluate('!document.querySelector("#cleopatra-load").disabled'))break;await sleep(100);}
+  await evaluate('document.querySelector("#cleopatra-load").click()');
+  for(let i=0;i<50;i++){if(await evaluate('window.chatRequests.some(r=>r.action==="load")'))break;await sleep(100);}
+  const coldLoad=await evaluate('({request:window.chatRequests.filter(r=>r.action==="load").at(-1),order:window.loadOrder,status:document.querySelector("#cleopatra-status").textContent,disabled:document.querySelector("#cleopatra-load").disabled,requests:window.chatRequests})');
+  assert.equal(coldLoad.request?.contextTokens,8192,'Cleopatra Load all did not inherit the saved context: '+JSON.stringify(coldLoad));
+  await sleep(100);
+  // Exercise cold Main startup, failure retention, retries and cancellation with delayed native replies.
+  await evaluate('document.querySelector("#cleopatra-unload").click()');await sleep(60);
+  await evaluate('window.holdRelease=true;window.loadOrder=[];document.querySelector("#app-home").click();document.querySelector("#launch").click()');await sleep(80);
+  assert.deepEqual(await evaluate('window.loadOrder'),['release'],'Gemma loaded before avatar session release completed');
+  const staleRelease=await evaluate('window.releaseRequest');
+  await evaluate('document.querySelector("#main-stop").click()');
+  await evaluate(`window.cleoEvent({type:'ensemble',component:'release',requestId:${JSON.stringify(staleRelease)},state:'ready',message:'Released'})`);await sleep(40);
+  assert.deepEqual(await evaluate('window.loadOrder'),['release'],'Cancelled startup resumed after a late release acknowledgment');
+  const beforeFailure=await evaluate('window.warmRequests.length');
+  await evaluate('window.holdRelease=false;window.failNextLoad="Android stopped Gemma for low memory";document.querySelector("#main-load").click()');await sleep(120);
+  assert.equal(await evaluate('window.warmRequests.length'),beforeFailure,'Avatar models loaded after Gemma failed');
+  await evaluate(`window.cleoEvent({type:'ensemble',component:'all',requestId:window.releaseRequest,state:'ready',message:'LATE READY'})`);
+  assert.equal(await evaluate('document.querySelector("#main-status").textContent'),'Android stopped Gemma for low memory','Late startup event hid Gemma failure');
+  assert(await evaluate('document.querySelector("#main-send").disabled&&!document.querySelector("#main-load").disabled'),'Failed startup cannot be retried');
+  await evaluate('window.loadOrder=[];window.holdLoad=true;document.querySelector("#main-load").click()');await sleep(80);
+  assert.equal(await evaluate('window.warmRequests.length'),beforeFailure,'Avatar warmed during Gemma initialization');
+  await evaluate('window.holdLoad=false;window.Cleo.chat(window.heldLoad)');await sleep(160);
+  assert.deepEqual(await evaluate('window.loadOrder'),['release','load','mainPrepare','warm'],'Cold Main startup order is wrong');
+  assert(await evaluate('!document.querySelector("#main-send").disabled'),'Retry did not recover after Gemma loaded');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
-  const report={passed:true,phoneTest:false,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+  const report={passed:true,phoneTest:false,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,

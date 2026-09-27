@@ -146,6 +146,7 @@ public final class MainActivity extends Activity implements ResidentService.List
             if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds);
         }
         @JavascriptInterface public void warmAll(String profile,int threads,String precision,String request){if(engines!=null)engines.warmAll(profile,threads,precision,request);}
+        @JavascriptInterface public void prepareModelLoad(String request){if(engines!=null)engines.prepareModelLoad(request);}
         @JavascriptInterface public void cancelWarmAll(){if(engines!=null)engines.cancelWarmAll();}
         @JavascriptInterface public void unloadAvatarModels(){if(engines!=null)engines.unloadAvatarModels();}
         @JavascriptInterface public void quiet(){if(engines!=null)engines.stopSpeech();}

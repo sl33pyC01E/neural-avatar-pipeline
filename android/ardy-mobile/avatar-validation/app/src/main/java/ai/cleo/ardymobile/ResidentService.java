@@ -117,6 +117,22 @@ public final class ResidentService extends Service {
         try{publish(new JSONObject().put("type","ensemble").put("requestId",request).put("component",component).put("state",state).put("message",message));}catch(JSONException ignored){}
     }
     /** Opens model sessions only. No body generation, speech or face inference. */
+    public synchronized void prepareModelLoad(String request) {
+        if(stopping||!visible||!("cleopatra".equals(activeTab)||"main".equals(activeTab)))return;
+        if(request==null||!request.matches("[a-zA-Z0-9-]{1,80}"))return;
+        if(speechBusy.get()||motionBusy.get()||!embeddingBusy.compareAndSet(false,true)){
+            ensemble(request,"release","error","An avatar operation is already running");return;
+        }
+        final long ticket=warmEpoch.incrementAndGet();
+        embeddingWorker.execute(()->{
+            String state="ready",message="Avatar sessions released for Gemma initialization";
+            try{warmCheck(ticket);releaseWarmSessions();warmCheck(ticket);}
+            catch(Exception failure){state="error";message="Could not prepare memory for Gemma: "+failure.getMessage();}
+            finally{embeddingBusy.set(false);}
+            // Acknowledge after both worker queues have actually closed their sessions.
+            ensemble(request,"release",state,message);
+        });
+    }
     public synchronized void warmAll(String requestedProfile,int threads,String precision,String request) {
         if(stopping||!visible||!("cleopatra".equals(activeTab)||"main".equals(activeTab)))return;
         if(request==null||!request.matches("[a-zA-Z0-9-]{1,80}"))return;
@@ -146,7 +162,7 @@ public final class ResidentService extends Service {
                 component="lam";ensemble(request,component,"loading","Loading LAM");
                 speechWorker.submit(()->{warmCheck(ticket);if(lam==null)lam=new LamDriver(this);lam.warm();return null;}).get();
                 warmCheck(ticket);ensemble(request,component,"ready","LAM resident");
-                ensemble(request,"all","ready","Avatar engines resident; waiting for Gemma if still loading");
+                ensemble(request,"all","ready","Avatar engines resident");
             }catch(Exception failure){
                 Throwable cause=failure instanceof ExecutionException?failure.getCause():failure;
                 ensemble(request,component,"error",cause.getMessage()==null?cause.toString():cause.getMessage());

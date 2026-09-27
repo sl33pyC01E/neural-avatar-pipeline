@@ -4,7 +4,22 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.0 · Main and resident mode
+## Latest checkpoint: 0.8.1 · Staged startup and skin warmth
+
+Android exit history identified the two reported Gemma worker stops as
+`LOW_MEMORY`; the last saved E4B log ended during GPU vision initialization.
+Full-stack startup now waits for avatar session release before loading Gemma,
+then prepares the Main prompt before warming Ardy, Pocket and LAM. Completed
+sessions still remain resident. Settings are preserved; no automatic model or
+context downgrade is applied. Process death now reports Android's exit reason
+and the last saved load stage/settings. Late readiness events cannot hide errors.
+
+The skin is subtly warmer/darker by default, with a Skin warmth slider in VRM
+appearance. Hair, eyes and clothes keep their colors. The default also applies
+to saved appearance settings from earlier versions.
+
+Host checks pass; whether staged loading prevents the phone's memory kill remains
+for the user's Launch test. See [startup diagnosis and checks](LOAD_FIX.md).
 
 The user has confirmed the combined baseline fits and runs interactively. Startup
 now shows a minimal Launch page. Settings contains all nine existing debug tabs;
