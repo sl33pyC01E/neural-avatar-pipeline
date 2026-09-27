@@ -2,12 +2,12 @@
 import { createModelChat } from './model-chat.mjs';
 import { createBrowserUI } from './browser-ui.mjs';
 import { createAvatarAgent } from './avatar-agent.mjs';
-let currentTab='welcome',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
+let currentTab='launch',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
-const panels={welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel',cleopatra:'#cleopatra-panel'};
+const panels={launch:'#launch-panel',main:'#main-panel',welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel',cleopatra:'#cleopatra-panel'};
 const modelChat=createModelChat(),browserUI=createBrowserUI();
 new ResizeObserver(()=>document.documentElement.style.setProperty('--content-top',`${document.querySelector('header').getBoundingClientRect().bottom+12}px`)).observe(document.querySelector('header'));
-const usesAvatar=tab=>['face','talk','avatar','full','cleopatra'].includes(tab);
+const usesAvatar=tab=>['face','talk','avatar','full','cleopatra','main'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
 const runtimeControls=[...document.querySelectorAll('#pocket-settings select')];
 const timingControls=[$('#full-cue'),$('#full-tail')];
@@ -34,6 +34,39 @@ const avatarAgent=createAvatarAgent(modelChat,{
     window.Cleo?.speakWithFace(text,...settings(),plan.cue_seconds,plan.tail_seconds);
   }
 });
+let mainFrame='face';
+const mainAgent=createAvatarAgent(modelChat,{
+  avatar:()=>avatar,state:()=>lastState,cue:()=>performanceCue,frame:()=>mainFrame,
+  runtime:()=>[$('#profile').value,Number($('#threads').value),$('#precision').value],
+  stopTake(){window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();},
+  startTake(text,plan){
+    if(currentTab!=='main'||!pageVisible||!avatar)return;
+    pipelineTab='main';speechBusy=true;performanceCue=mainFrame==='face'?0:plan.cue_seconds;
+    avatar.stage({...plan,frame:mainFrame});buttons();
+    window.Cleo?.speakWithFace(text,...settings(),performanceCue,mainFrame==='face'?0:plan.tail_seconds);
+  }
+},'main');
+async function launchMain(){await selectTab('main');if(currentTab==='main')mainAgent.load();}
+function frameMain(value){
+  mainFrame=value;window.Cleo?.mainFrame?.(value);avatar?.setFrame(value);
+  document.querySelectorAll('[data-frame]').forEach(button=>button.setAttribute('aria-pressed',button.dataset.frame===value));
+}
+const menu=$('#app-menu'),modelSettings=$('#model-settings'),modelParent=modelSettings.parentElement;
+function closeSettings(){modelParent.prepend(modelSettings);menu.close();avatar?.fitViewport();}
+$('#app-settings').onclick=()=>{$('#settings-model-slot').append(modelSettings);modelSettings.open=true;menu.showModal();window.Cleo?.residencyStatus?.();};
+$('#settings-apply').onclick=()=>{closeSettings();launchMain().catch(fail);};
+$('#settings-close').onclick=closeSettings;menu.addEventListener('cancel',event=>{event.preventDefault();closeSettings();});
+$('#open-debug').onclick=()=>{closeSettings();selectTab('welcome').catch(fail);};
+for(const button of document.querySelectorAll('[data-settings-tab]'))button.onclick=()=>{closeSettings();selectTab(button.dataset.settingsTab).catch(fail);};
+$('#app-home').onclick=()=>selectTab('launch').catch(fail);
+$('#app-main').onclick=()=>launchMain().catch(fail);$('#launch').onclick=()=>launchMain().catch(fail);
+for(const button of document.querySelectorAll('[data-frame]'))button.onclick=()=>frameMain(button.dataset.frame);
+$('#resident-enabled').onchange=event=>window.Cleo?.residency?.(event.target.checked);
+for(const kind of ['notifications','battery','app'])$(`#resident-${kind}`).onclick=()=>window.Cleo?.residentPermissions?.(kind);
+function residency(event){
+  $('#resident-enabled').checked=event.enabled;
+  $('#resident-status').textContent=`${event.enabled?'Retain loaded sessions':'Release under pressure'} · notifications ${event.notifications?'allowed':'off'} · battery exemption ${event.batteryExempt?'allowed':'off'}${event.backgroundRestricted?' · background restricted':''}`;
+}
 function buttons(){
   speak.disabled=speechBusy||!lastState;
   animateFace.disabled=speechBusy||!avatar||!lastState?.pocketClip||currentTab!=='face';
@@ -56,22 +89,25 @@ async function selectTab(tab){
   if(!panels[tab])return;
   if(tab!==currentTab){stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
   currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
+  const debug=!['launch','main'].includes(tab);document.body.classList.toggle('debug',debug);$('#debug-nav').hidden=!debug;$('#app-main').hidden=!debug;$('#main-frames').hidden=tab!=='main';
+  const model=modelChat.settings();$('#launch-model').textContent=`Gemma ${model.model==='gemma-e4b'?'E4B':'E2B'} · Anna · Cleopatra`;
   document.querySelectorAll('[data-tab]').forEach(button=>{
     const active=button.dataset.tab===tab;button.setAttribute('aria-selected',active);button.tabIndex=active?0:-1;
   });
   for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
-  $('canvas').hidden=!usesAvatar(tab);$('#avatar-view-controls').hidden=!usesAvatar(tab);
-  $('#subtitle').textContent={welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Gemma · local multimodal chat',browser:'Gemma · browser actions',cleopatra:'Gemma + live Ardy + Anna + LAM'}[tab];
-  modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);
+  $('canvas').hidden=!usesAvatar(tab);$('#avatar-view-controls').hidden=!usesAvatar(tab)||tab==='main';
+  $('#subtitle').textContent={launch:'',main:'',welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Gemma · local multimodal chat',browser:'Gemma · browser actions',cleopatra:'Gemma + live Ardy + Anna + LAM'}[tab];
+  modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);mainAgent.select(tab);
   buttons();avatar?.setVisible(false);
   if(usesAvatar(tab)){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());
     avatar=await avatarLoading;
     if(lastState)avatar.event(lastState);
-    if(['face','talk','full','cleopatra'].includes(currentTab))avatar.setMode('rest');
+    if(['face','talk','full','cleopatra','main'].includes(currentTab))avatar.setMode('rest');
+    if(currentTab==='main')frameMain(mainFrame);else avatar.setFrame('debug');
     avatar.setVisible(pageVisible&&usesAvatar(currentTab));
     if(['talk','full'].includes(currentTab))describeSettings(currentTab);
-    buttons();avatarAgent.refresh();
+    buttons();avatarAgent.refresh();mainAgent.refresh();
   }
 }
 document.querySelectorAll('[data-open]').forEach(button=>button.onclick=()=>selectTab(button.dataset.open).catch(fail));
@@ -84,12 +120,13 @@ document.querySelectorAll('[data-tab]').forEach(button=>{
     event.preventDefault();tabs[next].focus();tabs[next].click();
   };
 });
-window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;if(!pageVisible){stopRepeat();avatarAgent.hidden();}avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
+window.cleoVisible=value=>{pageVisible=Boolean(value)&&!document.hidden;if(!pageVisible){stopRepeat();avatarAgent.hidden();mainAgent.hidden();}avatar?.setVisible(pageVisible&&usesAvatar(currentTab));};
 document.addEventListener('visibilitychange',()=>window.cleoVisible(!document.hidden));
 const ms=value=>value>=0?`${Math.round(value)} ms`:'—';
 const eventTab=event=>event.tab||((event.withFace||event.type==='face')?'face':'pocket');
 window.cleoEvent=event=>{
-  if(event.type==='chat'){modelChat.event(event);browserUI.modelEvent(event);avatarAgent.event(event);return;}
+  if(event.type==='chat'){modelChat.event(event);browserUI.modelEvent(event);avatarAgent.event(event);mainAgent.event(event);return;}
+  if(event.type==='residency'){residency(event);return;}
   if(event.type==='browser'){browserUI.event(event);return;}
   const tab=eventTab(event),status=tab==='pocket'?pocketStatus:tab==='face'?faceStatus:$(`#${tab}-status`);
   if(event.type==='state'){
@@ -99,8 +136,8 @@ window.cleoEvent=event=>{
   }
   if(event.type==='speechStart'){
     speechBusy=true;status.textContent=event.message;buttons();
-    if(['talk','full','cleopatra'].includes(tab))pipelineTab=tab;
-    if(['full','cleopatra'].includes(tab))performanceCue=event.cueSeconds;
+    if(['talk','full','cleopatra','main'].includes(tab))pipelineTab=tab;
+    if(['full','cleopatra','main'].includes(tab))performanceCue=event.cueSeconds;
   }
   if(['pocketStage','speechBusy','speechEnd'].includes(event.type))status.textContent=event.message;
   if(event.type==='faceStage')faceStatus.textContent=event.message;
@@ -123,7 +160,7 @@ window.cleoEvent=event=>{
   if(event.type==='speechEnd'){
     speechBusy=false;
     if(event.clipReady||(!event.withFace&&event.message==='Anna ready'))lastState={...lastState,pocketClip:true};
-    if(['full','cleopatra'].includes(tab))avatar?.pause();buttons();
+    if(['full','cleopatra','main'].includes(tab))avatar?.pause();buttons();
     if(tab==='full'&&event.completed&&benchmarkRepeat.checked)repeatTimer=setTimeout(()=>{if(currentTab==='full'&&pageVisible&&benchmarkRepeat.checked&&!speechBusy)$('#full-form').requestSubmit();},150);
     else if(tab==='full'&&!event.completed)stopRepeat();
   }
@@ -134,7 +171,7 @@ window.cleoEvent=event=>{
   }
   if(currentTab==='full'&&event.type==='motion')$('#full-body').textContent=`${event.profile} · ${ms(event.generationMs)} per motion batch`;
   if(currentTab==='full'&&event.type==='motionError')$('#full-body').textContent=`Ardy: ${event.message}`;
-  avatarAgent.event(event);
+  avatarAgent.event(event);mainAgent.event(event);
   const facial=event.withFace||event.type==='face';
   if(facial&&tab!==currentTab)return;
   let accepted;
@@ -162,4 +199,4 @@ for(const tab of ['talk','full']){
   $(`#${tab}-stop`).onclick=()=>{stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();$(`#${tab}-status`).textContent='Stopping…';};
 }
 window.debugTabs={select:selectTab,current:()=>currentTab};
-selectTab('welcome').catch(fail);window.Cleo?.state();
+selectTab('launch').catch(fail);window.Cleo?.state();

@@ -4,7 +4,24 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.7.1 · Configurable Gemma context
+## Latest checkpoint: 0.8.0 · Main and resident mode
+
+The user has confirmed the combined baseline fits and runs interactively. Startup
+now shows a minimal Launch page. Settings contains all nine existing debug tabs;
+debug tab 9 retains its original controls/API. Launch opens the new **Main** view,
+loads the selected Gemma plus Ardy, Pocket/Anna and LAM, and prepares the avatar
+system/tool prefix. Main has a face-distance VRM, continuous idle/speech attention,
+and a bottom text/audio/image composer. **Face** skips Ardy generation; **Torso**
+uses stationary root constraints with limited zoom; **Body** permits free root
+motion and camera control. See [Main and residency](MAIN_APP.md).
+
+Resident mode defaults on. Both services retain loaded sessions across idle,
+navigation and memory-pressure callbacks; workers block and hidden rendering
+stops. Explicit Unload/Stop still works. Notification/battery controls are in
+Settings. This requests Android priority and exemptions, not an absolute RAM lock.
+LLM2Vec remains an on-demand embedding-cache operation, outside the live reply stack.
+
+### Retained model settings
 
 Gemma 4 E2B/E4B use LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
 Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
@@ -82,16 +99,17 @@ expanded the debug sequence to these nine tabs:
 8. **Browser:** embedded Google browser, screenshot/action loop, text/audio goals and follow-up input, and pause/stop controls.
 9. **Cleopatra:** Gemma replies through live Ardy, Pocket/Anna, LAM and the VRM; explicit Load all and bounded avatar tools.
 
-Only after the modules work independently should their tabs collapse into a debug
-menu behind a real product frontend. Quantization and compilation are authorized
+The user approved moving these proven modules behind a debug menu on 2026-09-26.
+The new Main view is separate from all nine debug tabs. Quantization and compilation are authorized
 where they improve size/speed; preserve Anna and verify quality and compatibility.
 See [the Pocket debug checkpoint](POCKET_DEBUG.md) for the crash evidence and current limits.
 
 The intended lifecycle is continuous availability with aggressive idle sleep:
-retain useful model sessions within a configurable memory budget, avoid dummy
-RAM reservations, stop generation/render/audio work when idle, and persist enough
-state to recover from Android memory reclamation. Memory-pressure callbacks
-should trim cached models safely. No permanent wake lock or periodic idle polling.
+retain loaded reply-stack sessions in resident mode, avoid dummy RAM reservations,
+and stop generation/render/audio work when idle. Android can still reclaim the
+process. Disabling resident mode re-enables the older memory-budget/pressure trims.
+No permanent wake lock or periodic idle inference. Settings changes, explicit
+Unload/Stop and the separate LLM2Vec caching operation can release/recreate sessions.
 
 ## Cleopatra product direction
 

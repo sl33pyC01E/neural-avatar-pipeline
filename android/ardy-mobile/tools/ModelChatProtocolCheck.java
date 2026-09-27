@@ -58,6 +58,29 @@ public final class ModelChatProtocolCheck {
         check(BrowserAction.parse("{\"action\":\"ask\",\"question\":\"Which tab?\"}").getString("action").equals("ask"),"Follow-up action");
         BrowserAction.parse("{\"action\":\"done\",\"summary\":\"Finished\"}");
 
-        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
+        MainAvatarToolApi main=new MainAvatarToolApi(catalog,new JSONArray(List.of("happy")));
+        main.frame("face");main.reset();main.execute("act",new JSONObject().put("emotion","happy").put("intensity",.2));
+        check(main.plan().getDouble("cue_seconds")==0&&main.plan().getDouble("tail_seconds")==0,"Face has no body cue/tail");
+        for(JSONObject bad:List.of(new JSONObject().put("gesture","wave"),new JSONObject().put("root",new JSONObject().put("x",1)),new JSONObject().put("camera",new JSONObject().put("distance",1)),new JSONObject().put("lead_seconds",1),new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("camera",new JSONObject().put("distance",1)))))){
+            main.reset();rejects(()->main.execute("act",bad));
+        }
+        main.frame("torso");main.reset();main.execute("act",new JSONObject().put("gesture","wave").put("camera",new JSONObject().put("distance",1.65)));
+        check(main.plan().getString("embeddingId").equals("saved:wave"),"Torso resolves live Ardy embedding");
+        for(JSONObject bad:List.of(new JSONObject().put("root",new JSONObject().put("heading",20)),new JSONObject().put("camera",new JSONObject().put("distance",1.66)),new JSONObject().put("camera",new JSONObject().put("yaw",0)),new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("root",new JSONObject().put("x",1)))))){
+            main.reset();rejects(()->main.execute("act",bad));
+        }
+        main.frame("body");main.reset();main.execute("act",new JSONObject().put("gesture","wave").put("root",new JSONObject().put("x",3).put("heading",180)).put("camera",new JSONObject().put("distance",5)).put("lead_seconds",1));
+        check(main.plan().getJSONObject("root").getInt("x")==3,"Body full root range");
+        main.frame("face");main.reset();main.execute("act",new JSONObject());check(!main.plan().has("root"),"Frame change cannot retain old root commands");
+        main.reset();rejects(()->main.execute("act",new JSONObject().put("gesture","exec")));
+        main.reset();main.execute("act",new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("expression","happy").put("strength",.2))));
+        check(main.plan().getJSONArray("schedule").length()==1,"Face expression cues retained");
+        final String mainSchema=main.description().toString();
+        ToolManager mainManager=new ToolManager(List.of(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return mainSchema;}public String execute(String args){throw new AssertionError("Automatic execution");}})));
+        String mainAdapted=mainManager.getToolsDescription().toString();
+        check(mainAdapted.contains("act")&&mainAdapted.contains("gesture"),"Real SDK accepts Main API");
+        check(main.description().getJSONObject("parameters").getJSONArray("required").length()==0,"Main API has optional arguments");
+
+        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainSdkTools",new JSONArray(mainAdapted)).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
     }
 }

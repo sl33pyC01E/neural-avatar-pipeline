@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-09-27T00:50:34.222590+00:00",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "notificationsGranted": true,
+  "batteryExemption": [
+    "user,ai.cleo.ardyavatarvalidation,10522"
+  ],
+  "backgroundAppOp": "RUN_ANY_IN_BACKGROUND: allow",
+  "residentDefault": true,
+  "phoneLaunched": false,
+  "inferenceTest": false,
+  "physicalRamLock": false,
+  "samsungSleepingAppsPolicyConfigured": false,
+  "gemmaPrivateInventory": [
+    "total 11392988",
+    "-rw-r--r-- 1 u0_a522 u0_a522 2841481184 2026-09-26 11:25 gemma-4-E2B-it-Q4_0.gguf",
+    "-rw-r--r-- 1 u0_a522 u0_a522 2008432640 2026-09-26 10:49 gemma-4-E2B-it-gpu.litertlm",
+    "-rw-r--r-- 1 u0_a522 u0_a522 2588147712 2026-09-26 10:48 gemma-4-E2B-it.litertlm",
+    "-rw-r--r-- 1 u0_a522 u0_a522 3659530240 2026-09-26 17:43 gemma-4-E4B-it.litertlm",
+    "-rw-r--r-- 1 u0_a522 u0_a522  557368064 2026-09-26 11:25 mmproj-gemma-4-E2B-it-Q8_0.gguf"
+  ],
+  "gemmaStagingInventory": [
+    "total 11392988",
+    "-rw-r--r-- 1 shell shell 2841481184 2026-09-26 10:29 gemma-4-E2B-it-Q4_0.gguf",
+    "-rw-r--r-- 1 shell shell 2008432640 2026-09-26 10:30 gemma-4-E2B-it-gpu.litertlm",
+    "-rw-r--r-- 1 shell shell 2588147712 2026-09-26 10:29 gemma-4-E2B-it.litertlm",
+    "-rw-r--r-- 1 shell shell 3659530240 2026-09-26 17:35 gemma-4-E4B-it.litertlm",
+    "-rw-r--r-- 1 shell shell  557368064 2026-09-26 10:28 mmproj-gemma-4-E2B-it-Q8_0.gguf"
+  ],
+  "qwenWhisperWeightsAbsentFromModelFolders": true
+}

@@ -41,7 +41,10 @@ Sources: [Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4
 [variable-resolution vision](https://ai.google.dev/gemma/docs/capabilities/vision/image),
 [LiteRT 0.17.1 experimental flag](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/kotlin/java/com/google/ai/edge/litertlm/ExperimentalFlags.kt),
 [resize implementation](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/support/preprocessor/image_preprocessor_utils.cc).
-Normal chat and tab 9 retain separate LiteRT conversations/prefixes. New chat
+Normal chat, debug tab 9 and Main retain separate LiteRT conversations/prefixes.
+Main prefills the selected Gemma’s situation/tool prompt during Launch; both E2B
+and E4B use this path. The SDK exposes no portable KV-cache serialization, so a
+model/config reload needs a fresh prefix. See [Main](MAIN_APP.md). New chat
 resets that conversation; settings reload or Unload resets both. Browser steps
 use temporary conversations. A failed/cancelled conversation is reset. History
 is in memory and the debug app does not silently summarize full contexts.

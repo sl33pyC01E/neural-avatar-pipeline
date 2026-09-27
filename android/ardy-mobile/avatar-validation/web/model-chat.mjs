@@ -58,5 +58,5 @@ export function createModelChat(){
     if(value.unloaded){lastError='';loaded=false;busy=false;selection=null;pending=null;$('#chat-status').textContent='Gemma unloaded';}
     controls();
   }
-  controls();return {event,settings,load,request,select(tab){if(['chat','browser','cleopatra'].includes(tab))request({action:'status'});},ready:()=>loaded&&!busy&&!recording&&!dirty(),status:()=>({loaded,busy,recording,dirty:dirty(),selection})};
+  controls();return {event,settings,load,request,select(tab){if(['chat','browser','cleopatra','main'].includes(tab))request({action:'status'});},ready:()=>loaded&&!busy&&!recording&&!dirty(),status:()=>({loaded,busy,recording,dirty:dirty(),selection})};
 }

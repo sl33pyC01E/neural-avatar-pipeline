@@ -5,7 +5,7 @@ import java.util.*;
 import org.json.*;
 
 /** Bounded local tools: stage a take, never execute model-produced code. */
-final class AvatarToolApi {
+class AvatarToolApi {
     static final String NAME="avatar_stage";
     private final LinkedHashMap<String,JSONObject> motions=new LinkedHashMap<>();
     private final Set<String> expressions=new LinkedHashSet<>();
@@ -23,7 +23,8 @@ final class AvatarToolApi {
         for(int i=0;i<supported.length();i++){String name=supported.getString(i);if(Set.of("happy","relaxed","sad","angry","surprised").contains(name))expressions.add(name);}
         reset();
     }
-    void reset()throws JSONException {calls=0;plan=new JSONObject().put("motion",motions.keySet().iterator().next()).put("expression","neutral").put("strength",0).put("cue_seconds",.25).put("tail_seconds",.75);resolve();}
+    double defaultLead(){return .25;}
+    void reset()throws JSONException {calls=0;plan=new JSONObject().put("motion",motions.keySet().iterator().next()).put("expression","neutral").put("strength",0).put("cue_seconds",defaultLead()).put("tail_seconds",.75);resolve();}
     private void resolve()throws JSONException {plan.put("embeddingId",motions.get(plan.getString("motion")).getString("id"));}
     JSONObject plan()throws JSONException{return new JSONObject(plan.toString());}
     JSONObject description()throws JSONException {

@@ -21,7 +21,14 @@ public final class ModelChatService extends Service {
     private long operationCancellation;
     private volatile Messenger client;
     private Engine engine;
-    private volatile Conversation conversation,avatarConversation,activeConversation;
+    private volatile Conversation conversation,avatarConversation,mainConversation,activeConversation;
+    private MainAvatarToolApi mainTools;
+    private String mainToolKey="";
+    private volatile JSONArray mainHistory=new JSONArray();
+    private volatile boolean mainPrepared,resident=true;
+    private double prefillMs;
+    private int prefillTokens=-1;
+    private int mainTurns;
     private AvatarToolApi avatarTools;
     private String avatarToolKey="";
     private volatile JSONArray avatarHistory=new JSONArray();
@@ -36,11 +43,12 @@ public final class ModelChatService extends Service {
     private final Messenger binder=new Messenger(new Handler(Looper.getMainLooper(),message->{
         if(message.what!=COMMAND)return false;client=message.replyTo;
         try{JSONObject request=new JSONObject(message.getData().getString("json","{}"));
-            String action=request.optString("action");avatarPid=request.optInt("avatarPid",avatarPid);
+            String action=request.optString("action");resident=request.optBoolean("resident",resident);avatarPid=request.optInt("avatarPid",avatarPid);
             if(action.equals("status")){state();return true;}
             if(action.equals("cancel")){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();return true;}
-            if(action.equals("unload")||(action.equals("background")&&busy.get())){unload();return true;}
-            if(action.equals("background"))return true;
+            if(action.equals("resident")){state();return true;}
+            if(action.equals("unload")){unload();return true;}
+            if(action.equals("background")){if(busy.get()){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();}if(!resident)unload();return true;}
             if(stopping||!busy.compareAndSet(false,true)){emit(json("error","A model operation is already running"));return true;}
             worker.execute(()->execute(request));
         }catch(Exception failure){emit(json("error",failure.toString()));}
@@ -53,12 +61,12 @@ public final class ModelChatService extends Service {
         PendingIntent stop=PendingIntent.getService(this,17,new Intent(this,ModelChatService.class).setAction("unload"),PendingIntent.FLAG_IMMUTABLE);
         startForeground(17,new Notification.Builder(this,CHANNEL).setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setContentTitle("Cleopatra local models").setContentText("Resident · sleeps between messages")
-            .addAction(new Notification.Action.Builder(null,"Unload",stop).build()).build());
+            .addAction(new Notification.Action.Builder(null,"Unload",stop).build()).setOngoing(true).build());
         return START_NOT_STICKY;
     }
     private void execute(JSONObject request){
         operationCancellation=cancellation.get();
-        requestId=request.optString("requestId","");channel=request.optString("action").equals("agentStep")?"browser":request.optString("action").startsWith("avatar")?"avatar":"chat";
+        requestId=request.optString("requestId","");channel=request.optString("action").equals("agentStep")?"browser":request.optString("action").startsWith("avatar")?"avatar":request.optString("action").startsWith("main")?"main":"chat";
         ScheduledExecutorService monitor=Executors.newSingleThreadScheduledExecutor();
         AtomicLong peak=new AtomicLong();JSONObject cpuStart=memory();
         state();
@@ -71,13 +79,17 @@ public final class ModelChatService extends Service {
                     turns=0;history=new JSONArray();lastMetrics=new JSONObject();break;
                 case "send":send(request);break;
                 case "avatarSend":avatarSend(request);break;
+                case "mainPrepare":prepareMain(request);break;
+                case "mainSend":mainSend(request);break;
+                case "mainNew":closeMainConversation();prepareMain(request);break;
                 case "avatarNew":closeAvatarConversation();break;
                 case "agentStep":agentStep(request);break;
                 default:throw new IOException("Unknown chat command");
             }
         }catch(Throwable failure){
             if(request.optString("action").equals("load")){closeModels();loaded=false;}
-            if(channel.equals("avatar"))closeAvatarConversation();
+            if(channel.equals("main"))closeMainConversation();
+            else if(channel.equals("avatar"))closeAvatarConversation();
             else if(request.optString("action").equals("send")){if(conversation!=null){conversation.close();conversation=null;}history=new JSONArray();turns=0;}
             emit(json("error",failure.getMessage()==null?failure.toString():failure.getMessage()));
         }finally{
@@ -115,7 +127,7 @@ public final class ModelChatService extends Service {
         }
         int reasoning=selection.getInt("reasoning");
         return engine.createConversation(new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
-            null,Collections.emptyMap(),null,false,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false));
+            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false));
     }
     private com.google.ai.edge.litertlm.Message input(String prompt,String kind,byte[] media){
         List<Content> parts=new ArrayList<>();if("image".equals(kind))parts.add(new Content.ImageBytes(media));if("audio".equals(kind))parts.add(new Content.AudioBytes(media));parts.add(new Content.Text(prompt));
@@ -189,6 +201,55 @@ public final class ModelChatService extends Service {
         avatarHistory.put(new JSONObject().put("role","assistant").put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("tools",actions));avatarTurns++;
         lastMetrics=result;emit(json("result",result));
     }
+    private void prepareMain(JSONObject request)throws Exception {
+        if(!loaded)throw new IOException("Load Gemma first");
+        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString();
+        if(mainConversation==null||!key.equals(mainToolKey)){
+            closeMainConversation();mainTools=new MainAvatarToolApi(catalog,expressions);mainToolKey=key;
+            long start=SystemClock.elapsedRealtimeNanos();emit(json("phase","Preparing Cleopatra's situation and avatar controls…"));
+            mainConversation=createConversation(mainTools);checkCancelled();prefillMs=elapsed(start);try{prefillTokens=mainConversation.getTokenCount();}catch(RuntimeException unavailable){prefillTokens=-1;}mainPrepared=true;
+        }
+        emit(json("mainPrepared",true));
+    }
+    private String scene(JSONObject request)throws Exception {
+        JSONObject input=request.optJSONObject("scene"),safe=new JSONObject();
+        if(input!=null)for(String group:List.of("camera","root")){
+            JSONObject values=input.optJSONObject(group);if(values==null)continue;JSONObject clean=new JSONObject();
+            for(String key:List.of("yaw","elevation","distance","height","pan_x","pan_z","x","z","heading"))
+                if(values.opt(key) instanceof Number&&Double.isFinite(values.getDouble(key)))clean.put(key,values.getDouble(key));
+            safe.put(group,clean);
+        }
+        return safe.toString();
+    }
+    private void mainSend(JSONObject request)throws Exception {
+        if(!loaded)throw new IOException("Load all models first");
+        String prompt=request.optString("text","").trim(),kind=request.optString("kind","");
+        if(prompt.length()>4000||!Set.of("","audio","image").contains(kind)||(prompt.isEmpty()&&kind.isEmpty()))throw new IOException("Enter a message or attach audio/image");
+        byte[] media=kind.isEmpty()?null:readMedia(request.getString("file"));
+        if(prompt.isEmpty())prompt=kind.equals("audio")?"Respond to the speech in this audio.":"Respond to this image.";
+        prepareMain(request);
+        mainTools.frame(request.getString("frame"));
+        mainTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
+        com.google.ai.edge.litertlm.Message next=input("APP SCENE: frame="+request.getString("frame")+"; "+scene(request)+"\nUSER MESSAGE:\n"+prompt,kind,media);JSONArray actions=new JSONArray();
+        for(int round=0;;round++){
+            List<ToolCall> calls=stream(mainConversation,next,text,started,first);
+            if(calls.isEmpty())break;
+            if(round>=3||calls.size()>3)throw new IOException("Avatar tool-call limit reached");
+            List<Content> responses=new ArrayList<>();
+            for(ToolCall call:calls){
+                checkCancelled();JSONObject args=new JSONObject(call.getArguments()),out;
+                try{out=mainTools.execute(call.getName(),args);}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
+                JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
+                responses.add(new Content.ToolResponse(call.getName(),out.toString()));
+            }
+            next=new com.google.ai.edge.litertlm.Message(Role.TOOL,Contents.Companion.of(responses),Collections.emptyList(),Collections.emptyMap());
+        }
+        checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
+        JSONObject result=result(text,started,first).put("avatarPlan",mainTools.plan()).put("tools",actions);
+        mainHistory.put(new JSONObject().put("role","user").put("text",prompt).put("attachment",kind));
+        mainHistory.put(new JSONObject().put("role","assistant").put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("tools",actions));mainTurns++;
+        lastMetrics=result;emit(json("result",result));
+    }
     private void agentStep(JSONObject request)throws Exception {
         if(!loaded)throw new IOException("Load Gemma in tab 7 first");String prompt=request.getString("text");if(prompt.length()>24000)throw new IOException("Browser context too large");
         File file=inputFile(request.getString("file"));if(file.length()>20*1024*1024)throw new IOException("Screenshot too large");
@@ -226,11 +287,12 @@ public final class ModelChatService extends Service {
         try{String stat=new String(Files.readAllBytes(new File("/proc/"+pid+"/stat").toPath()),StandardCharsets.UTF_8);String[] fields=stat.substring(stat.lastIndexOf(')')+2).split(" ");long ticks=Long.parseLong(fields[11])+Long.parseLong(fields[12]);row.put("cpuTotalMs",ticks*1000.0/android.system.Os.sysconf(android.system.OsConstants._SC_CLK_TCK));}catch(Exception ignored){}
         return row;
     }
-    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns));}catch(JSONException ignored){}}
+    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident));}catch(JSONException ignored){}}
     private void emit(JSONObject value){try{value.put("type","chat").put("requestId",requestId).put("channel",channel);Messenger target=client;if(target!=null){android.os.Message message=android.os.Message.obtain(null,EVENT);Bundle bundle=new Bundle();bundle.putString("json",value.toString());message.setData(bundle);target.send(message);}}catch(Exception ignored){}}
     private static JSONObject json(String key,Object value){try{return new JSONObject().put(key,value);}catch(JSONException impossible){throw new IllegalArgumentException(impossible);}}
     private void closeAvatarConversation(){if(avatarConversation!=null){avatarConversation.close();avatarConversation=null;}avatarTools=null;avatarToolKey="";avatarHistory=new JSONArray();avatarTurns=0;}
-    private void closeModels(){loaded=false;closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}if(engine!=null){try{if(engine.isInitialized())engine.close();}finally{engine=null;}}}
+    private void closeMainConversation(){mainPrepared=false;if(mainConversation!=null){mainConversation.close();mainConversation=null;}mainTools=null;mainToolKey="";mainHistory=new JSONArray();mainTurns=0;prefillMs=0;prefillTokens=-1;}
+    private void closeModels(){loaded=false;closeMainConversation();closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}if(engine!=null){try{if(engine.isInitialized())engine.close();}finally{engine=null;}}}
     private void unload(){
         if(stopping)return;stopping=true;loaded=false;
         Conversation active=activeConversation;if(active!=null)active.cancelProcess();
@@ -239,5 +301,5 @@ public final class ModelChatService extends Service {
         new Handler(Looper.getMainLooper()).postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),3000);
     }
     @Override public void onDestroy(){if(!stopping)unload();worker.shutdown();super.onDestroy();}
-    @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level==TRIM_MEMORY_RUNNING_CRITICAL||level>=TRIM_MEMORY_MODERATE)unload();}
+    @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(!resident&&(level==TRIM_MEMORY_RUNNING_CRITICAL||level>=TRIM_MEMORY_MODERATE))unload();}
 }

@@ -21,7 +21,7 @@ export async function createAvatarView() {
   function fitViewport() {
     const top = document.querySelector('header').getBoundingClientRect().bottom + 12;
     const panel=document.querySelector('[role="tabpanel"]:not([hidden])');
-    const bottom = panel.getBoundingClientRect().top - 10;
+    const bottom = panel?panel.getBoundingClientRect().top-10:innerHeight;
     canvas.style.top = `${top}px`;
     canvas.style.height = `${Math.max(100, bottom-top)}px`;
   }
@@ -81,14 +81,14 @@ export async function createAvatarView() {
   }
   const natural=document.querySelector('#face-natural');natural.checked=faceControls.settings.naturalMotion;
   natural.onchange=()=>{faceControls.set('naturalMotion',natural.checked);invalidate();};
-  document.querySelector('#face-driver-info').textContent=`Eyes: ${faceControls.drivers.gaze}. Head: Face Lab natural-motion overlay. Mouth: LAM → VRM visemes.`;
+  document.querySelector('#face-driver-info').textContent=`Eyes: ${faceControls.drivers.gaze}. Head: continuous idle/speech overlay. Mouth: LAM → VRM visemes.`;
   const skeleton = new THREE.SkeletonHelper(vrm.scene); skeleton.visible = false; scene.add(skeleton);
   document.querySelector('#skeleton').onclick = e => { skeleton.visible = !skeleton.visible; e.target.setAttribute('aria-pressed', skeleton.visible); invalidate(); };
   let physics = false;
   document.querySelector('#physics').onclick = e => { physics = !physics; vrm.springBoneManager?.setInitState(); e.target.setAttribute('aria-pressed', physics); invalidate(); };
   let mode = 'rest', started = performance.now();
   const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false,liveStream='';
-  let stagedPlan=null;
+  let stagedPlan=null,framing='debug';
   let performanceTrack=null,performanceGate=null,entryPose=null,entryRoot=null,heldRoot=[0,0,0];
   function setMode(value) {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
@@ -101,7 +101,7 @@ export async function createAvatarView() {
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   // Local replay/renderer inspection hook. Native engines are exposed only on the offline asset origin.
-  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls,cameraControls,camera,appearance,direction,stageRoot,idle };
+  window.avatarValidation = { setMode, retarget, vrm, renderer, motion, bind, alignment,faceControls,cameraControls,camera,appearance,direction,stageRoot,idle,framing:()=>framing };
   const matrixQuaternion = values => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
     ...values[0], 0, ...values[1], 0, ...values[2], 0, 0, 0, 0, 1)).normalize();
   const rotations = motion.rotations.map(frame => frame.map(matrixQuaternion));
@@ -133,7 +133,7 @@ export async function createAvatarView() {
     liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=document.querySelector('#profile').value;
     mode='live';liveError=false;livePaused=false;performanceGate=null;
     performanceTrack=new PerformanceTrack(event.cueSeconds,event.tailSeconds);
-    window.Cleo?.startPerformance(liveProfile,event.tab==='cleopatra'?stagedPlan?.embeddingId:bank.value,liveStream);requestMotion();invalidate();
+    window.Cleo?.startPerformance(liveProfile,['cleopatra','main'].includes(event.tab)?stagedPlan?.embeddingId:bank.value,liveStream);requestMotion();invalidate();
   }
   const eventHandler=event=>{
     // A queued native result may arrive after a profile switch or a recreated WebView.
@@ -161,11 +161,11 @@ export async function createAvatarView() {
       const previous=faceSegments.at(-1);
       if(previous&&event.startSeconds<previous.startSeconds+previous.frames.length/30-1e-5)throw new Error('Overlapping LAM windows');
       faceSegments.push(event);if(faceSegments.length>8)throw new Error('LAM playback queue exceeded its bound');invalidate();
-      if(['full','cleopatra'].includes(event.tab)&&performanceTrack){gatePerformance(event);return false;}
+      if(['full','cleopatra','main'].includes(event.tab)&&performanceTrack){gatePerformance(event);return false;}
       return true;
     }
     else if(event.type==='speechStart'&&event.withFace){
-      if(['full','cleopatra'].includes(event.tab))beginPerformance(event);
+      if(['full','cleopatra'].includes(event.tab)||(event.tab==='main'&&event.bodyMotion===true))beginPerformance(event);
       speaking=true;faceStream=event.streamId??null;faceSegments.length=0;faceControls.clear(mode==='live');engineStatus.textContent=event.message;invalidate();
     }
     else if(event.type==='performanceTail'){
@@ -207,11 +207,12 @@ export async function createAvatarView() {
   console.log('CLEO_READY ' + JSON.stringify(window.validationState));
   function frame(now) {
     frameId=0;if(!visible)return;
-    const workStarted = performance.now();idle.restore();
+    const workStarted = performance.now();idle.restore();faceControls.restorePresence();
     const dt = Math.min((now-last)/1000, .05); last = now;
     const elapsed = Math.max(0,now - started)/1000;
     const trackClock=performanceTrack?performanceTrack.sample(window.Cleo?.playbackSeconds()??-1):null;
     if(trackClock&&performanceTrack.started)direction.advance(trackClock.trackSeconds);
+    else if(speaking&&!performanceTrack)direction.advance(window.Cleo?.playbackSeconds()??-1);
     // Retarget in the calibrated stage coordinate system; apply floor placement after solving.
     stageRoot.position.set(0,0,0);stageRoot.rotation.y=0;stageRoot.updateMatrixWorld(true);
     const currentRoot = performanceTrack?[...heldRoot]:[0, standing, 0];let bodyApplied=false;
@@ -223,6 +224,13 @@ export async function createAvatarView() {
         for(let k=0;k<3;k++)currentRoot[k]=THREE.MathUtils.lerp(a.root[k],b.root[k],alpha);
         a.quaternions??=a.rotations.map(matrixQuaternion);b.quaternions??=b.rotations.map(matrixQuaternion);
         const local=a.quaternions.map((q,j)=>toMatrix(q.clone().slerp(b.quaternions[j],alpha)));
+        if(framing==='torso'){
+          // Renderer backstop: preserve articulation while removing root drift and yaw.
+          const inverse=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),-Math.atan2(new THREE.Vector3(0,0,1).applyQuaternion(matrixQuaternion(local[0])).x,new THREE.Vector3(0,0,1).applyQuaternion(matrixQuaternion(local[0])).z));
+          const origin=new THREE.Vector3(...currentRoot),fixed=new THREE.Vector3(0,standing,0);
+          for(let j=0;j<joints.length;j++)joints[j]=new THREE.Vector3(...joints[j]).sub(origin).applyQuaternion(inverse).add(fixed).toArray();
+          local[0]=toMatrix(inverse.multiply(matrixQuaternion(local[0])));currentRoot.splice(0,3,...fixed.toArray());
+        }
         retarget.apply(joints,currentRoot,local);
         if(entryPose&&trackClock.entryWeight<1){
           for(const saved of entryPose){saved.node.position.lerpVectors(saved.position,saved.node.position,trackClock.entryWeight);saved.node.quaternion.slerpQuaternions(saved.quaternion,saved.node.quaternion.clone(),trackClock.entryWeight);}
@@ -246,7 +254,7 @@ export async function createAvatarView() {
       const local = bind.restJoints.map(() => [[1,0,0],[0,1,0],[0,0,1]]); local[0] = toMatrix(q);
       retarget.apply(joints, currentRoot, local);
     }
-    if(bodyApplied)faceControls.captureBodyPose();
+    if(bodyApplied||mode==='replay'||mode==='turn')faceControls.captureBodyPose();
     // Dynamics are opt-in so geometry/retargeting can first be checked deterministically.
     if(speaking&&faceSegments.length) {
       const time=trackClock?trackClock.faceSeconds:window.Cleo?.playbackSeconds()??-1;
@@ -255,15 +263,16 @@ export async function createAvatarView() {
         const segment=faceSegments[0];
         const position=THREE.MathUtils.clamp((time-segment.startSeconds)*30,0,segment.frames.length-1);
         const a=Math.floor(position),b=Math.min(a+1,segment.frames.length-1),alpha=position-a;
-        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1,direction.state.face);
+        faceControls.apply(segment,segment.frames[a].map((v,j)=>THREE.MathUtils.lerp(v,segment.frames[b][j],alpha)),time,mode==='live',trackClock?.faceWeight??1,direction.state.face,true);
       }
     }
-    if(direction.active&&speaking&&performanceTrack?.started){
+    if(direction.active&&speaking&&(performanceTrack?performanceTrack.started:(window.Cleo?.playbackSeconds()??-1)>=0)){
       for(const [name,value] of Object.entries(direction.state.expressions))if(vrm.expressionManager?.getExpression(name))vrm.expressionManager.setValue(name,value);
     }
     const bodyActive=mode==='replay'||mode==='turn'||(mode==='live'&&bodyApplied&&!livePaused&&!liveError&&(!performanceTrack||performanceTrack.started&&!performanceTrack.finished));
     const faceActive=speaking&&faceSegments.length>0&&(trackClock?trackClock.faceSeconds>=0:(window.Cleo?.playbackSeconds()??-1)>=0);
     if(idleEnabled)idle.apply(now/1000,dt,bodyActive,faceActive);
+    faceControls.present(now/1000,dt,{withBody:mode!=='rest',bodyActive,faceActive,idle:idleEnabled,weight:trackClock?.faceWeight??1,gains:direction.state.face});
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
     direction.apply();stageRoot.updateMatrixWorld(true);
@@ -297,6 +306,15 @@ export async function createAvatarView() {
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
   function stopFace(){idle.restore();direction.clear();stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
+  function setFrame(value){
+    if(!['face','torso','body','debug'].includes(value))throw new Error('Unknown frame');
+    if(value===framing)return;framing=value;grid.visible=value==='body'||value==='debug';
+    stopFace();setMode('rest');direction.reset();heldRoot=[0,standing,0];
+    if(value==='debug')return;
+    const face=value==='face',torso=value==='torso';
+    cameraControls.applyDirection({yaw:0,elevation:4,distance:face?.62:torso?1.35:3.4,height:face?position('head').y+.10:torso?position('head').y-.18:.85,pan_x:0,pan_z:0});
+    invalidate();
+  }
   initialized=true;
-  return {stage(plan){stagedPlan={...plan};direction.stage(plan);},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {setFrame,scene:()=>({camera:cameraControls.direction(),root:direction.snapshot().root}),stage(plan){stagedPlan={...plan};direction.stage(plan);},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

@@ -12,11 +12,38 @@ export function createFaceControls(vrm,driver) {
   const headRest=head?.quaternion.clone(),neckRest=neck?.quaternion.clone();
   let bodyHead=headRest?.clone(),bodyNeck=neckRest?.clone();
   const gaze=vrm.lookAt?.applier,usesEyeBones=gaze?.constructor.type==='bone';
+  let targetYaw=0,targetPitch=0,displayYaw=0,displayPitch=0,displayHead=headRest?.clone(),displayNeck=neckRest?.clone(),presenceBase=null;
+  function restorePresence(){if(presenceBase){head?.quaternion.copy(presenceBase.head);neck?.quaternion.copy(presenceBase.neck);if(presenceBase.blink!==undefined)vrm.expressionManager?.setValue('blink',presenceBase.blink);presenceBase=null;}}
+  function present(time,dt,{withBody=false,bodyActive=false,faceActive=false,idle=true,weight=1,gains={head:1}}={}){
+    // A single continuous display clock owns both resting and speaking attention.
+    // Smoothing starts at the last displayed pose even when a driver clears itself.
+    const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
+    const gain=settings.naturalMotion?settings.head*(faceActive?weight*gains.head:idle&&!bodyActive?.45:0):0;
+    const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*gain,Math.sin(time*.49)*.055*gain,Math.sin(time*.31+1.7)*.018*gain,'YXZ');
+    const n=new THREE.Euler(h.x*.35,h.y*.3,h.z*.4,'YXZ');
+    const amount=1-Math.exp(-dt/.16);
+    presenceBase={head:headBase?.clone(),neck:neckBase?.clone(),blink:vrm.expressionManager?.getValue('blink')??0};
+    if(head){displayHead.slerp(headBase.clone().multiply(new THREE.Quaternion().setFromEuler(h)),amount);head.quaternion.copy(displayHead);}
+    if(neck){displayNeck.slerp(neckBase.clone().multiply(new THREE.Quaternion().setFromEuler(n)),amount);neck.quaternion.copy(displayNeck);}
+    const eyeGain=settings.eyes*(faceActive?weight*(gains.eyes??1):idle?1:0);
+    const attention=settings.naturalMotion?eyeGain:0;
+    // Keep attention near the listener; compensate small head turns rather than
+    // restarting the shared mapper's large audio-time gaze oscillation each reply.
+    const gazeYaw=(faceActive?targetYaw:0)+attention*(Math.sin(time*.43)*1.4-THREE.MathUtils.radToDeg(h.y));
+    const gazePitch=(faceActive?targetPitch:0)+attention*Math.sin(time*.37)*.7;
+    displayYaw+=(gazeYaw-displayYaw)*amount;displayPitch+=(gazePitch-displayPitch)*amount;
+    if(vrm.expressionManager?.getExpression('blink')){
+      const blink=Math.max(0,1-Math.abs(time%4.7-4.25)/.12)*Math.min(1,eyeGain);
+      vrm.expressionManager.setValue('blink',Math.max(presenceBase.blink,blink));
+    }
+    if(usesEyeBones)gaze.applyYawPitch(displayYaw,displayPitch);
+    vrm.humanoid.update();
+  }
   function resetBones(){head?.quaternion.copy(headRest);neck?.quaternion.copy(neckRest);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
-  function apply(track,values,time,withBody=false,weight=1,gains={eyes:1,mouth:1,head:1}) {
+  function apply(track,values,time,withBody=false,weight=1,gains={eyes:1,mouth:1,head:1},continuous=false) {
     const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
     const scales={...settings,eyes:settings.eyes*weight*gains.eyes,mouth:settings.mouth*weight*gains.mouth,head:settings.head*weight*gains.head};
-    driver.apply({...track,scales,naturalMotion:settings.naturalMotion},values,time);
+    driver.apply({...track,scales,naturalMotion:settings.naturalMotion&&!continuous},values,time);
     if(settings.naturalMotion) {
       const h=new THREE.Euler(Math.sin(time*.77+.5)*.025*scales.head,Math.sin(time*.49)*.055*scales.head,Math.sin(time*.31+1.7)*.018*scales.head,'YXZ');
       const n=new THREE.Euler(h.x*.35,h.y*.3,h.z*.4,'YXZ');
@@ -29,12 +56,12 @@ export function createFaceControls(vrm,driver) {
       const manager=vrm.expressionManager,get=name=>Number(manager?.getValue(name))||0;
       const yaw=(get('lookLeft')-get('lookRight'))*90,pitch=(get('lookUp')-get('lookDown'))*90;
       for(const name of ['lookLeft','lookRight','lookUp','lookDown'])manager?.setValue(name,0);
-      gaze.applyYawPitch(yaw,pitch);
+      targetYaw=yaw;targetPitch=pitch;gaze.applyYawPitch(yaw,pitch);
     }
     vrm.humanoid.update();vrm.expressionManager?.update();
   }
-  return {settings,apply,captureBodyPose(){bodyHead=head?.quaternion.clone();bodyNeck=neck?.quaternion.clone();},clear(withBody=false){
-    driver.clear();
+  return {settings,apply,present,restorePresence,captureBodyPose(){bodyHead=head?.quaternion.clone();bodyNeck=neck?.quaternion.clone();},clear(withBody=false){
+    targetYaw=0;targetPitch=0;driver.clear();
     if(withBody){head?.quaternion.copy(bodyHead);neck?.quaternion.copy(bodyNeck);if(usesEyeBones)gaze.applyYawPitch(0,0);vrm.humanoid.update();}
     else {resetBones();bodyHead=headRest?.clone();bodyNeck=neckRest?.clone();}
   },set(key,value){

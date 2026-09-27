@@ -26,5 +26,14 @@ assert 'call:avatar_stage' in response and 'response:avatar_stage' in response a
 messages+=[dict(role='model',content=[dict(type='text',text='Hello there!')]),dict(role='user',content=[dict(type='text',text='What did you say?')])]
 followup=render(messages,True)
 assert 'Hello there!' in followup and 'What did you say?' in followup and followup.endswith('<|turn>model\n')
-report=dict(passed=True,phoneExecution=False,modelInference=False,thinkingToggleChangesActualPrompt=True,thoughtChannel=channels,actualSdkToolsRender=True,toolResponseContinuation=True,followupRetainsHistory=True,artifact=a.model.name)
+protocol=json.loads(a.protocol.read_text())
+if 'mainSdkTools' in protocol:
+    tools=protocol['mainSdkTools']
+    main_messages=[dict(role='system',content=protocol['mainInstructions']),dict(role='user',content=[dict(type='text',text='APP SCENE: frame=face; {}\nUSER MESSAGE:\nHello')])]
+    main_off,main_on=render(main_messages,False),render(main_messages,True)
+    assert 'act' in main_off and 'gesture' in main_off and 'APP SCENE' in main_off
+    assert '<|think|>' not in main_off and '<|think|>' in main_on
+    main_messages+=[dict(role='model',content=[],tool_calls=[dict(type='function',function=dict(name='act',arguments=dict(emotion='happy',intensity=.2)))]),dict(role='tool',content=[dict(type='tool_response',name='act',response=json.dumps(dict(ok=True)))])]
+    assert 'response:act' in render(main_messages,False)
+report=dict(passed=True,phoneExecution=False,modelInference=False,thinkingToggleChangesActualPrompt=True,thoughtChannel=channels,mainToolTemplateValidated=True,actualSdkToolsRender=True,toolResponseContinuation=True,followupRetainsHistory=True,artifact=a.model.name)
 a.report.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report))

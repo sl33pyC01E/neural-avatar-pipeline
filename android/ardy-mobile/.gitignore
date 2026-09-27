@@ -9,3 +9,6 @@
 local.properties
 **/build/
 payloads/
+
+# Temporary CPU-browser verification profiles; keep only reports/screenshots.
+validation/**/browser-*/

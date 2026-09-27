@@ -34,6 +34,7 @@ public final class ArdySampler implements AutoCloseable {
         public float constraintGuidance = 2.0f;
         public float velocityX, velocityZ;
         public boolean constrainRoot = true;
+        public boolean lockRoot; // Stationary torso: every generated root constraint, not only the last frame.
     }
 
     public static final class Batch {
@@ -155,6 +156,11 @@ public final class ArdySampler implements AutoCloseable {
                 setObserved(observed,mask,base,4,(float)Math.sin(angle));
             }
             if(retained==0) { setObserved(observed,mask,0,0,0); setObserved(observed,mask,0,2,0); }
+        }
+        if(settings.lockRoot)for(int f=historyFrames;f<historyFrames+data.genHorizonFrames;f++){
+            int base=f*data.motionDim;
+            setObserved(observed,mask,base,0,0);setObserved(observed,mask,base,2,0);
+            setObserved(observed,mask,base,3,1);setObserved(observed,mask,base,4,0);
         }
         float[] text=embedding;
         if(previousEmbedding!=null && !Arrays.equals(previousEmbedding,embedding)) text=blend(previousEmbedding,embedding,.72f);

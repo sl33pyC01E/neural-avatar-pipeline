@@ -1,4 +1,7 @@
-# Cleopatra 0.7.1 · Gemma avatar
+# Cleopatra · Gemma avatar debug module
+
+Version 17 adds a separate Main experience and moves these nine modules under
+Settings → Debug. See [Main and residency](MAIN_APP.md); tab 9 keeps the API below.
 
 Tab 8 remains Browser. **Tab 9 · Cleopatra** loads the VRM and offers Load all,
 per-engine readiness, a persistent Gemma conversation, streamed answers/thoughts,
@@ -66,7 +69,8 @@ body/face. The idle layer restores its base transforms each frame to avoid drift
 Idle can be turned off; then the rest view renders only when invalidated. Hidden
 views stop rendering and requesting motion. Face/Body buttons change framing. Native workers block when idle;
 there is no dummy RAM reservation, keep-awake lock or periodic idle inference.
-Unload and memory-pressure handling release sessions.
+Explicit Unload releases sessions. Memory-pressure handling releases them only
+when resident mode is off; Android may still evict the process independently.
 
 ## Validation limits
 

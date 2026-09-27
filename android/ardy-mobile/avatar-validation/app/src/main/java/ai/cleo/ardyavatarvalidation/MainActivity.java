@@ -27,7 +27,7 @@ import ai.cleo.ardymobile.ResidentService;
 public final class MainActivity extends Activity implements ResidentService.Listener {
     private WebView view;
     private volatile ResidentService engines;
-    private volatile String selectedTab="welcome";
+    private volatile String selectedTab="launch";
     private boolean resumed,bound;
     private ModelChatClient chat;
     private ChatInputs chatInputs;
@@ -98,18 +98,37 @@ public final class MainActivity extends Activity implements ResidentService.List
         if("stopped".equals(event.optString("type"))){finish();return;}
         if(view!=null)view.evaluateJavascript("window.cleoEvent?.("+event.toString()+")",null);
     }
+    private void residencyState(){
+        try{event(new JSONObject().put("type","residency")
+            .put("enabled",getSharedPreferences("runtime",MODE_PRIVATE).getBoolean("resident",true))
+            .put("notifications",getSystemService(android.app.NotificationManager.class).areNotificationsEnabled())
+            .put("batteryExempt",getSystemService(android.os.PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()))
+            .put("backgroundRestricted",getSystemService(android.app.ActivityManager.class).isBackgroundRestricted()));}catch(Exception ignored){}
+    }
     public final class Bridge {
-        @JavascriptInterface public void state(){if(engines!=null)engines.state();}
+        @JavascriptInterface public void state(){if(engines!=null)engines.state();runOnUiThread(()->residencyState());}
+        @JavascriptInterface public void mainFrame(String frame){if(engines!=null)engines.mainFrame(frame);}
+        @JavascriptInterface public void residency(boolean enabled){getSharedPreferences("runtime",MODE_PRIVATE).edit().putBoolean("resident",enabled).apply();if(chat!=null)chat.request("{\"action\":\"resident\"}");runOnUiThread(()->residencyState());}
+        @JavascriptInterface public void residencyStatus(){runOnUiThread(()->residencyState());}
+        @JavascriptInterface public void residentPermissions(String which){runOnUiThread(()->{
+            try{
+                if("notifications".equals(which)){
+                    if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},74);
+                    else startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));
+                }else if("battery".equals(which))startActivity(new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,Uri.parse("package:"+getPackageName())));
+                else if("app".equals(which))startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
+            }catch(android.content.ActivityNotFoundException unavailable){startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));}
+        });}
         @JavascriptInterface public void tab(String tab){if(!selectedTab.equals(tab)&&chatInputs!=null)runOnUiThread(()->chatInputs.stopRecording());selectedTab=tab;if(engines!=null)engines.tab(tab);if(browser!=null)browser.show("browser".equals(tab)&&resumed);}
         @JavascriptInterface public void chat(String request){if(chat!=null)chat.request(request);}
         @JavascriptInterface public void browserBounds(String bounds){if(browser!=null)browser.bounds(bounds);}
         @JavascriptInterface public void browserCommand(String request){if(browser!=null)browser.command(request);}
         @JavascriptInterface public void chatAttach(String kind){inputAttach(kind,"chat");}
-        @JavascriptInterface public void inputAttach(String kind,String scope){if(!java.util.Set.of("chat","browser","cleopatra").contains(scope)||(!kind.equals("image")&&!kind.equals("audio")))return;runOnUiThread(()->{
+        @JavascriptInterface public void inputAttach(String kind,String scope){if(!java.util.Set.of("chat","browser","cleopatra","main").contains(scope)||(!kind.equals("image")&&!kind.equals("audio")))return;runOnUiThread(()->{
             inputKind=kind;inputScope=scope;Intent choose=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(kind.equals("image")?"image/*":"audio/wav").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(choose,72);
         });}
         @JavascriptInterface public void chatRecord(boolean start){inputRecord(start,"chat");}
-        @JavascriptInterface public void inputRecord(boolean start,String scope){if(!java.util.Set.of("chat","browser","cleopatra").contains(scope))return;runOnUiThread(()->{
+        @JavascriptInterface public void inputRecord(boolean start,String scope){if(!java.util.Set.of("chat","browser","cleopatra","main").contains(scope))return;runOnUiThread(()->{
             if(!start){chatInputs.stopRecording();return;}
             recordScope=scope;
             if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},73);
@@ -150,8 +169,8 @@ public final class MainActivity extends Activity implements ResidentService.List
         else if(data.getData()!=null)uris.add(data.getData());
         engines.importModels(uris.toArray(new Uri[0]));
     }
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==73){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)chatInputs.startRecording(recordScope);else try{event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("inputError","Microphone permission was declined"));}catch(Exception ignored){}}}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==74){residencyState();return;}if(request==73){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)chatInputs.startRecording(recordScope);else try{event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("inputError","Microphone permission was declined"));}catch(Exception ignored){}}}
     @Override protected void onPause() { resumed=false;if(browser!=null)browser.show(false);if(chatInputs!=null)chatInputs.stopRecording();if(chat!=null)chat.request("{\"action\":\"background\"}");if(engines!=null)engines.visible(false);view.evaluateJavascript("window.cleoVisible?.(false)",null);view.onPause();super.onPause(); }
-    @Override protected void onResume() { super.onResume();resumed=true;if(browser!=null&&"browser".equals(selectedTab))browser.show(true);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
+    @Override protected void onResume() { super.onResume();resumed=true;residencyState();if(browser!=null&&"browser".equals(selectedTab))browser.show(true);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
     @Override protected void onDestroy() { if(browser!=null)browser.close();if(chatInputs!=null)chatInputs.close();if(chat!=null)chat.close();if(engines!=null)engines.detach(this);if(bound)unbindService(connection);view.removeJavascriptInterface("Cleo");view.destroy();view=null;super.onDestroy(); }
 }

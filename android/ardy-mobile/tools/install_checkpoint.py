@@ -63,9 +63,23 @@ def main():
 
     def version(name):
         data = shell(f'dumpsys package {name}')
-        return {key: re.search(r'\b' + key + r'=([^\s]+)', data)[1] for key in ('versionCode', 'versionName')}
+        if f'Unable to find package: {name}' in data:
+            return None
+        result = {key: re.search(r'\b' + key + r'=([^\s]+)', data) for key in ('versionCode', 'versionName')}
+        if not all(result.values()):
+            raise RuntimeError(f'Could not read installed version for {name}: {data[:200]}')
+        return {key: value[1] for key, value in result.items()}
 
     original_version = version(SOURCE)
+    if original_version is None:
+        # An existing checkpoint can be updated after its recovery source is removed.
+        # Never reinstall that source or silently replace missing model data.
+        if version(TARGET) is None:
+            raise RuntimeError('Neither recovery source nor checkpoint is installed')
+        for entry in inventory['installedModels']:
+            path = model_path(entry['appRelativePath'])
+            if private(f'test -f {shlex.quote(str(path))} && stat -c %s {shlex.quote(str(path))}') != str(entry['bytes']):
+                raise RuntimeError(f'Recovery source is absent and checkpoint model is missing: {path}')
     free = int(shell('df -k /data').splitlines()[-1].split()[3]) * 1024
     required = sum(m['bytes'] for m in inventory['installedModels']) + args.apk.stat().st_size + 1024**3
     if free < required:
@@ -74,7 +88,7 @@ def main():
         apk_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
     report = {'installedAt': datetime.now(timezone.utc).isoformat(), 'package': TARGET,
               'versionCode': int(package[2]), 'versionName': package[3], 'apkSha256': apk_hash,
-              'apkBytes': args.apk.stat().st_size, 'originalPackage': SOURCE, 'originalVersion': original_version,
+              'apkBytes': args.apk.stat().st_size, 'originalPackage': SOURCE, 'originalVersion': original_version, 'originalPackagePresent': original_version is not None,
               'appLaunched': False, 'inferenceTest': False, 'models': [], 'complete': False}
 
     def save():
@@ -92,6 +106,8 @@ def main():
         if current is not None and current != expected:
             raise RuntimeError(f'Refusing to replace an existing model with an unexpected fingerprint: {path}')
         if current is None:
+            if original_version is None:
+                raise RuntimeError(f'Missing checkpoint model and no recovery source: {path}')
             temporary = str(path) + '.install-partial'
             print(f'Copying within device storage: {path}', flush=True)
             private(f'mkdir -p {shlex.quote(str(path.parent))}')
@@ -108,7 +124,8 @@ def main():
     if version(SOURCE) != original_version:
         raise RuntimeError('Original app version changed during installation')
     report['complete'] = True
-    report['originalVersionUnchanged'] = True
+    report['originalVersionUnchanged'] = True if original_version is not None else None
+    report['originalPackageStillAbsent'] = original_version is None
     save()
     print('Installed and models verified. The user launches and tests the app.', flush=True)
 

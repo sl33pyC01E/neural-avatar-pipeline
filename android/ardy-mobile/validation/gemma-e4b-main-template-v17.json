@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "phoneExecution": false,
+  "modelInference": false,
+  "thinkingToggleChangesActualPrompt": true,
+  "thoughtChannel": [
+    "thought"
+  ],
+  "mainToolTemplateValidated": true,
+  "actualSdkToolsRender": true,
+  "toolResponseContinuation": true,
+  "followupRetainsHistory": true,
+  "artifact": "gemma-4-E4B-it.litertlm"
+}

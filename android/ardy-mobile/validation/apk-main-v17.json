@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "concreteDexCallback": "invoke([F)Ljava/lang/Integer;",
+  "sherpaJniDescriptorMatches": true,
+  "apkSha256": "b407a48f5c83a5664c26d0b59531e8012262681f536d1694545448d2f58dce70",
+  "apkBytes": 1079574794,
+  "lamPayloadBundled": true,
+  "lamPayloadHashVerified": true,
+  "packagedWebMatchesSource": true,
+  "repairedEncoderSha256": "f5e1147dd9bd5330b1e3f2ecd8a671d1639f33bf771774e793e476d1698439aa",
+  "allPocketPayloadHashesVerified": true,
+  "packagedModelRuntimes": {
+    "Gemma": "LiteRT-LM 0.17.1",
+    "ArdyEmbeddings": "libardy_llm2vec.so"
+  },
+  "phoneTest": false,
+  "limitation": "Verifies packaged ABI and payloads, not Android synthesis/model/browser execution."
+}
