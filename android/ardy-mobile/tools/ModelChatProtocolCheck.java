@@ -80,7 +80,21 @@ public final class ModelChatProtocolCheck {
         String mainAdapted=mainManager.getToolsDescription().toString();
         check(mainAdapted.contains("act")&&mainAdapted.contains("gesture"),"Real SDK accepts Main API");
         check(main.description().getJSONObject("parameters").getJSONArray("required").length()==0,"Main API has optional arguments");
+        // Exercise the production scope against the real SDK flag, including failed creation.
+        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(false);
+        GemmaToolDecoding.create(true,()->{check(ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Avatar grammar not enabled at creation");return null;});
+        check(!ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Avatar setting leaked to browser/chat");
+        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(true);
+        try{GemmaToolDecoding.create(false,()->{check(!ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Plain chat constrained");throw new IOException("creation failed");});throw new AssertionError("Missing exception");}catch(IOException expected){}
+        check(ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Failed creation did not restore SDK setting");
+        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(false);
+        String malformed="Status Code: 3. Message: Failed to parse tool calls from code block: call:act{face:{eyes:1.0,head:1.0,mouth:1.0},gesture:neutral}\nfull response: parser dump";
+        String explained=GemmaFailure.message(new IOException("Gemma response failed",new IllegalStateException(malformed)));
+        check(explained.contains("invalid avatar control")&&!explained.contains("call:act")&&!explained.contains("parser dump"),"Native tool parse failure hidden or dumped");
+        check(GemmaFailure.message(new IOException("Gemma response failed",new IOException("Context limit reached"))).contains("Context limit reached"),"Nested cause discarded");
+        check(GemmaFailure.message(new IOException("wrapper",new java.util.concurrent.CancellationException())).equals("Response stopped."),"Cancellation misreported");
+        check(!main.instructions().contains("act(emotion=")&&!main.instructions().contains("act(gesture="),"Prompt teaches invalid unquoted tool syntax");
 
-        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainSdkTools",new JSONArray(mainAdapted)).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
+        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("toolGrammarScopedAtCreation",true).put("observedParserFailureExplained",true).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainSdkTools",new JSONArray(mainAdapted)).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
     }
 }

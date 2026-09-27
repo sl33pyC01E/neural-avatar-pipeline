@@ -4,7 +4,17 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.1 · Staged startup and skin warmth
+## Latest checkpoint: 0.8.2 · Gemma tool syntax
+
+The reported response failure was an unquoted string in Gemma's native `act`
+call, rejected by LiteRT's parser. Avatar conversations now enable LiteRT's
+tool grammar at creation; ordinary chat/browser conversations keep their prior
+setting. Main's prompt no longer teaches pseudo-code with unquoted values.
+Nested errors are explained, and New chat clears a failed response without
+reloading the engines. Host checks passed; native generation remains for the
+user's phone test. See [the tool-call diagnosis](TOOL_FIX.md).
+
+### Retained startup and skin changes
 
 Android exit history identified the two reported Gemma worker stops as
 `LOW_MEMORY`; the last saved E4B log ended during GPU vision initialization.

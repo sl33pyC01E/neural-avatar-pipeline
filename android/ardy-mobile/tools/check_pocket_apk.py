@@ -89,13 +89,15 @@ if __name__ == '__main__':
         obsolete={'libcleo_llama.so','libcleo_llama_opencl.so','libcleo_whisper.so','libcleo_whisperx.so'}
         assert not any(Path(name).name in obsolete for name in archive.namelist()), 'Obsolete model runtime packaged'
         assert 'lib/arm64-v8a/libardy_llm2vec.so' in archive.namelist(), 'Ardy embedding runtime lost'
+        litert=archive.read('lib/arm64-v8a/liblitertlm_jni.so')
+        assert b'GemmaModelConstraintProvider' in litert and b'Constrained decoding was disabled at build time.' not in litert, 'Gemma tool grammar provider unavailable in packaged ARM64 runtime'
         packaged_workers={'Gemma':'LiteRT-LM 0.17.1','ArdyEmbeddings':'libardy_llm2vec.so'}
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,
               'apkSha256': digest, 'apkBytes': args.apk.stat().st_size, 'lamPayloadBundled': True, 'lamPayloadHashVerified':True,'packagedWebMatchesSource': True,
               'repairedEncoderSha256':manifest['encoderRepair']['repairedSha256'],'allPocketPayloadHashesVerified':True,
-              'packagedModelRuntimes':packaged_workers,
+              'packagedModelRuntimes':packaged_workers,'gemmaToolGrammarProviderBundled':True,
               'phoneTest': False, 'limitation': 'Verifies packaged ABI and payloads, not Android synthesis/model/browser execution.'}
     args.report.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))

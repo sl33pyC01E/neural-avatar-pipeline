@@ -93,7 +93,7 @@ public final class ModelChatService extends Service {
             if(channel.equals("main"))closeMainConversation();
             else if(channel.equals("avatar"))closeAvatarConversation();
             else if(request.optString("action").equals("send")){if(conversation!=null){conversation.close();conversation=null;}history=new JSONArray();turns=0;}
-            emit(json("error",failure.getMessage()==null?failure.toString():failure.getMessage()));
+            emit(json("error",GemmaFailure.message(failure)));
         }finally{
             monitor.shutdownNow();busy.set(false);
             JSONObject measured=memory();try{
@@ -130,8 +130,9 @@ public final class ModelChatService extends Service {
             tools.add(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return schema;}public String execute(String arguments){throw new IllegalStateException("Avatar tools require explicit validation");}}));
         }
         int reasoning=selection.getInt("reasoning");
-        return engine.createConversation(new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
-            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false));
+        ConversationConfig config=new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
+            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false);
+        return GemmaToolDecoding.create(api!=null,()->engine.createConversation(config));
     }
     private com.google.ai.edge.litertlm.Message input(String prompt,String kind,byte[] media){
         List<Content> parts=new ArrayList<>();if("image".equals(kind))parts.add(new Content.ImageBytes(media));if("audio".equals(kind))parts.add(new Content.AudioBytes(media));parts.add(new Content.Text(prompt));

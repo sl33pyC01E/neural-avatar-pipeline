@@ -1,0 +1,19 @@
+{
+  "phoneTestsRun": false,
+  "source": "read-only saved app error",
+  "log": "--------- beginning of main\n09-26 21:27:01.236 20808 20851 E CleoGemma: mainSend failed\n09-26 21:27:01.236 20808 20851 E CleoGemma: java.io.IOException: Gemma response failed\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService.stream(ModelChatService.java:156)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService.mainSend(ModelChatService.java:241)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService.execute(ModelChatService.java:83)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService.lambda$new$0(ModelChatService.java:53)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService.$r8$lambda$z7mS6_pFT_d_iqPw_n03-4DXfd0(ModelChatService.java:0)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat ai.cleo.ardyavatarvalidation.ModelChatService$$ExternalSyntheticLambda13.run(D8$$SyntheticClass:0)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1100)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat java.lang.Thread.run(Thread.java:1572)\n09-26 21:27:01.236 20808 20851 E CleoGemma: Caused by: com.google.ai.edge.litertlm.LiteRtLmJniException: Status Code: 3. Message: Failed to parse tool calls from code block: call:act{face:{eyes:1.0,head:1.0,mouth:1.0},gesture:neutral}\n09-26 21:27:01.236 20808 20851 E CleoGemma: full response: <|tool_call>call:act{face:{eyes:1.0,head:1.0,mouth:1.0},gesture:neutral}<tool_call|>\n09-26 21:27:01.236 20808 20851 E CleoGemma: error: Failed to parse FC tool calls: FallThrough(ParseCancelledError(NoAltError(NoViableAltError { base: BaseRecognitionError { message: \"\", offending_token: GenericToken { token_type: 13, channel: 0, start: 52, stop: 58, token_index: 22, line: 1, column: 52, text: \"neutral\", read_only: false }, offending_state: 44, states_stack: [36, 24, 18, 12] }, start_token: GenericToken { token_type: 13, channel: 0, start: 52, stop: 58, token_index: 22, line: 1, column: 52, text: \"neutral\", read_only: false } })))\n09-26 21:27:01.236 20808 20851 E CleoGemma: \tat com.google.ai.edge.litertlm.Conversation$JniMessageCallbackImpl.onError(Conversation.kt:656)\n",
+  "diagnostic": {
+    "timestamp": 1790472421236,
+    "pid": 20808,
+    "stage": "failed mainSend",
+    "selection": {
+      "model": "gemma",
+      "backend": "litert-gpu",
+      "reasoning": 0,
+      "visualTokens": 280,
+      "contextTokens": 8192
+    },
+    "pssKb": 3429487,
+    "availableBytes": 1618067456
+  }
+}

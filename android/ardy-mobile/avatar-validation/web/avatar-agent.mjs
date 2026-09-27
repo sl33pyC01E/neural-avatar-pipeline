@@ -65,7 +65,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   };
   $('#cleopatra-stop').onclick=()=>stop();
   $('#cleopatra-unload').onclick=()=>{loadError='';stop('Unloading models…');nativeReady=false;for(const key of Object.keys(components))components[key]='unloaded';window.Cleo?.unloadAvatarModels?.();chat.request({action:'unload'});controls();};
-  $('#cleopatra-new').onclick=()=>{if(run||chat.status().busy)return;chat.request({action:isMain?'mainNew':'avatarNew',...(isMain?context():{})});$('#cleopatra-log').replaceChildren();$('#cleopatra-tools').textContent='';status('New Cleopatra conversation');};
+  $('#cleopatra-new').onclick=()=>{if(run||chat.status().busy)return;loadError='';prepareFailed=false;if(isMain){prepared=false;preparing=true;}chat.request({action:isMain?'mainNew':'avatarNew',...(isMain?context():{})});$('#cleopatra-log').replaceChildren();$('#cleopatra-tools').textContent='';status('New Cleopatra conversation');};
   $('#cleopatra-form').onsubmit=event=>{
     event.preventDefault();if(!ready()||run||loading)return;
     const text=$('#cleopatra-text').value.trim();if(!text&&!media.get())return;

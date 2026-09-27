@@ -1,4 +1,7 @@
-# Cleopatra 0.8.1 · Main
+# Cleopatra 0.8.2 · Main
+
+See [the tool syntax fix](TOOL_FIX.md) for the native parser failure, constrained
+avatar tool decoding, prompt correction and response-error recovery.
 
 See [the startup/skin fix](LOAD_FIX.md) for the confirmed Android memory-kill
 diagnosis, staged loading, new error reporting and subtle skin warmth default.
