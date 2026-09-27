@@ -12,3 +12,7 @@ payloads/
 
 # Temporary CPU-browser verification profiles; keep only reports/screenshots.
 validation/**/browser-*/
+
+# Private passive phone diagnostics and local build logs.
+validation/diagnostics-v26/
+**/build-*.log

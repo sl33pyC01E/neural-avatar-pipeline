@@ -34,6 +34,7 @@ public final class ArdySampler implements AutoCloseable {
         public float constraintGuidance = 2.0f;
         public float velocityX, velocityZ;
         public boolean constrainRoot = true;
+        public ArdyPlan plan;
         public boolean lockRoot; // Stationary torso: every generated root constraint, not only the last frame.
     }
 
@@ -74,6 +75,7 @@ public final class ArdySampler implements AutoCloseable {
         throw new IllegalArgumentException("Unknown ARDY model: "+modelId);
     }
 
+    public int generatedFrames(){return generatedFrames;}
     public boolean isWarm(){return denoiser!=null&&decoder!=null;}
     public void warm() throws Exception {
         if (denoiser!=null) return;
@@ -161,6 +163,11 @@ public final class ArdySampler implements AutoCloseable {
             int base=f*data.motionDim;
             setObserved(observed,mask,base,0,0);setObserved(observed,mask,base,2,0);
             setObserved(observed,mask,base,3,1);setObserved(observed,mask,base,4,0);
+        }
+        if(!settings.lockRoot&&settings.plan!=null&&!settings.plan.path.isEmpty())for(int f=0;f<data.genHorizonFrames;f++){
+            float[] target=settings.plan.root((generatedFrames+f)/data.fps);int base=(historyFrames+f)*data.motionDim;
+            setObserved(observed,mask,base,0,target[0]-globalX);setObserved(observed,mask,base,2,target[1]-globalZ);
+            setObserved(observed,mask,base,3,(float)Math.cos(target[2]));setObserved(observed,mask,base,4,(float)Math.sin(target[2]));
         }
         float[] text=embedding;
         if(previousEmbedding!=null && !Arrays.equals(previousEmbedding,embedding)) text=blend(previousEmbedding,embedding,.72f);

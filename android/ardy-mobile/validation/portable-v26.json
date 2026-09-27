@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "date": "2026-09-27",
+  "platform": "Windows x64",
+  "destination": "Documents/unimobile",
+  "cleanOfflineBuild": true,
+  "tasks": ["clean", ":app:assembleDebug", ":app:lintDebug"],
+  "executedTasks": 49,
+  "elapsedSeconds": 27,
+  "toolchain": "Bundled JDK, Android SDK and isolated Gradle dependency cache",
+  "payloadsSurviveClean": true,
+  "externalParentWorkspaceNeeded": false,
+  "mainVersionCode": 26,
+  "shippedApkSha256": "de2c76e4c403f53ffb670ee7f813e9c854b23a26af1d3f742cff3ab5078676f3",
+  "miniCpmIncluded": false,
+  "qwenIncluded": false,
+  "whisperApplicationModelIncluded": false,
+  "phoneAppLaunched": false,
+  "phoneInferenceTested": false,
+  "limitations": [
+    "Native runtimes are preserved prebuilts; native regeneration needs additional tools.",
+    "The recovered LLM2Vec JNI runtime has no recovered exact source/build recipe.",
+    "The source/model/APK SHA-256 manifest excludes toolchain files.",
+    "Phone memory outcome and perceptual motion quality require user testing."
+  ]
+}

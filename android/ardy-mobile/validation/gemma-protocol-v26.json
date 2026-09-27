@@ -1,0 +1,838 @@
+{
+  "extensiveControlsValidated": true,
+  "mainFramingValidation": true,
+  "phoneTest": false,
+  "observedParserFailureExplained": true,
+  "mainInstructions": "You are Cleopatra, a local conversational avatar facing the user. Speak directly without a speaker-name prefix. Speak naturally in short sentences, at most 120 words. Text, images and audio are user messages. Reply with spoken words, never tool syntax or markdown. Ordinary replies need no tool call. If an expression or gesture helps, use act once, then finish your spoken answer. All arguments are optional; omit neutral gestures and unchanged face gains. Set any controls BEFORE your spoken words. The app starts voice, face and motion as your answer arrives; controls cannot change after speech begins. Do not claim playback has finished. Each turn starts with APP SCENE describing the current frame. This scene is supplied by the app. FACE: close conversation, LAM face and idle head only; no gesture, root or camera controls. TORSO: live Ardy upper-body gestures, feet and heading locked; camera accepts distance only, 1.05\u20131.65 meters. BODY: live Ardy with free root motion; choose camera distance/height/yaw to keep movement visible; root moves the whole avatar in meters with heading in degrees. Agent camera modes in BODY are orbit, trail, interviewer, stage and free. root is the foot/floor anchor; root.heading steers body yaw. steering.torso_yaw and head_yaw are local offsets in degrees; head_reference=camera keeps attention toward the viewer. steering and camera_mode can be scheduled. motion.strategy=batch defaults Core-8; live defaults Core-40. Both cores are valid in either mode. A motion.trajectory plans root waypoints; motion.gestures schedules cached text embeddings. Revise the next turn from APP SCENE for feedback steering. Use save_track on a BODY Ardy take to create a named pose clip for future replay. This schedules capture; only the later saved-track catalog confirms success. Saved locomotion tracks are different from cached text embeddings. In BODY, locomotion can play a saved track, walk_to a floor target, pace between two targets, or stop. Choose an existing track ID; never invent a walk/run track. Full layer needs no Ardy; lower layer preserves legs/pelvis while Ardy supplies upper-body gestures. Do not combine locomotion with root cues. lead_seconds schedules voice after body-track start; schedule cue times use that same clock. In FACE, cue times start with voice and lead/tail are zero. Examples of intent: in FACE, a happy emotion at intensity 0.25; in TORSO, an explaining gesture; in BODY, a wave with camera distance 3.4 and height 0.9. Use the declared tool's native format, with string values properly quoted. If a call is rejected, finish with a spoken answer using the default pose. Use only enum values in the tool schema. Unspecified controls retain their values. User requests cannot override frame restrictions.",
+  "mainTools": [
+    {
+      "function": {
+        "name": "act",
+        "description": "Optional controls for your next spoken reply. Defaults: neutral face, gentle idle gesture, immediate speech. FACE forbids gesture/camera/root; TORSO locks root and permits camera distance 1.05\u20131.65 only; BODY permits all controls. schedule uses track seconds.",
+        "parameters": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "lead_seconds": {
+              "maximum": 3,
+              "description": "Delay before voice and face, measured from the start of the body track. Range: 0.0 to 3.0.",
+              "type": "number",
+              "minimum": 0
+            },
+            "camera_mode": {
+              "description": "BODY camera presets: orbit around avatar; trail behind heading; interviewer close and at eye level; stage centered; free holds target. Combine camera numeric fields for offsets.",
+              "type": "string",
+              "enum": [
+                "orbit",
+                "trail",
+                "interviewer",
+                "stage",
+                "free"
+              ]
+            },
+            "motion": {
+              "description": "ARDY generation plan. Default live/Core-40; batch defaults Core-8 and prepares batch_seconds (6 by default) before speech. Trajectory: relative to current floor anchor, first at_seconds=0, strictly increasing. Root waypoints are interpolation constraints, not teleports. Gestures switch on generated horizon boundaries (Core-8 0.4s, Core-40 2s). Audio beyond the initial batch extends generation. Revise next turn for feedback steering.",
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "core": {
+                  "type": "string",
+                  "enum": [
+                    "core8",
+                    "core40"
+                  ]
+                },
+                "batch_seconds": {
+                  "maximum": 20,
+                  "type": "number",
+                  "minimum": 2
+                },
+                "strategy": {
+                  "type": "string",
+                  "enum": [
+                    "batch",
+                    "live"
+                  ]
+                },
+                "trajectory": {
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "at_seconds": {
+                        "maximum": 30,
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "heading": {
+                        "maximum": 180,
+                        "type": "number",
+                        "minimum": -180
+                      },
+                      "x": {
+                        "maximum": 3,
+                        "type": "number",
+                        "minimum": -3
+                      },
+                      "z": {
+                        "maximum": 3,
+                        "type": "number",
+                        "minimum": -3
+                      }
+                    },
+                    "required": [
+                      "at_seconds",
+                      "x",
+                      "z",
+                      "heading"
+                    ]
+                  }
+                },
+                "gestures": {
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "at_seconds": {
+                        "maximum": 30,
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "gesture": {
+                        "type": "string",
+                        "enum": [
+                          "neutral",
+                          "wave"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "at_seconds",
+                      "gesture"
+                    ]
+                  }
+                }
+              },
+              "required": []
+            },
+            "locomotion": {
+              "description": "BODY only. Saved tracks: {}. stop needs no track; other actions require track. walk_to requires x,z. Pace span is width in meters. Optional trim_start/trim_end (seconds), blend (seam seconds), stride (meters/cycle) update the selected track metadata without deleting its source poses.",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "action"
+              ],
+              "properties": {
+                "trim_end": {
+                  "maximum": 30,
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "blend": {
+                  "maximum": 1,
+                  "type": "number",
+                  "minimum": 0
+                },
+                "x": {
+                  "maximum": 3,
+                  "type": "number",
+                  "minimum": -3
+                },
+                "width": {
+                  "maximum": 4,
+                  "type": "number",
+                  "minimum": 0.5
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "stop"
+                  ]
+                },
+                "z": {
+                  "maximum": 3,
+                  "type": "number",
+                  "minimum": -3
+                },
+                "stride": {
+                  "maximum": 6,
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "layer": {
+                  "type": "string",
+                  "enum": [
+                    "full",
+                    "lower"
+                  ]
+                },
+                "speed": {
+                  "maximum": 2,
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "trim_start": {
+                  "maximum": 30,
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            "steering": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "head_reference": {
+                  "type": "string",
+                  "enum": [
+                    "body",
+                    "camera"
+                  ]
+                },
+                "torso_yaw": {
+                  "maximum": 60,
+                  "type": "number",
+                  "minimum": -60
+                },
+                "head_yaw": {
+                  "maximum": 70,
+                  "type": "number",
+                  "minimum": -70
+                }
+              },
+              "required": []
+            },
+            "save_track": {
+              "description": "Capture this BODY Ardy take to the local pose library, up to seconds (default 12) or the spoken take end. The track appears in APP SCENE on a later turn; scheduling is not proof it was saved. No inference on later full-track replay.",
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "seconds": {
+                  "maximum": 12,
+                  "type": "number",
+                  "minimum": 2
+                },
+                "blend": {
+                  "maximum": 1,
+                  "type": "number",
+                  "minimum": 0
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "stride": {
+                  "maximum": 6,
+                  "type": "number",
+                  "minimum": 0.1
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "gesture": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "wave"
+              ]
+            },
+            "intensity": {
+              "maximum": 0.75,
+              "description": "Expression intensity; keep subtle so LAM can articulate speech. Range: 0.0 to 0.75.",
+              "type": "number",
+              "minimum": 0
+            },
+            "schedule": {
+              "maxItems": 12,
+              "description": "Cues in seconds from body-track start, not from voice start. Cues beyond the take end do not run. Omitted controls retain their values.",
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "at_seconds": {
+                    "maximum": 30,
+                    "description": "Track time Range: 0.0 to 30.0.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "transition_seconds": {
+                    "maximum": 3,
+                    "description": "Smooth transition duration; default 0.4 seconds Range: 0.0 to 3.0.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "face": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "head": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's head amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "mouth": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's mouth amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "eyes": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's eye amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  },
+                  "expression": {
+                    "type": "string",
+                    "enum": [
+                      "neutral",
+                      "happy"
+                    ]
+                  },
+                  "strength": {
+                    "maximum": 0.75,
+                    "description": "Scheduled expression intensity Range: 0.0 to 0.75.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "camera_mode": {
+                    "description": "BODY camera presets: orbit around avatar; trail behind heading; interviewer close and at eye level; stage centered; free holds target. Combine camera numeric fields for offsets.",
+                    "type": "string",
+                    "enum": [
+                      "orbit",
+                      "trail",
+                      "interviewer",
+                      "stage",
+                      "free"
+                    ]
+                  },
+                  "root": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "heading": {
+                        "maximum": 180,
+                        "description": "Body heading around floor origin Range: -180.0 to 180.0.",
+                        "type": "number",
+                        "minimum": -180
+                      },
+                      "x": {
+                        "maximum": 3,
+                        "description": "Floor origin X Range: -3.0 to 3.0.",
+                        "type": "number",
+                        "minimum": -3
+                      },
+                      "z": {
+                        "maximum": 3,
+                        "description": "Floor origin Z Range: -3.0 to 3.0.",
+                        "type": "number",
+                        "minimum": -3
+                      }
+                    },
+                    "required": []
+                  },
+                  "steering": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "head_reference": {
+                        "type": "string",
+                        "enum": [
+                          "body",
+                          "camera"
+                        ]
+                      },
+                      "torso_yaw": {
+                        "maximum": 60,
+                        "type": "number",
+                        "minimum": -60
+                      },
+                      "head_yaw": {
+                        "maximum": 70,
+                        "type": "number",
+                        "minimum": -70
+                      }
+                    },
+                    "required": []
+                  },
+                  "camera": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "elevation": {
+                        "maximum": 60,
+                        "description": "View elevation Range: -30.0 to 60.0.",
+                        "type": "number",
+                        "minimum": -30
+                      },
+                      "pan_z": {
+                        "maximum": 2,
+                        "description": "Depth target offset Range: -2.0 to 2.0.",
+                        "type": "number",
+                        "minimum": -2
+                      },
+                      "distance": {
+                        "maximum": 6,
+                        "description": "Distance to target; face about 0.62, body about 3.4 Range: 0.3 to 6.0.",
+                        "type": "number",
+                        "minimum": 0.3
+                      },
+                      "yaw": {
+                        "maximum": 180,
+                        "description": "Orbit angle Range: -180.0 to 180.0.",
+                        "type": "number",
+                        "minimum": -180
+                      },
+                      "pan_x": {
+                        "maximum": 2,
+                        "description": "Horizontal target offset Range: -2.0 to 2.0.",
+                        "type": "number",
+                        "minimum": -2
+                      },
+                      "height": {
+                        "maximum": 2.5,
+                        "description": "Look-at height from floor; face about 1.5 Range: 0.1 to 2.5.",
+                        "type": "number",
+                        "minimum": 0.1
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "at_seconds"
+                ]
+              }
+            },
+            "tail_seconds": {
+              "maximum": 3,
+              "description": "Body motion after the voice ends. Range: 0.5 to 3.0.",
+              "type": "number",
+              "minimum": 0.5
+            },
+            "face": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "head": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's head amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "mouth": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's mouth amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "eyes": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's eye amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "emotion": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "happy"
+              ]
+            },
+            "root": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "maximum": 180,
+                  "description": "Body heading around floor origin Range: -180.0 to 180.0.",
+                  "type": "number",
+                  "minimum": -180
+                },
+                "x": {
+                  "maximum": 3,
+                  "description": "Floor origin X Range: -3.0 to 3.0.",
+                  "type": "number",
+                  "minimum": -3
+                },
+                "z": {
+                  "maximum": 3,
+                  "description": "Floor origin Z Range: -3.0 to 3.0.",
+                  "type": "number",
+                  "minimum": -3
+                }
+              },
+              "required": []
+            },
+            "camera": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "elevation": {
+                  "maximum": 60,
+                  "description": "View elevation Range: -30.0 to 60.0.",
+                  "type": "number",
+                  "minimum": -30
+                },
+                "pan_z": {
+                  "maximum": 2,
+                  "description": "Depth target offset Range: -2.0 to 2.0.",
+                  "type": "number",
+                  "minimum": -2
+                },
+                "distance": {
+                  "maximum": 6,
+                  "description": "Distance to target; face about 0.62, body about 3.4 Range: 0.3 to 6.0.",
+                  "type": "number",
+                  "minimum": 0.3
+                },
+                "yaw": {
+                  "maximum": 180,
+                  "description": "Orbit angle Range: -180.0 to 180.0.",
+                  "type": "number",
+                  "minimum": -180
+                },
+                "pan_x": {
+                  "maximum": 2,
+                  "description": "Horizontal target offset Range: -2.0 to 2.0.",
+                  "type": "number",
+                  "minimum": -2
+                },
+                "height": {
+                  "maximum": 2.5,
+                  "description": "Look-at height from floor; face about 1.5 Range: 0.1 to 2.5.",
+                  "type": "number",
+                  "minimum": 0.1
+                }
+              },
+              "required": []
+            }
+          },
+          "required": []
+        }
+      },
+      "type": "function"
+    }
+  ],
+  "llamaToolSchema": true,
+  "browserParserPreserved": true,
+  "avatarTools": [
+    {
+      "function": {
+        "name": "avatar_stage",
+        "description": "Stage the avatar's next spoken reply. Select a cached text embedding to steer live Ardy body generation, plus facial expression, camera, floor placement/body heading, face gains and timed cues. Root placement moves the entire body on the floor, not individual foot IK. Camera angles and heading are degrees, positions are meters. Omit controls you do not need. This does not play a prerecorded animation. This queues settings; nothing plays until your final spoken answer is complete.",
+        "parameters": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "tail_seconds": {
+              "maximum": 3,
+              "description": "Body motion after the voice ends. Range: 0.5 to 3.0.",
+              "type": "number",
+              "minimum": 0.5
+            },
+            "schedule": {
+              "maxItems": 12,
+              "description": "Cues in seconds from body-track start, not from voice start. Cues beyond the take end do not run. Omitted controls retain their values.",
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "at_seconds": {
+                    "maximum": 30,
+                    "description": "Track time Range: 0.0 to 30.0.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "transition_seconds": {
+                    "maximum": 3,
+                    "description": "Smooth transition duration; default 0.4 seconds Range: 0.0 to 3.0.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "face": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "head": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's head amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "mouth": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's mouth amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "eyes": {
+                        "maximum": 2,
+                        "description": "Multiplier on user's eye amplitude Range: 0.0 to 2.0.",
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  },
+                  "expression": {
+                    "type": "string",
+                    "enum": [
+                      "neutral",
+                      "happy"
+                    ]
+                  },
+                  "strength": {
+                    "maximum": 0.75,
+                    "description": "Scheduled expression intensity Range: 0.0 to 0.75.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "root": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "heading": {
+                        "maximum": 180,
+                        "description": "Body heading around floor origin Range: -180.0 to 180.0.",
+                        "type": "number",
+                        "minimum": -180
+                      },
+                      "x": {
+                        "maximum": 3,
+                        "description": "Floor origin X Range: -3.0 to 3.0.",
+                        "type": "number",
+                        "minimum": -3
+                      },
+                      "z": {
+                        "maximum": 3,
+                        "description": "Floor origin Z Range: -3.0 to 3.0.",
+                        "type": "number",
+                        "minimum": -3
+                      }
+                    },
+                    "required": []
+                  },
+                  "camera": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "properties": {
+                      "elevation": {
+                        "maximum": 60,
+                        "description": "View elevation Range: -30.0 to 60.0.",
+                        "type": "number",
+                        "minimum": -30
+                      },
+                      "pan_z": {
+                        "maximum": 2,
+                        "description": "Depth target offset Range: -2.0 to 2.0.",
+                        "type": "number",
+                        "minimum": -2
+                      },
+                      "distance": {
+                        "maximum": 6,
+                        "description": "Distance to target; face about 0.62, body about 3.4 Range: 0.3 to 6.0.",
+                        "type": "number",
+                        "minimum": 0.3
+                      },
+                      "yaw": {
+                        "maximum": 180,
+                        "description": "Orbit angle Range: -180.0 to 180.0.",
+                        "type": "number",
+                        "minimum": -180
+                      },
+                      "pan_x": {
+                        "maximum": 2,
+                        "description": "Horizontal target offset Range: -2.0 to 2.0.",
+                        "type": "number",
+                        "minimum": -2
+                      },
+                      "height": {
+                        "maximum": 2.5,
+                        "description": "Look-at height from floor; face about 1.5 Range: 0.1 to 2.5.",
+                        "type": "number",
+                        "minimum": 0.1
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "at_seconds"
+                ]
+              }
+            },
+            "face": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "head": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's head amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "mouth": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's mouth amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "eyes": {
+                  "maximum": 2,
+                  "description": "Multiplier on user's eye amplitude Range: 0.0 to 2.0.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "expression": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "happy"
+              ]
+            },
+            "motion": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "wave"
+              ]
+            },
+            "strength": {
+              "maximum": 0.75,
+              "description": "Expression intensity; keep subtle so LAM can articulate speech. Range: 0.0 to 0.75.",
+              "type": "number",
+              "minimum": 0
+            },
+            "root": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "maximum": 180,
+                  "description": "Body heading around floor origin Range: -180.0 to 180.0.",
+                  "type": "number",
+                  "minimum": -180
+                },
+                "x": {
+                  "maximum": 3,
+                  "description": "Floor origin X Range: -3.0 to 3.0.",
+                  "type": "number",
+                  "minimum": -3
+                },
+                "z": {
+                  "maximum": 3,
+                  "description": "Floor origin Z Range: -3.0 to 3.0.",
+                  "type": "number",
+                  "minimum": -3
+                }
+              },
+              "required": []
+            },
+            "camera": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "elevation": {
+                  "maximum": 60,
+                  "description": "View elevation Range: -30.0 to 60.0.",
+                  "type": "number",
+                  "minimum": -30
+                },
+                "pan_z": {
+                  "maximum": 2,
+                  "description": "Depth target offset Range: -2.0 to 2.0.",
+                  "type": "number",
+                  "minimum": -2
+                },
+                "distance": {
+                  "maximum": 6,
+                  "description": "Distance to target; face about 0.62, body about 3.4 Range: 0.3 to 6.0.",
+                  "type": "number",
+                  "minimum": 0.3
+                },
+                "yaw": {
+                  "maximum": 180,
+                  "description": "Orbit angle Range: -180.0 to 180.0.",
+                  "type": "number",
+                  "minimum": -180
+                },
+                "pan_x": {
+                  "maximum": 2,
+                  "description": "Horizontal target offset Range: -2.0 to 2.0.",
+                  "type": "number",
+                  "minimum": -2
+                },
+                "height": {
+                  "maximum": 2.5,
+                  "description": "Look-at height from floor; face about 1.5 Range: 0.1 to 2.5.",
+                  "type": "number",
+                  "minimum": 0.1
+                }
+              },
+              "required": []
+            },
+            "cue_seconds": {
+              "maximum": 3,
+              "description": "Delay before voice and face, measured from the start of the body track. Range: 0.0 to 3.0.",
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "motion",
+            "expression",
+            "strength",
+            "cue_seconds",
+            "tail_seconds"
+          ]
+        }
+      },
+      "type": "function"
+    }
+  ],
+  "reasoningAndAnswerDeltasSeparated": true,
+  "invalidAvatarInputsRejected": 44,
+  "cachedEmbeddingResolution": true,
+  "modelInference": false,
+  "passed": true,
+  "llamaProtocol": {
+    "checks": 18,
+    "inference": false,
+    "passed": true
+  },
+  "llamaDiskCache": {
+    "nativeInference": false,
+    "checks": 57,
+    "fakeHttpPeer": true,
+    "restores": 1,
+    "phoneTest": false,
+    "passed": true,
+    "prefills": 8
+  },
+  "llamaLaunch": {
+    "nativeInference": false,
+    "checks": 171,
+    "phoneTest": false,
+    "passed": true
+  }
+}

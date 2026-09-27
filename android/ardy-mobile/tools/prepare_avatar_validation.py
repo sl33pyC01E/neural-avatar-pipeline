@@ -149,6 +149,6 @@ if __name__ == "__main__":
     parser.add_argument("--avatar", type=Path, required=True)
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--dependencies", type=Path, required=True, help="retargetting/node_modules")
-    parser.add_argument("--output", type=Path, default=MOBILE / "avatar-validation/app/build/generated/avatarAssets")
+    parser.add_argument("--output", type=Path, default=MOBILE / "payloads/avatarAssets")
     args = parser.parse_args()
     prepare(args.avatar, args.apk, args.dependencies, args.output)

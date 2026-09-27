@@ -1,0 +1,18 @@
+{
+  "package": "ai.cleo.ardyavatarvalidation",
+  "apkSha256": "de2c76e4c403f53ffb670ee7f813e9c854b23a26af1d3f742cff3ab5078676f3",
+  "modelsVerified": [
+    "files/ardy-models/core8-onnx/denoiser.onnx",
+    "files/ardy-models/core8-onnx/decoder.onnx",
+    "files/ardy-models/core40-onnx/denoiser.onnx",
+    "files/ardy-models/core40-onnx/decoder.onnx",
+    "files/embedding-models/ardy-llm2vec-q4_k_m.gguf",
+    "files/benchmark/gemma-4-E2B_q4_0-it.gguf",
+    "files/benchmark/gemma-4-E2B-it-mmproj.gguf",
+    "files/benchmark/gemma-4-E4B_q4_0-it.gguf",
+    "files/benchmark/gemma-4-E4B-it-mmproj.gguf"
+  ],
+  "appLaunched": false,
+  "modelInference": false,
+  "dataCleared": false
+}

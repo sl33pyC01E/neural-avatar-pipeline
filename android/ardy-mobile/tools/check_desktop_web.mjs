@@ -75,10 +75,10 @@ try {
         const batch={type:'motion',streamId:currentStream,profile:currentProfile,startFrame:start,frames:count,jointCount:27,fps:20,generationMs:20,joints:source.joints.slice(start,start+count).flat(2),roots:source.rootPositions.slice(start,start+count).flat(),rotations:source.rotations.slice(start,start+count).flat(3)};window.lastBatch=batch;emit(batch);return true;},
       prepareModelLoad(requestId){window.releaseRequest=requestId;window.loadOrder.push('release');if(!window.holdRelease)emit({type:'ensemble',component:'release',requestId,state:'ready',message:'Released'});},
       warmAll(profile,threads,precision,requestId){window.loadOrder.push('warm');window.warmRequest={profile,threads,precision,requestId};window.warmRequests.push(window.warmRequest);for(const component of ['ardy','pocket','lam','all'])emit({type:'ensemble',component,requestId,state:'ready',message:'Resident'});},cancelWarmAll(){},unloadAvatarModels(){emit({type:'ensembleReleased',message:'Unloaded'});},
-      mainFrame(value){window.nativeFrame=value;},residencyStatus(){emit({type:"residency",enabled:true,notifications:true,batteryExempt:true});},residency(value){window.residentEnabled=value;},tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
+      mainBodySource(value){window.nativeBodySource=value;},mainFrame(value){window.nativeFrame=value;},residencyStatus(){emit({type:"residency",enabled:true,notifications:true,batteryExempt:true});},residency(value){window.residentEnabled=value;},tab(value){window.nativeTab=value;},playbackSeconds(){return window.testClock;},embed(){},
       speak(...args){window.speechArguments=args;emit({type:'speechStart',message:'Pocket only'});setTimeout(()=>{
         emit({type:'pocketMetrics',warm:true,loadMs:1,firstChunkMs:120,computeRtf:.4,audioSeconds:2});emit({type:'speechEnd',message:'Anna ready'});},50);},
-      speakWithFace(...args){window.talkArguments=args;window.testClock=-1;emit({type:'speechStart',tab:window.nativeTab,withFace:true,streamId:'pipe-check',bodyMotion:window.nativeTab==='main'?window.nativeFrame!=='face':undefined,cueSeconds:args[6],tailSeconds:args[7],message:'Pipeline check'});},
+      speakWithFace(...args){window.talkArguments=args;window.testClock=-1;emit({type:'speechStart',tab:window.nativeTab,withFace:true,streamId:'pipe-check',bodyMotion:window.nativeTab==='main'?window.nativeFrame!=='face'&&window.nativeBodySource!=='cached':undefined,cueSeconds:args[6],tailSeconds:args[7],message:'Pipeline check'});},
       beginSpeech(id,...args){window.speechPhrases=[args[0]];window.speechRequest=id;window.speechFinished=false;window.speechBegins=(window.speechBegins||0)+1;this.speakWithFace(...args);return true;},
       appendSpeech(id,text,finished){if(id!==window.speechRequest)return;if(text)window.speechPhrases.push(text);window.speechFinished=finished;},
       inputCamera(scope){window.cameraRequest=scope;},
@@ -447,6 +447,10 @@ try {
   assert.equal(await evaluate('window.avatarValidation.cameraControls.direction().elevation'),0,'Face camera is elevated');
   const eyeLevel=await evaluate(`(()=>{const a=window.avatarValidation,{vrm,camera}=a;a.idle.restore();a.faceControls.restorePresence();vrm.humanoid.update();vrm.scene.updateMatrixWorld(true);const p=camera.position.clone();return {eye:(vrm.humanoid.getRawBoneNode('leftEye').getWorldPosition(p).y+vrm.humanoid.getRawBoneNode('rightEye').getWorldPosition(p).y)/2,camera:camera.position.y};})()`);
   assert(Math.abs(eyeLevel.eye-eyeLevel.camera)<.015,'Camera did not start at eye level: '+JSON.stringify(eyeLevel));
+  const stableMainViewport=await evaluate('document.querySelector("canvas").getBoundingClientRect().toJSON()');
+  await evaluate('document.querySelector("#main-details").open=true;document.querySelector("#main-metrics").textContent="Preparing models and prompt. ".repeat(40)');await sleep(80);
+  assert.deepEqual(await evaluate('document.querySelector("canvas").getBoundingClientRect().toJSON()'),stableMainViewport,'Session or loading text moved the avatar viewport');
+  await evaluate('document.querySelector("#main-details").open=false;document.querySelector("#main-metrics").textContent=""');
   assert(await evaluate('window.chatRequests.some(r=>r.action==="mainPrepare")'),'Main did not request system/tool prefill');
   assert(await evaluate('!document.querySelector("#main-send").disabled'),'Main not ready after prefill');
   await evaluate('document.querySelector("#app-settings").click()');
@@ -472,6 +476,8 @@ try {
   await evaluate('window.testClock=.8;window.cleoEvent({type:"talkPlayback",tab:"main",playbackStartMs:800})');await sleep(120);
   assert.equal(await evaluate('window.validationState.direction.expressions.relaxed'),.1,'Face-only cues did not follow the audio clock');
   const mainImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'main-face.png'),Buffer.from(mainImage.data,'base64'));
+  const faceCenter=await evaluate(`(()=>{const {vrm,camera,stageRoot}=window.avatarValidation;vrm.scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);const p=camera.position.clone(),left=vrm.humanoid.getRawBoneNode('leftEye').getWorldPosition(p).clone(),right=vrm.humanoid.getRawBoneNode('rightEye').getWorldPosition(p).clone();return {screen:left.add(right).multiplyScalar(.5).project(camera).toArray(),camera:camera.position.toArray(),root:stageRoot.position.toArray(),scene:vrm.scene.position.toArray(),hips:vrm.humanoid.getNormalizedBoneNode('hips').position.toArray()};})()`);
+  assert(Math.abs(faceCenter.screen[0])<.15,'Main face is not centered after a directed body take: '+JSON.stringify(faceCenter));
   await evaluate('window.cleoEvent({type:"speechEnd",tab:"main",withFace:true,completed:true,message:"Ready"});window.Cleo.chat(JSON.stringify({action:"status"}))');await sleep(80);
   // Voice starts before the final result and subsequent phrases reuse the same take.
   const streamingReply='I can keep speaking as the rest of my reply arrives. Short sentences belong to the same phrase, so Anna has more context for natural pacing and emphasis while we talk. There is still more to say.';
@@ -500,7 +506,8 @@ try {
   await evaluate('document.querySelector("#main-record").dispatchEvent(new Event("blur"));window.cleoEvent({type:"chat",inputScope:"main",attachment:{file:"cancel.wav",kind:"audio",recorded:true,label:"Cancelled hold"}})');await sleep(50);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="mainSend").length'),beforeInput,'Cancelled hold or newline sent a message');
   await evaluate('document.querySelector("#main-clear-attachment").click();document.querySelector("#main-text").value="";document.querySelector("#main-camera").click()');
-  assert(await evaluate('document.querySelector("#main-media").open'),'Camera did not offer a media menu');
+  assert(!await evaluate('document.querySelector("#main-media").open'),'Camera opened an intermediary menu');assert.equal(await evaluate('window.cameraRequest'),'main');
+  await evaluate('document.querySelector("#app-settings").click();document.querySelector("#main-attachments").click()');assert(await evaluate('document.querySelector("#main-media").open'),'Settings attachments unavailable');
   await evaluate('document.querySelector("#main-capture").click()');assert.equal(await evaluate('window.cameraRequest'),'main');
   await call('Emulation.setDeviceMetricsOverride',{width:360,height:520,deviceScaleFactor:1,mobile:true});await sleep(80);
   const mainBounds=await evaluate(`['main-record','main-camera','main-text','main-send'].map(id=>{const r=document.getElementById(id).getBoundingClientRect();return {id,left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom};})`);
@@ -509,7 +516,9 @@ try {
   const compactMain=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'main-compact.png'),Buffer.from(compactMain.data,'base64'));
   await call('Emulation.setDeviceMetricsOverride',{width:412,height:915,deviceScaleFactor:1,mobile:true});await sleep(50);
   const prefilled=await evaluate('window.chatRequests.filter(r=>r.action==="mainPrepare").length');
-  await evaluate('document.querySelector("[data-frame=torso]").click();document.querySelector("#main-image").click()');
+  await evaluate('document.querySelector("[data-frame=torso]").click()');
+  for(let i=0;i<40;i++){if(await evaluate('!document.querySelector("#main-image").disabled'))break;await sleep(50);}
+  await evaluate('document.querySelector("#main-image").click()');
   assert.deepEqual(await evaluate('window.attachRequest'),{kind:'image',scope:'main'});
   await evaluate('window.cleoEvent({type:"chat",inputScope:"main",attachment:{file:"main.png",kind:"image",label:"Image"}});document.querySelector("#main-text").value="Wave";document.querySelector("#main-form").requestSubmit()');await sleep(60);
   const torsoRequest=await evaluate('window.chatRequests.filter(r=>r.action==="mainSend").at(-1)');
@@ -525,13 +534,15 @@ try {
   await evaluate('window.cleoEvent({type:"speechEnd",tab:"main",withFace:true,completed:false,message:"Stopped"});window.Cleo.chat(JSON.stringify({action:"status"}))');await sleep(60);
   for(let i=0;i<40;i++){if(await evaluate('!document.querySelector("[data-frame=body]").disabled&&!document.querySelector("#main-send").disabled'))break;await sleep(100);}
   assert(await evaluate('!document.querySelector("[data-frame=body]").disabled&&!document.querySelector("#main-send").disabled'),'Main did not become ready after the torso take');
-  await evaluate('document.querySelector("[data-frame=body]").click();document.querySelector("#main-text").value="Move over";document.querySelector("#main-form").requestSubmit()');await sleep(60);
+  await evaluate('document.querySelector("[data-frame=body]").click()');await sleep(60);
+  for(let i=0;i<40;i++){if(await evaluate('!document.querySelector("#main-send").disabled'))break;await sleep(50);}
+  await evaluate('document.querySelector("#main-text").value="Move over";document.querySelector("#main-form").requestSubmit()');await sleep(60);
   const bodyRequest=await evaluate('window.chatRequests.filter(r=>r.action==="mainSend").at(-1)');assert.equal(bodyRequest.frame,'body');
   await evaluate(`window.cleoEvent({type:'chat',channel:'main',requestId:${JSON.stringify(bodyRequest.requestId)},result:{text:'Over here.',avatarPlan:{frame:'body',embeddingId:'bank:wave',expression:'neutral',strength:0,cue_seconds:0,tail_seconds:.75,root:{x:2,heading:70},camera:{distance:4}}}})`);await sleep(100);
   await evaluate('window.testClock=.8;window.cleoEvent({type:"talkPlayback",tab:"main",playbackStartMs:850})');await sleep(100);
   assert.equal(await evaluate('window.validationState.direction.root.x'),2);
   assert.equal(await evaluate('window.avatarValidation.cameraControls.snapshot().radius'),4);
-  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="mainPrepare").length'),prefilled,'Frame change unnecessarily discarded the prepared prefix');
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="mainPrepare").length'),prefilled+2,'Frame change unnecessarily discarded the prepared prefix');
   await evaluate('document.querySelector("#main-stop").click();window.cleoEvent({type:"speechEnd",tab:"main",withFace:true,completed:false,message:"Stopped"});window.Cleo.chat(JSON.stringify({action:"status"}))');await sleep(80);
   const continuity=await evaluate(`(()=>{
     const {faceControls:c,vrm}=window.avatarValidation,h=vrm.humanoid.getNormalizedBoneNode('head');
@@ -625,12 +636,29 @@ try {
   await evaluate('window.debugTabs.select("pocket");window.debugTabs.select("chat")');
   assert.equal(await evaluate('document.querySelector("#chat-panel").scrollTop'),previousScroll,'Switching modules discarded reading position');
   assert(scrollCheck.held&&scrollCheck.follows,'Streaming scroll did not respect reading position');
-  const report={passed:true,phoneTest:false,moduleLayoutsChecked:layoutChecks,oneScrollOwnerPerModule:true,chatLeaveCancelsOwnResponse:true,savedPipelineMigration:true,streamScrollRespectsReader:scrollCheck,qatBackendSelectors:true,splitEncoderForwardedPersistedAndShared:true,llamaMemoryPresetForwardedAndPersisted:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+  await evaluate('window.debugTabs.select("avatar")');await sleep(120);
+  await evaluate('window.debugWorkspace.section("panel","stage");document.querySelector("#stage-name").value="Host captured take";document.querySelector("#stage-record").click()');await sleep(750);
+  await evaluate('document.querySelector("#stage-save-take").click()');
+  for(let i=0;i<60;i++){if(await evaluate('document.querySelector("#stage-clips").options.length>1'))break;await sleep(50);}
+  assert(await evaluate('document.querySelector("#stage-clips").options.length>1'),'Generated poses were not saved');
+  const savedTrack=await evaluate('window.avatarValidation.motionStage.catalog()[0]');
+  await evaluate('document.querySelector("#stage-play").click()');await sleep(100);
+  const cachedRequests=await evaluate('window.bridgeRequests');await sleep(200);
+  assert.equal(await evaluate('window.bridgeRequests'),cachedRequests,'Cached playback requested Ardy inference');
+  assert.equal(await evaluate('window.nativeBodySource'),'cached');
+  await evaluate('document.querySelector("#stage-pace").click()');await sleep(350);
+  assert(await evaluate('window.avatarValidation.motionStage.nav.travel>0'),'Pacing did not advance the floor root');
+  const reopened=await evaluate('(async()=>{const {openMotionLibrary}=await import("./motion-library.mjs");const key=JSON.stringify(window.validationState.provenance);const db=await openMotionLibrary(key);const clips=await db.list();db.close();return clips.map(c=>({id:c.id,frames:c.frames.length}));})()');
+  assert(reopened.some(c=>c.id===savedTrack.id&&c.frames>=4),'Saved motion did not survive reopening its store');
+  const stageShot=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'motion-library.png'),Buffer.from(stageShot.data,'base64'));
+  await evaluate('document.querySelector("#stage-stop").click();document.querySelector("#stage-delete").click()');await sleep(100);
+  const report={passed:true,phoneTest:false,savedMotionReplayNoInference:true,motionSurvivesStorageReopen:true,cachedPacing:true,moduleLayoutsChecked:layoutChecks,oneScrollOwnerPerModule:true,chatLeaveCancelsOwnResponse:true,savedPipelineMigration:true,streamScrollRespectsReader:scrollCheck,qatBackendSelectors:true,splitEncoderForwardedPersistedAndShared:true,llamaMemoryPresetForwardedAndPersisted:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraDirectAndSettingsAttachments:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
+  Object.assign(report,{mainViewportStableDuringPreparation:true,mainFaceCenteredAfterBodyTake:faceCenter});
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 } catch(error) {
   if(socket?.readyState===WebSocket.OPEN){

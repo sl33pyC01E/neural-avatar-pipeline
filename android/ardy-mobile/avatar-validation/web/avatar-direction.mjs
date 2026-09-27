@@ -3,7 +3,7 @@ const mix=(a,b,t)=>a+(b-a)*t;
 const mixAngle=(a,b,t)=>t===1?b:a+(((b-a+180)%360+360)%360-180)*t;
 const smooth=t=>t*t*(3-2*t);
 export class AvatarDirection {
-  constructor(camera,root){this.camera=camera;this.root=root;this.active=false;this.state={camera:null,root:{x:0,z:0,heading:0},face:{eyes:1,mouth:1,head:1},expressions:{}};}
+  constructor(camera,root){this.camera=camera;this.root=root;this.active=false;this.state={camera:null,root:{x:0,z:0,heading:0},steering:{torso_yaw:0,head_yaw:0,head_reference:'body'},face:{eyes:1,mouth:1,head:1},expressions:{}};}
   stage(plan){
     this.state.camera=this.camera.direction();this.state.face={eyes:1,mouth:1,head:1};this.state.expressions={};
     this.initial=structuredClone(this.state);this.events=[{at_seconds:0,transition_seconds:.35,...plan},...(plan.schedule||[])];
@@ -15,12 +15,13 @@ export class AvatarDirection {
     if(time<this.last)return;this.last=time;
     const evaluate=at=>{
       for(const t of this.transitions){const weight=t.duration===0?1:smooth(Math.min(1,Math.max(0,(at-t.at)/t.duration)));
-        for(const [key,value] of Object.entries(t.to))this.state[t.group][key]=(key==='yaw'||key==='heading'?mixAngle:mix)(t.from[key]??0,value,weight);
+        for(const [key,value] of Object.entries(t.to))this.state[t.group][key]=typeof value==='string'?value:(key==='yaw'||key==='heading'?mixAngle:mix)(t.from[key]??0,value,weight);
       }
     };
     while(this.next<this.events.length&&this.events[this.next].at_seconds<=time){
       const cue=this.events[this.next++];evaluate(cue.at_seconds);
-      for(const group of ['camera','root','face','expressions']){
+      if(cue.camera_mode){this.camera.preset(cue.camera_mode);this.cameraEnabled=true;this.transitions=this.transitions.filter(t=>t.group!=='camera');this.state.camera=this.camera.direction();}
+      for(const group of ['camera','root','steering','face','expressions']){
         let target=cue[group];
         if(group==='expressions'&&cue.expression!==undefined)target=Object.fromEntries([...new Set([...Object.keys(this.state.expressions),cue.expression])].map(name=>[name,name===cue.expression&&name!=='neutral'?cue.strength:0]));
         if(!target)continue;
@@ -36,6 +37,6 @@ export class AvatarDirection {
     this.root.position.set(this.state.root.x,0,this.state.root.z);this.root.rotation.y=this.state.root.heading*Math.PI/180;
   }
   clear(){this.active=false;this.transitions=[];this.state.face={eyes:1,mouth:1,head:1};this.state.expressions={};}
-  reset(){this.clear();this.state.root={x:0,z:0,heading:0};this.root.position.set(0,0,0);this.root.rotation.y=0;}
+  reset(){this.clear();this.state.root={x:0,z:0,heading:0};this.state.steering={torso_yaw:0,head_yaw:0,head_reference:'body'};this.root.position.set(0,0,0);this.root.rotation.y=0;}
   snapshot(){return structuredClone({...this.state,active:this.active,time:this.last});}
 }

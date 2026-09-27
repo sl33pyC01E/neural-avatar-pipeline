@@ -1,0 +1,202 @@
+{
+  "checks": 471,
+  "promptRevision": "a9a842b3adeffb5e50a16fa4b8ec17af395b677118907cdfbc5d013bb2686e58",
+  "editableNodes": 89,
+  "modelInference": false,
+  "phoneTest": false,
+  "passed": true,
+  "browserSchema": {
+    "anyOf": [
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "click"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "box_2d": {
+            "minItems": 4,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "maximum": 1000,
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "required": [
+          "action",
+          "box_2d"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "scroll"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 4000,
+            "enum": [
+              "up",
+              "down"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "direction"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "type"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action",
+          "text"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "enter"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "back"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "question": {
+            "minLength": 1,
+            "type": "string",
+            "maxLength": 4000
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "ask"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action",
+          "question"
+        ]
+      },
+      {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "done"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action",
+          "summary"
+        ]
+      }
+    ]
+  }
+}

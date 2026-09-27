@@ -1,0 +1,1 @@
+{"passed":true,"phoneTest":false,"checks":["shortest quaternion blend","continuous loop seam","avatar identity and corrupt clip rejection","lower body mask","bounded acceleration and turning","pacing reversal","pause holds floor position"]}

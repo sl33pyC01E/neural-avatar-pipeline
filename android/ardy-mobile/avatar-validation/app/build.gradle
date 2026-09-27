@@ -1,5 +1,13 @@
 plugins { id 'com.android.application' }
 
+// Portable exports keep large, fingerprinted inputs outside disposable build directories.
+def portable = project.hasProperty('portablePayloadRoot')
+def payload = rootProject.file(project.findProperty('portablePayloadRoot') ?: '../payloads')
+def llamaLibs = portable ? new File(payload, 'llamaLibs') : layout.buildDirectory.dir('generated/llamaLibs').get().asFile
+def llamaAssets = portable ? new File(payload, 'llamaAssets') : layout.buildDirectory.dir('generated/llamaAssets').get().asFile
+def runtimeAssets = portable ? new File(payload, 'runtimeAssets') : layout.buildDirectory.dir('generated/runtimeAssets').get().asFile
+
+
 android {
     namespace 'ai.cleo.ardyavatarvalidation'
     compileSdk 36
@@ -11,8 +19,8 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 25
-        versionName '0.9.0-module-workspace'
+        versionCode 26
+        versionName '0.10.0-motion-library'
         ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
@@ -20,8 +28,8 @@ android {
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/selectedRuntimeAssets')
     sourceSets.main.assets.srcDir '../../recovery/assets'
     sourceSets.main.jniLibs.srcDir '../../recovery/lib'
-    sourceSets.main.jniLibs.srcDir layout.buildDirectory.dir('generated/llamaLibs')
-    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/llamaAssets')
+    sourceSets.main.jniLibs.srcDir llamaLibs
+    sourceSets.main.assets.srcDir llamaAssets
     androidResources { noCompress += ['vrm', 'onnx', 'gguf', 'f32', 'i32', 'npy'] }
     // Sherpa's legacy x86 slice dynamically links another ORT; supported slices are static.
     packaging { jniLibs { useLegacyPackaging = true; excludes += ['lib/x86/**', 'lib/armeabi-v7a/**']; keepDebugSymbols += ['**/libcleo_*.so', '**/libggml-htp-*.so'] } }
@@ -36,23 +44,29 @@ dependencies {
 
 tasks.register('checkAvatarPayload') {
     doLast {
-        if (!layout.buildDirectory.file('generated/llamaLibs/arm64-v8a/libcleo_llama_runner.so').get().asFile.exists()) throw new GradleException('Run tools/prepare_gemma_qat.py --runtime before building.')
+        if (!new File(llamaLibs, 'arm64-v8a/libcleo_llama_runner.so').exists()) throw new GradleException('Run tools/prepare_gemma_qat.py --runtime before building.')
         if (!layout.buildDirectory.file('generated/avatarAssets/provenance.json').get().asFile.exists()) {
             throw new GradleException('Run tools/prepare_avatar_validation.py before building.')
         }
-        if (!layout.buildDirectory.file('generated/runtimeAssets/pocket-tts/manifest.json').get().asFile.exists()) {
+        if (!new File(runtimeAssets, 'pocket-tts/manifest.json').exists()) {
             throw new GradleException('Run tools/prepare_runtime_assets.py before building.');
         }
-        if (!layout.buildDirectory.file('generated/runtimeAssets/lam/manifest.json').get().asFile.exists()) {
+        if (!new File(runtimeAssets, 'lam/manifest.json').exists()) {
             throw new GradleException('Export LAM and run tools/prepare_runtime_assets.py before building.');
         }
     }
 }
 tasks.register('stageRuntimePayload', Sync) {
-    from(layout.buildDirectory.dir('generated/runtimeAssets')) {
+    from(runtimeAssets) {
         include 'pocket-tts/**', 'import-models.json'
         include 'lam/**'
     }
     into layout.buildDirectory.dir('generated/selectedRuntimeAssets')
 }
+tasks.register('stageAvatarWeb', Sync) {
+    from(new File(payload, 'avatarAssets')) { exclude '*.html', '*.css'; exclude { it.file.name in file('../web').list() } }
+    from '../web'
+    into layout.buildDirectory.dir('generated/avatarAssets')
+}
+tasks.named('checkAvatarPayload').configure { dependsOn 'stageAvatarWeb' }
 tasks.named('preBuild').configure { dependsOn 'checkAvatarPayload', 'stageRuntimePayload' }

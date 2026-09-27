@@ -43,7 +43,7 @@ final class PromptTree {
         JSONArray nodes=new JSONArray();for(Node n:NODES.values())nodes.put(new JSONObject().put("id",n.id()).put("group",n.group()).put("title",n.title()).put("trigger",n.trigger())
             .put("text",text(n.id())).put("defaultText",n.text()).put("variables",new JSONArray(variables(n.text()))).put("modified",!text(n.id()).equals(n.text())));
         return new JSONObject().put("revision",revision()).put("nodes",nodes)
-            .put("cacheStatus","Prompt edits are saved on disk. Models tab: llama.cpp can save and restore exact system/tool prefixes; LiteRT 0.17.1 retains computed KV in RAM only. Prompt changes select a new disk prefix.")
+            .put("cacheStatus","Prompt edits are saved on disk. Models tab: llama.cpp can save and restore exact system/tool prefixes. Prompt changes select a new disk prefix.")
             .put("applyNote","Save applies on the next model request. Editing a system prompt or tool description starts a fresh conversation for that module; loaded model weights stay resident. Browser Save pauses its loop; Resume uses the saved prompts.")
             .put("contractNote","Tool names, argument types, ranges and available actions are enforced by code. You can edit all instruction and tool-description text here; changing prose cannot add unsupported actions. Motion/expression enums and scene values are supplied at runtime. Pocket reads the spoken text; LAM reads audio; Ardy uses the selected embedding. They have no hidden chat prompts.");
     }
@@ -88,6 +88,7 @@ final class PromptTree {
         add(out,"browser.changed","Browser · tab 8","Page changed during inference","A stale screenshot prediction is discarded before execution.","Page changed while inspecting; no action executed.");
         add(out,"browser.approval_changed","Browser · tab 8","Page changed during approval","User approves after the captured viewport has changed; a new capture is required.","Page changed during confirmation; inspect again.");
         add(out,"browser.declined","Browser · tab 8","Action declined","User rejects an action confirmation.","User declined the proposed action. Choose another approach or ask.");
+        main.frame("body");
         descriptions(out,main.description(),"main.tools","Main · tool descriptions","Included with Main's act schema when its conversation is created; edits invalidate that prepared prefix.");
         descriptions(out,debug.description(),"avatar.tools","Debug avatar · tool descriptions","Included with tab 9's avatar_stage schema when its conversation is created.");
         return Collections.unmodifiableMap(out);

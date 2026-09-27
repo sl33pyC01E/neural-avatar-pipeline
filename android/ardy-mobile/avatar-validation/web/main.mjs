@@ -64,6 +64,7 @@ function frameMain(value){
   mainFrame=value;window.Cleo?.mainFrame?.(value);avatar?.setFrame(value);
   document.querySelectorAll('[data-frame]').forEach(button=>button.setAttribute('aria-pressed',button.dataset.frame===value));
 }
+window.addEventListener('motion-library-change',()=>mainAgent.frameChanged());
 const menu=$('#app-menu'),modelSettings=$('#model-settings'),modelParent=modelSettings.parentElement;
 for(const id of ['send-on-enter','stream-speech']){
   const control=$('#'+id);try{control.checked=localStorage.getItem('cleo-'+id)!=='false';}catch{}
@@ -75,6 +76,7 @@ function closeSettings(){modelParent.prepend(modelSettings);menu.close();window.
 $('#app-settings').onclick=()=>{window.Cleo?.settingsVisible?.(true);$('#settings-model-slot').append(modelSettings);modelSettings.open=true;menu.showModal();window.Cleo?.residencyStatus?.();};
 $('#settings-apply').onclick=()=>{closeSettings();launchMain().catch(fail);};
 $('#settings-close').onclick=closeSettings;menu.addEventListener('cancel',event=>{event.preventDefault();closeSettings();});
+$('#main-attachments').onclick=()=>{closeSettings();$('#main-media').showModal();};
 $('#open-prompts').onclick=()=>{closeSettings();promptTree.open();};
 $('#chat-prompts').onclick=()=>promptTree.open();
 $('#open-debug').onclick=()=>{closeSettings();selectTab('welcome').catch(fail);};
@@ -83,7 +85,7 @@ $('#debug-module').onchange=event=>selectTab(event.target.value).catch(fail);
 $('#debug-home').onclick=()=>selectTab('welcome').catch(fail);
 $('#app-home').onclick=()=>selectTab('launch').catch(fail);
 $('#app-main').onclick=()=>launchMain().catch(fail);$('#launch').onclick=()=>launchMain().catch(fail);
-for(const button of document.querySelectorAll('[data-frame]'))button.onclick=()=>frameMain(button.dataset.frame);
+for(const button of document.querySelectorAll('[data-frame]'))button.onclick=()=>{frameMain(button.dataset.frame);mainAgent.frameChanged();};
 $('#resident-enabled').onchange=event=>window.Cleo?.residency?.(event.target.checked);
 for(const kind of ['notifications','battery','app'])$(`#resident-${kind}`).onclick=()=>window.Cleo?.residentPermissions?.(kind);
 function residency(event){
@@ -112,7 +114,7 @@ async function selectTab(tab){
   if(!panels[tab])return;
   debugWorkspace.remember();
   if(tab!==currentTab){stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
-  currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
+  const previousTab=currentTab;currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
   const debug=!['launch','main'].includes(tab);document.body.classList.toggle('debug',debug);$('#debug-nav').hidden=!debug;$('#app-main').hidden=!debug;$('#main-frames').hidden=tab!=='main';
   const model=modelChat.settings();$('#launch-model').textContent=`Gemma ${model.model==='gemma-e4b'?'E4B':'E2B'} · Anna · Cleopatra`;
   document.querySelectorAll('[data-tab]').forEach(button=>{
@@ -127,7 +129,7 @@ async function selectTab(tab){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());
     avatar=await avatarLoading;
     if(lastState)avatar.event(lastState);
-    if(['face','talk','full','cleopatra','main'].includes(currentTab))avatar.setMode('rest');
+    if(previousTab!==currentTab&&['face','talk','full','cleopatra','main'].includes(currentTab))avatar.setMode('rest');
     if(currentTab==='main')frameMain(mainFrame);else avatar.setFrame('debug');
     avatar.setVisible(pageVisible&&usesAvatar(currentTab));
     if(['talk','full'].includes(currentTab))describeSettings(currentTab);

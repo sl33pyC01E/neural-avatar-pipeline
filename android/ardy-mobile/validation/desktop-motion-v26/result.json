@@ -1,0 +1,587 @@
+{
+  "passed": true,
+  "phoneTest": false,
+  "savedMotionReplayNoInference": true,
+  "motionSurvivesStorageReopen": true,
+  "cachedPacing": true,
+  "moduleLayoutsChecked": [
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "welcome",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "pocket",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "pocket",
+      "pane": "settings"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "pocket",
+      "pane": "metrics"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "face",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "face",
+      "pane": "settings"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "talk",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "talk",
+      "pane": "settings"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "avatar",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "avatar",
+      "pane": "stage"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "avatar",
+      "pane": "appearance"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "avatar",
+      "pane": "inspect"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "full",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "full",
+      "pane": "settings"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "chat",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "chat",
+      "pane": "settings"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "chat",
+      "pane": "cache"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "chat",
+      "pane": "metrics"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "browser",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "cleopatra",
+      "pane": "run"
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "tab": "cleopatra",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "welcome",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "pocket",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "pocket",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "pocket",
+      "pane": "metrics"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "face",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "face",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "talk",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "talk",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "avatar",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "avatar",
+      "pane": "stage"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "avatar",
+      "pane": "appearance"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "avatar",
+      "pane": "inspect"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "full",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "full",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "chat",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "chat",
+      "pane": "settings"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "chat",
+      "pane": "cache"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "chat",
+      "pane": "metrics"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "browser",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "cleopatra",
+      "pane": "run"
+    },
+    {
+      "width": 360,
+      "height": 520,
+      "tab": "cleopatra",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "welcome",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "pocket",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "pocket",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "pocket",
+      "pane": "metrics"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "face",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "face",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "talk",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "talk",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "avatar",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "avatar",
+      "pane": "stage"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "avatar",
+      "pane": "appearance"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "avatar",
+      "pane": "inspect"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "full",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "full",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "chat",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "chat",
+      "pane": "settings"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "chat",
+      "pane": "cache"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "chat",
+      "pane": "metrics"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "browser",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "cleopatra",
+      "pane": "run"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "tab": "cleopatra",
+      "pane": "settings"
+    }
+  ],
+  "oneScrollOwnerPerModule": true,
+  "chatLeaveCancelsOwnResponse": true,
+  "savedPipelineMigration": true,
+  "streamScrollRespectsReader": {
+    "held": true,
+    "follows": true
+  },
+  "qatBackendSelectors": true,
+  "splitEncoderForwardedPersistedAndShared": true,
+  "llamaMemoryPresetForwardedAndPersisted": true,
+  "diskPrefixControls": true,
+  "diskPrefixMetrics": true,
+  "promptTreeEditsPersist": true,
+  "promptTreeResetAndDraftGuard": true,
+  "promptStorageErrorsPreserveDraft": true,
+  "promptEditorLoadsNoModels": true,
+  "browserViewportStableDuringStreaming": true,
+  "browserInspectAction": true,
+  "eyeLevel": {
+    "eye": 1.2092066442999998,
+    "camera": 1.2092066442999998
+  },
+  "mainBounds": [
+    {
+      "id": "main-record",
+      "left": 25,
+      "right": 65,
+      "width": 40,
+      "top": 404,
+      "bottom": 448
+    },
+    {
+      "id": "main-camera",
+      "left": 71,
+      "right": 111,
+      "width": 40,
+      "top": 404,
+      "bottom": 448
+    },
+    {
+      "id": "main-text",
+      "left": 117,
+      "right": 289,
+      "width": 172,
+      "top": 404,
+      "bottom": 448
+    },
+    {
+      "id": "main-send",
+      "left": 295,
+      "right": 335,
+      "width": 40,
+      "top": 404,
+      "bottom": 448
+    }
+  ],
+  "pushToTalkReleaseSends": true,
+  "cancelledHoldDoesNotSend": true,
+  "enterSettingAndComposition": true,
+  "cameraDirectAndSettingsAttachments": true,
+  "voiceStartsBeforeFinalText": true,
+  "phraseAppendKeepsOneTake": true,
+  "newChatRecoversResponseFailureWithoutReload": true,
+  "serialStackStartup": true,
+  "gemmaFailureRetained": true,
+  "failedStartupRetry": true,
+  "cancelledStartupIgnoresLateRelease": true,
+  "skinWarmthDefault": true,
+  "minimalLaunch": true,
+  "mainSeparateFromDebugNine": true,
+  "mainMultimodal": true,
+  "mainPromptPrefill": true,
+  "mainFaceNoArdy": true,
+  "mainTorsoRootLocked": true,
+  "mainBodyRootAndCamera": true,
+  "continuousHeadHandoff": {
+    "start": 0.0017587121025508085,
+    "end": 0.0003758172875865788
+  },
+  "residentSettingsBridge": true,
+  "bridge": "stub",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "faceFollowsPlaybackClock": true,
+  "twoFingerPan": true,
+  "pinchAndRotate": true,
+  "cancelledTouchRecovery": true,
+  "panSurvivesMotionAndTabSwitch": true,
+  "cameraReset": true,
+  "appearanceAffectsRenderedAvatar": true,
+  "appearancePersists": true,
+  "noExtraAppearanceRenderPass": true,
+  "contextSizeSetting": true,
+  "contextPersists": true,
+  "contextReloadsConversation": true,
+  "contextSharedByLaterTabs": true,
+  "faceDistanceDefault": true,
+  "idleBreathBlinkSway": true,
+  "idleOffSleeps": true,
+  "reasoningDefaultOff": true,
+  "e4bSelectable": true,
+  "visualTokenBudgetForwarded": true,
+  "laterTabAudioRouted": true,
+  "scheduledCameraAndRoot": true,
+  "defaultRelaxedStance": true,
+  "nineTabsAndWelcome": true,
+  "gemmaOnly": true,
+  "modelSettingsForwarded": true,
+  "streamedCollapsedReasoning": true,
+  "avatarToolSelectsLiveArdyEmbedding": true,
+  "avatarToolDoesNotPlayEarly": true,
+  "avatarStopAndStaleResults": true,
+  "imageAndReasoningControls": true,
+  "chatInputAndSafeText": true,
+  "chatMetrics": true,
+  "browserGoalFollowupAndControls": true,
+  "compactBounds": {
+    "stopBottom": 439.09375,
+    "viewportHeight": 111.09375,
+    "streamBottom": 1304.4375
+  },
+  "chatBounds": {
+    "panelBottom": 903,
+    "metricsBottom": 0,
+    "logHeight": 151
+  },
+  "browserBounds": {
+    "x": 0.055825242718446605,
+    "y": 0.2797814207650273,
+    "width": 0.8883495145631068,
+    "height": 0.38109631147540984
+  },
+  "combinedUsesPocketAndFaceSettings": true,
+  "rollingFaceClock": true,
+  "staleFacialWindowsRejected": true,
+  "togetherStartsSelectedArdy": true,
+  "headOverlayPreservesBodyPose": true,
+  "scheduledCue": true,
+  "preparationHoldsMotion": true,
+  "audioClockDrivesBody": true,
+  "motionCoverageBeforeAudio": true,
+  "smoothTailAndIdle": true,
+  "repeatedTakesStartAtZero": true,
+  "talkBounds": {
+    "height": 326.109375,
+    "bottom": 472.109375,
+    "composer": 482.109375
+  },
+  "realGeneratedMotionFrames": 64,
+  "finiteTransforms": true,
+  "hiddenStopsRenderAndRequests": true,
+  "staticRestStopsRendering": true,
+  "benchmarkRepeatOptInAndStopsWhenHidden": true,
+  "staleProfileResultsIgnored": true,
+  "pauseResumeKeepsStream": true,
+  "pocketStartupLoadsNoAvatar": true,
+  "pocketTabStopsAvatarAndMotion": true,
+  "pocketSettingsAndMetrics": true,
+  "pocketSettingsPersist": true,
+  "approvedSpeechBaselineAvailable": true,
+  "independentFaceGains": true,
+  "zeroGainDisablesGroup": true,
+  "declaredEyeBoneDriver": true,
+  "faceTimelineAcknowledged": true,
+  "bounds": {
+    "canvasHeight": 326.109375,
+    "canvasBottom": 472.109375,
+    "panelTop": 482.109375
+  },
+  "limitations": [
+    "Native Android service/JNI/audio path is not exercised by this browser check.",
+    "No phone timing or thermal claim."
+  ],
+  "mainViewportStableDuringPreparation": true,
+  "mainFaceCenteredAfterBodyTake": {
+    "screen": [
+      -0.010753303297151195,
+      -0.0007022483550060862,
+      0.8427661051284121
+    ],
+    "camera": [
+      0,
+      1.2092066442999998,
+      0.62
+    ],
+    "root": [
+      0,
+      0,
+      0
+    ],
+    "scene": [
+      0,
+      -0.024661239399999965,
+      0
+    ],
+    "hips": [
+      0,
+      0.830805957,
+      -0.00716897752
+    ]
+  }
+}

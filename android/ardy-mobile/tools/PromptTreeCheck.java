@@ -10,6 +10,11 @@ public final class PromptTreeCheck {
     interface Work {void run()throws Exception;}
     static void check(boolean result,String message){checks++;if(!result)throw new AssertionError(message);}
     static void reject(Work action)throws Exception {try{action.run();throw new AssertionError("Invalid edit/action accepted");}catch(java.io.IOException|JSONException expected){checks++;}}
+    static Object contract(Object value)throws Exception {
+        if(value instanceof JSONObject obj){JSONObject out=new JSONObject();for(String key:obj.keySet())if(!key.equals("description"))out.put(key,contract(obj.get(key)));return out;}
+        if(value instanceof JSONArray array){JSONArray out=new JSONArray();for(int i=0;i<array.length();i++)out.put(contract(array.get(i)));return out;}
+        return value;
+    }
     public static void main(String[] args)throws Exception {
         PromptTree original=PromptTree.defaultsOnly();JSONArray nodes=original.document().getJSONArray("nodes");Set<String> ids=new HashSet<>();
         for(int i=0;i<nodes.length();i++){
@@ -37,7 +42,11 @@ public final class PromptTreeCheck {
         MainAvatarToolApi api=new MainAvatarToolApi(motions,new JSONArray(List.of("happy")));
         String id="main.tools.description";PromptTree wording=original.changed(id,"Choose an expression for the next reply.");
         JSONObject schema=wording.describe(api.description(),"main.tools");check(schema.getString("description").equals(wording.text(id)),"Tool edit not applied");
-        check(schema.getJSONObject("parameters").toString().equals(api.description().getJSONObject("parameters").toString()),"Tool wording changed argument contract");
+        check(((JSONObject)contract(schema.getJSONObject("parameters"))).similar(contract(api.description().getJSONObject("parameters"))),"Tool wording changed argument contract");
+        for(String frame:List.of("face","torso","body")){
+            api.frame(frame);JSONObject declared=api.description();JSONObject edited=wording.describe(declared,"main.tools");
+            check(((JSONObject)contract(declared)).similar(contract(edited)),"Prompt descriptions changed frame contract: "+frame);
+        }
         check(original.render("avatar.system",Map.of("motions",api.motionCatalog())).contains("wave = Right hand wave"),"Live catalog not injected");
         reject(()->BrowserAction.parse("click: [357, 498, 564, 944], click the search icon"));
         reject(()->BrowserAction.parse("{\"action\":\"click\",\"box_2d\":[357,498,564,944]} extra string"));

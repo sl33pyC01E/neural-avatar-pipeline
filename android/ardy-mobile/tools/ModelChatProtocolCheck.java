@@ -72,6 +72,7 @@ public final class ModelChatProtocolCheck {
         main.reset();rejects(()->main.execute("act",new JSONObject().put("gesture","exec")));
         main.reset();main.execute("act",new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("expression","happy").put("strength",.2))));
         check(main.plan().getJSONArray("schedule").length()==1,"Face expression cues retained");
+        main.frame("body");
         String mainAdapted=LlamaProtocol.request(new JSONArray(),main.description(),0,768).getJSONArray("tools").toString();
         check(mainAdapted.contains("act")&&mainAdapted.contains("gesture"),"Main tool forwarded by production protocol");
         check(main.description().getJSONObject("parameters").getJSONArray("required").length()==0,"Main API has optional arguments");
@@ -81,6 +82,30 @@ public final class ModelChatProtocolCheck {
         check(GemmaFailure.message(new IOException("Gemma response failed",new IOException("Context limit reached"))).contains("Context limit reached"),"Nested cause discarded");
         check(GemmaFailure.message(new IOException("wrapper",new java.util.concurrent.CancellationException())).equals("Response stopped."),"Cancellation misreported");
         check(!main.instructions().contains("act(emotion=")&&!main.instructions().contains("act(gesture="),"Prompt teaches invalid unquoted tool syntax");
+
+        for(String line:List.of("Cleopatra: Hello there.","  CLEOPATRA : Hello there.")){
+            GemmaStream spoken=new GemmaStream(true);for(char c:line.toCharArray()){spoken.append(String.valueOf(c),Map.of());check(!spoken.answer.toString().contains("Cleopatra"),"Streamed name prefix leaked");}spoken.finish();check(spoken.answer.toString().equals("Hello there."),"Name prefix retained");
+        }
+        GemmaStream nameOnly=new GemmaStream(true);nameOnly.append("Cleopatra",Map.of());nameOnly.finish();check(nameOnly.answer.toString().equals("Cleopatra"),"Bare name answer lost");
+        main.tracks(new JSONArray().put(new JSONObject().put("id","walk-1").put("name","Walk loop")));
+        main.frame("body");main.reset();main.execute("act",new JSONObject().put("locomotion",new JSONObject().put("action","pace").put("track","walk-1").put("width",1.5)));
+        check(main.plan().getJSONObject("locomotion").getString("track").equals("walk-1"),"Saved motion plan lost");
+        for(JSONObject bad:List.of(new JSONObject().put("action","play").put("track","invented"),new JSONObject().put("action","walk_to").put("track","walk-1"),new JSONObject().put("action","pace").put("track","walk-1").put("speed",4))){main.reset();rejects(()->main.execute("act",new JSONObject().put("locomotion",bad)));}
+        main.frame("face");main.reset();rejects(()->main.execute("act",new JSONObject().put("locomotion",new JSONObject().put("action","stop"))));
+
+        main.frame("body");main.reset();
+        JSONObject route=new JSONObject().put("strategy","batch").put("trajectory",new JSONArray().put(new JSONObject().put("at_seconds",0).put("x",0).put("z",0).put("heading",170)).put(new JSONObject().put("at_seconds",2).put("x",1).put("z",0).put("heading",-170)))
+            .put("gestures",new JSONArray().put(new JSONObject().put("at_seconds",1).put("gesture","wave")));
+        main.execute("act",new JSONObject().put("motion",route).put("camera_mode","trail").put("steering",new JSONObject().put("head_reference","camera").put("head_yaw",20)));
+        JSONObject plan=main.plan();check(plan.getJSONObject("motion_plan").getString("core").equals("core8"),"Batch default core");
+        ai.cleo.ardymobile.ArdyPlan parsed=new ai.cleo.ardymobile.ArdyPlan(plan.getJSONObject("motion_plan"));
+        float[] middle=parsed.root(1);check(Math.abs(middle[0]-.5)<.0001&&Math.abs(Math.abs(middle[2])-Math.PI)<.0001,"Trajectory interpolation or heading wrap");
+        check(parsed.embedding(.5,"bank:check").equals("bank:check")&&parsed.embedding(1,"bank:check").equals("saved:wave"),"Gesture scheduling");
+        main.reset();main.execute("act",new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("camera_mode","interviewer").put("steering",new JSONObject().put("torso_yaw",20)))));
+        check(main.plan().getJSONArray("schedule").getJSONObject(0).has("steering"),"Scheduled steering lost");
+        main.frame("face");main.reset();rejects(()->main.execute("act",new JSONObject().put("camera_mode","trail")));
+        main.reset();rejects(()->main.execute("act",new JSONObject().put("motion",route)));
+        main.reset();main.execute("act",new JSONObject().put("steering",new JSONObject().put("head_reference","camera")));
 
         System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("observedParserFailureExplained",true).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("llamaToolSchema",true).put("extensiveControlsValidated",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainTools",new JSONArray(mainAdapted)).put("avatarTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
     }

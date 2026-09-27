@@ -69,6 +69,7 @@ public final class ModelChatService extends Service {
     private void execute(JSONObject request){
         operationCancellation=cancellation.get();
         requestId=request.optString("requestId","");channel=request.optString("action").equals("agentStep")?"browser":request.optString("action").startsWith("avatar")?"avatar":request.optString("action").startsWith("main")?"main":"chat";
+        ModelDiagnostics.stage(this,"running "+request.optString("action"),selection);
         ScheduledExecutorService monitor=Executors.newSingleThreadScheduledExecutor();
         AtomicLong peak=new AtomicLong();JSONObject cpuStart=memory();
         state();
@@ -107,6 +108,7 @@ public final class ModelChatService extends Service {
                 if(start>=0&&end>=start)lastMetrics.put("cpuMs",end-start);
                 lastMetrics.put("memory",measured).put("loadMs",loadMs);
             }catch(JSONException ignored){}
+            ModelDiagnostics.stage(this,"idle after "+request.optString("action"),selection);
             state();
         }
     }
@@ -193,7 +195,7 @@ public final class ModelChatService extends Service {
         if(avatarConversation==null||!key.equals(avatarToolKey)){
             closeAvatarConversation();avatarTools=new AvatarToolApi(catalog,expressions);avatarToolKey=key;avatarConversation=createConversation(avatarTools);
         }
-        avatarTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
+        avatarTools.reset();GemmaStream text=new GemmaStream(true);AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
         ModelMessage next=input(prompt,kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(avatarConversation,next,text,started,first);
@@ -208,7 +210,7 @@ public final class ModelChatService extends Service {
             }
             next=new ModelMessage(Role.TOOL,Contents.of(responses),Collections.emptyList(),Collections.emptyMap());
         }
-        checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
+        checkCancelled();text.finish();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
         JSONObject result=result(text,started,first).put("avatarPlan",avatarTools.plan()).put("tools",actions);
         avatarHistory.put(new JSONObject().put("role","user").put("text",prompt).put("attachment",kind));
         avatarHistory.put(new JSONObject().put("role","assistant").put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("tools",actions));avatarTurns++;
@@ -216,9 +218,9 @@ public final class ModelChatService extends Service {
     }
     private void prepareMain(JSONObject request)throws Exception {
         if(!loaded)throw new IOException("Load Gemma first");
-        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString()+prompts.fingerprint("main.system","main.tools.");
+        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");JSONArray tracks=request.optJSONArray("tracks");if(tracks==null)tracks=new JSONArray();String frame=request.optString("frame","face");String key=frame+catalog.toString()+expressions.toString()+tracks.toString()+prompts.fingerprint("main.system","main.tools.");
         if(mainConversation==null||!key.equals(mainToolKey)){
-            closeMainConversation();mainTools=new MainAvatarToolApi(catalog,expressions);mainToolKey=key;
+            closeMainConversation();mainTools=new MainAvatarToolApi(catalog,expressions);mainTools.tracks(tracks);mainTools.frame(frame);mainToolKey=key;
             long start=SystemClock.elapsedRealtimeNanos();emit(json("phase","Preparing Cleopatra's situation and avatar controls…"));
             ModelDiagnostics.stage(this,"avatar prompt preparation",selection);
             mainConversation=createConversation(mainTools);checkCancelled();prefillMs=elapsed(start);try{prefillTokens=mainConversation.getTokenCount();}catch(RuntimeException unavailable){prefillTokens=-1;}mainPrepared=true;
@@ -234,6 +236,8 @@ public final class ModelChatService extends Service {
                 if(values.opt(key) instanceof Number&&Double.isFinite(values.getDouble(key)))clean.put(key,values.getDouble(key));
             safe.put(group,clean);
         }
+        if(input!=null){JSONObject steering=input.optJSONObject("steering");if(steering!=null){JSONObject clean=new JSONObject();for(String key:List.of("torso_yaw","head_yaw"))if(steering.opt(key) instanceof Number&&Double.isFinite(steering.getDouble(key)))clean.put(key,steering.getDouble(key));if(Set.of("body","camera").contains(steering.optString("head_reference")))clean.put("head_reference",steering.getString("head_reference"));safe.put("steering",clean);}if(Set.of("ardy","cached","layered").contains(input.optString("body_source")))safe.put("body_source",input.getString("body_source"));if(Set.of("core8","core40").contains(input.optString("motion_core")))safe.put("motion_core",input.getString("motion_core"));}
+        JSONArray tracks=request.optJSONArray("tracks");if(tracks!=null&&tracks.length()<=32)safe.put("saved_tracks",tracks);
         return safe.toString();
     }
     private void mainSend(JSONObject request)throws Exception {
@@ -244,7 +248,7 @@ public final class ModelChatService extends Service {
         if(prompt.isEmpty())prompt=prompts.text(kind.equals("audio")?"input.audio":"input.image.avatar");
         prepareMain(request);
         mainTools.frame(request.getString("frame"));
-        mainTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
+        mainTools.reset();GemmaStream text=new GemmaStream(true);AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
         ModelMessage next=input(prompts.render("main.turn",Map.of("frame",request.getString("frame"),"scene",scene(request),"message",prompt)),kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(mainConversation,next,text,started,first);
@@ -259,7 +263,7 @@ public final class ModelChatService extends Service {
             }
             next=new ModelMessage(Role.TOOL,Contents.of(responses),Collections.emptyList(),Collections.emptyMap());
         }
-        checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
+        checkCancelled();text.finish();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
         JSONObject result=result(text,started,first).put("avatarPlan",mainTools.plan()).put("tools",actions);
         mainHistory.put(new JSONObject().put("role","user").put("text",prompt).put("attachment",kind));
         mainHistory.put(new JSONObject().put("role","assistant").put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("tools",actions));mainTurns++;
@@ -315,9 +319,10 @@ public final class ModelChatService extends Service {
     }
     private JSONObject memory(){
         JSONObject result=new JSONObject();JSONArray rows=new JSONArray();long pss=0,rss=0;double cpu=0;boolean complete=true,cpuComplete=true;
-        List<Integer> pids=new ArrayList<>(List.of(android.os.Process.myPid()));LlamaRuntime runtime=llama;if(runtime!=null&&runtime.pid()>0)pids.add(runtime.pid());
+        List<Integer> pids=new ArrayList<>(List.of(android.os.Process.myPid()));LlamaRuntime runtime=llama;if(runtime!=null){int nativePid=runtime.pid();if(nativePid>0)pids.add(nativePid);else complete=false;}
         try{
             for(int pid:pids){JSONObject row=processMemory(pid);rows.put(row);if(!row.has("pssKb"))complete=false;if(!row.has("cpuTotalMs"))cpuComplete=false;pss+=row.optLong("pssKb");rss+=row.optLong("rssKb");cpu+=row.optDouble("cpuTotalMs",0);}
+            ActivityManager.MemoryInfo system=new ActivityManager.MemoryInfo();getSystemService(ActivityManager.class).getMemoryInfo(system);result.put("systemAvailableKb",system.availMem/1024).put("systemTotalKb",system.totalMem/1024).put("systemLowMemory",system.lowMemory).put("deviceAllocationsIncluded",false);
             result.put("modelPssKb",pss);if(cpuComplete)result.put("modelCpuTotalMs",cpu);
             if(avatarPid>0){JSONObject avatar=processMemory(avatarPid);rows.put(avatar);if(!avatar.has("pssKb"))complete=false;pss+=avatar.optLong("pssKb");rss+=avatar.optLong("rssKb");result.put("avatarPssKb",avatar.optLong("pssKb",-1));}
             result.put("pssKb",pss).put("rssKb",rss).put("complete",complete).put("processes",rows);

@@ -41,7 +41,7 @@ export function createModelChat(){
   $('#chat-record').onclick=()=>window.Cleo?.chatRecord?.(!recording);$('#chat-clear-attachment').onclick=()=>{attachment=null;controls();};
   const ms=v=>Number.isFinite(v)&&v>=0?`${Math.round(v)} ms`:'—',memory=v=>Number.isFinite(v)&&v>=0?`${Math.round(v/1024)} MiB`:'—';
   function paintMetrics(){const m=metrics.memory||{};
-    const values={load:ms(metrics.loadMs),first:ms(metrics.firstTokenMs),total:ms(metrics.totalMs),cpu:ms(metrics.cpuMs),memory:memory(m.pssKb)+(m.complete===false?' (partial)':''),peak:memory(m.peakPssKb),cache:metrics.prefixCache||'—',prefill:ms(metrics.timings?.prompt_ms),decode:Number.isFinite(metrics.timings?.predicted_per_second)?`${metrics.timings.predicted_per_second.toFixed(1)} tok/s`:'—'};
+    const values={load:ms(metrics.loadMs),first:ms(metrics.firstTokenMs),total:ms(metrics.totalMs),cpu:ms(metrics.cpuMs),memory:memory(m.pssKb)+(m.complete===false?' (partial)':''),available:memory(m.systemAvailableKb),peak:memory(m.peakPssKb),cache:metrics.prefixCache||'—',prefill:ms(metrics.timings?.prompt_ms),decode:Number.isFinite(metrics.timings?.predicted_per_second)?`${metrics.timings.predicted_per_second.toFixed(1)} tok/s`:'—'};
     for(const [key,value] of Object.entries(values))document.querySelectorAll(`[data-model-metric="${key}"]`).forEach(e=>e.textContent=value);
   }
   function event(value){

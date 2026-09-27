@@ -122,6 +122,8 @@ public final class MainActivity extends Activity implements ResidentService.List
             }catch(Exception error){try{return new JSONObject().put("ok",false).put("error",error.getMessage()).toString();}catch(Exception impossible){return "{\"ok\":false,\"error\":\"Prompt operation failed\"}";}}
         }
         @JavascriptInterface public void state(){if(engines!=null)engines.state();runOnUiThread(()->residencyState());}
+        @JavascriptInterface public void mainMotionPlan(String raw){if(engines!=null)engines.mainMotionPlan(raw);}
+        @JavascriptInterface public void mainBodySource(String source){if(engines!=null)engines.mainBodySource(source);}
         @JavascriptInterface public void mainFrame(String frame){if(engines!=null)engines.mainFrame(frame);}
         @JavascriptInterface public void residency(boolean enabled){getSharedPreferences("runtime",MODE_PRIVATE).edit().putBoolean("resident",enabled).apply();if(chat!=null)chat.request("{\"action\":\"resident\"}");runOnUiThread(()->residencyState());}
         @JavascriptInterface public void residencyStatus(){runOnUiThread(()->residencyState());}

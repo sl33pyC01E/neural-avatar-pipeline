@@ -37,7 +37,8 @@ public final class ResidentService extends Service {
     private final LamTimelineCache faceCache=new LamTimelineCache();
     private volatile CountDownLatch faceReady;
     private volatile String faceRun;
-    private volatile String activeTab="launch",mainFrame="face";
+    private volatile ArdyPlan agentPlan;
+    private volatile String activeTab="launch",mainFrame="face",mainBodySource="ardy";
     private volatile long audioWritten;
     private long audioStartNanos;
     private volatile long talkRequestedNanos;
@@ -146,6 +147,8 @@ public final class ResidentService extends Service {
         embeddingWorker.execute(()->{
             String component="ardy";
             try {
+                final boolean needBody=!"main".equals(activeTab)||(!"face".equals(mainFrame)&&!"cached".equals(mainBodySource));
+                if(needBody){
                 warmCheck(ticket);ensemble(request,component,"loading","Loading live Ardy "+requestedProfile);
                 motionWorker.submit(()->{
                     warmCheck(ticket);
@@ -156,6 +159,10 @@ public final class ResidentService extends Service {
                     sampler.warm();return null;
                 }).get();
                 warmCheck(ticket);ensemble(request,component,"ready","Live Ardy "+requestedProfile+" resident");
+                }else{
+                    motionWorker.submit(()->{warmCheck(ticket);if(sampler!=null){saveMotion();sampler.close();}return null;}).get();
+                    ensemble(request,"ardy","on disk","Face/cached mode: Ardy stays on disk until live body motion is needed");
+                }
                 component="pocket";ensemble(request,component,"loading","Loading PocketTTS and Anna");
                 speechWorker.submit(()->{warmCheck(ticket);pocket.warm(threads,precision);return null;}).get();
                 warmCheck(ticket);ensemble(request,component,"ready","PocketTTS / Anna resident");
@@ -189,11 +196,11 @@ public final class ResidentService extends Service {
         configureMotion(profile,embeddingId,streamId,false);
     }
     public synchronized void configurePerformanceMotion(String profile,String embeddingId,String streamId) {
-        if(!performanceTab(activeTab)||("main".equals(activeTab)&&mainFrame.equals("face")))return;
+        if(!performanceTab(activeTab)||("main".equals(activeTab)&&(mainFrame.equals("face")||mainBodySource.equals("cached"))))return;
         configureMotion(profile,embeddingId,streamId,true);
     }
     private void configureMotion(String profile,String embeddingId,String streamId,boolean performance) {
-        if((!"avatar".equals(activeTab)&&!performanceTab(activeTab))||stopping||("main".equals(activeTab)&&mainFrame.equals("face")))return;
+        if((!"avatar".equals(activeTab)&&!performanceTab(activeTab))||stopping||("main".equals(activeTab)&&(mainFrame.equals("face")||mainBodySource.equals("cached"))))return;
         if(!"core8".equals(profile)&&!"core40".equals(profile)){error(new IllegalArgumentException("Unknown Ardy profile"));return;}
         if(streamId==null||streamId.isEmpty()||streamId.length()>128){error(new IllegalArgumentException("Invalid motion stream"));return;}
         boolean newRun=this.embeddingId==null||!this.profile.equals(profile)||!streamId.equals(this.streamId)||motionPerformance!=performance;
@@ -205,11 +212,12 @@ public final class ResidentService extends Service {
     public synchronized void stopMotion() { embeddingId=null;epoch++;heldMotion=null; }
     public void pauseMotion(){motionPaused=true;if(!stopping)motionWorker.execute(this::saveMotion);}
     public synchronized boolean nextMotion() {
-        if(stopping||!visible||("main".equals(activeTab)&&mainFrame.equals("face"))||(!"avatar".equals(activeTab)&&!performanceTab(activeTab))||motionPaused||embeddingId==null||embeddingBusy.get())return false;
+        if(stopping||!visible||("main".equals(activeTab)&&(mainFrame.equals("face")||mainBodySource.equals("cached")))||(!"avatar".equals(activeTab)&&!performanceTab(activeTab))||motionPaused||embeddingId==null||embeddingBusy.get())return false;
         if(heldMotion!=null) { JSONObject held=heldMotion;heldMotion=null;publish(held);return true; }
         if(!motionBusy.compareAndSet(false,true))return false;
         final long requestedEpoch=epoch;final String requestedProfile=profile,requestedEmbedding=embeddingId,requestedStream=streamId;
-        final boolean requestedPerformance=motionPerformance,lockedRoot="main".equals(activeTab)&&mainFrame.equals("torso");
+        final ArdyPlan requestedPlan="main".equals(activeTab)?agentPlan:null;
+        final boolean requestedPerformance=motionPerformance,lockedRoot="main".equals(activeTab)&&(mainFrame.equals("torso")||mainBodySource.equals("layered"));
         motionWorker.execute(()->{
             try {
                 if(!visible||stopping||epoch!=requestedEpoch)return;
@@ -221,7 +229,9 @@ public final class ResidentService extends Service {
                 if(requestedPerformance&&!requestedStream.equals(performanceMotionStream)){sampler.reset(42);performanceMotionStream=requestedStream;}
                 // A new sampler restores durable history; pause/resume keeps its live history.
                 ArdySampler.Settings settings=new ArdySampler.Settings();settings.constrainRoot=lockedRoot;settings.lockRoot=lockedRoot;
-                ArdySampler.Batch result=sampler.next(embeddings.load(requestedEmbedding),settings);
+                settings.plan=requestedPlan;
+                String currentEmbedding=requestedPlan==null?requestedEmbedding:requestedPlan.embedding(sampler.generatedFrames()/20.0,requestedEmbedding);
+                ArdySampler.Batch result=sampler.next(embeddings.load(currentEmbedding),settings);
                 JSONObject message=new JSONObject().put("type","motion").put("streamId",requestedStream).put("profile",requestedProfile).put("startFrame",result.startFrame).put("frames",result.frames)
                     .put("jointCount",result.jointCount).put("fps",result.fps).put("joints",new JSONArray(result.joints))
                     .put("roots",new JSONArray(result.roots)).put("rotations",new JSONArray(result.rotations)).put("generationMs",result.elapsedMs);
@@ -310,7 +320,7 @@ public final class ResidentService extends Service {
     }
     private void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds,SpeechTextQueue input) {
         if(stopping||!visible||(!"talk".equals(activeTab)&&!performanceTab(activeTab)))return;
-        boolean full=performanceTab(activeTab)&&!("main".equals(activeTab)&&mainFrame.equals("face"));
+        boolean full=performanceTab(activeTab)&&!("main".equals(activeTab)&&(mainFrame.equals("face")||mainBodySource.equals("cached")));
         if(full&&(!Double.isFinite(cueSeconds)||cueSeconds<0||cueSeconds>3||!Double.isFinite(tailSeconds)||tailSeconds<.5||tailSeconds>3)){
             emit("talkRejected","Choose a speech cue from 0–3 s and a motion tail from 0.5–3 s");return;
         }
@@ -520,6 +530,17 @@ public final class ResidentService extends Service {
     public synchronized void mainFrame(String frame){
         if(!java.util.Set.of("face","torso","body").contains(frame)||!"main".equals(activeTab))return;
         if(!frame.equals(mainFrame)){stopSpeech();pauseMotion();stopMotion();mainFrame=frame;}
+    }
+    public synchronized void mainMotionPlan(String raw){
+        try{if(raw==null||raw.length()>16000)throw new IOException("Motion plan too large");agentPlan=new ArdyPlan(new JSONObject(raw));}
+        catch(Exception error){agentPlan=null;error(error);}
+    }
+    public synchronized void mainBodySource(String source){
+        if(!java.util.Set.of("ardy","cached","layered").contains(source)||source.equals(mainBodySource))return;
+        mainBodySource=source;
+        if("main".equals(activeTab)&&"cached".equals(source)){
+            pauseMotion();stopMotion();motionWorker.execute(()->{saveMotion();if(sampler!=null)sampler.close();});
+        }
     }
     public void memoryBudget(int mib) { getSharedPreferences("runtime",MODE_PRIVATE).edit().putInt("memoryBudgetMiB",Math.max(2048,Math.min(10240,mib))).apply();trimIfOverBudget(); }
     private int budgetMiB(){return getSharedPreferences("runtime",MODE_PRIVATE).getInt("memoryBudgetMiB",6144);}

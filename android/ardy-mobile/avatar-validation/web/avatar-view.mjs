@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {createAvatarSteering} from './avatar-steering.mjs';
+import {createMotionStage} from './motion-stage.mjs';
 import {AvatarDirection} from './avatar-direction.mjs';
 import {createIdleAnimation} from './idle-animation.mjs';
 import {relaxedStance} from './relaxed-stance.mjs';
@@ -23,7 +25,8 @@ export async function createAvatarView() {
     const panel=document.querySelector('body > [role="tabpanel"]:not([hidden])');
     const bounds=panel?.getBoundingClientRect();
     const wide=document.body.classList.contains('debug')&&innerWidth>=900&&bounds?.left>=innerWidth*.5;
-    const bottom=wide?innerHeight-16:bounds?bounds.top-10:innerHeight;
+    const main=panel?.id==='main-panel';
+    const bottom=main?innerHeight-Math.min(210,Math.max(150,innerHeight*.23)):wide?innerHeight-16:bounds?bounds.top-10:innerHeight;
     canvas.style.left=wide?'16px':'0';canvas.style.width=wide?`${bounds.left-32}px`:'100%';
     canvas.style.top = `${top}px`;
     canvas.style.height = `${Math.max(100, bottom-top)}px`;
@@ -71,9 +74,10 @@ export async function createAvatarView() {
   retarget.reset();relaxedStance(vrm);
   const faceControls=createFaceControls(vrm,faceDriver);
   const eyeHeight=()=>((position('leftEye')?.y??position('head').y+.08)+(position('rightEye')?.y??position('head').y+.08))/2;
-  const setFaceView=value=>cameraControls.setFaceView(value,eyeHeight());
+  const neutralEyeHeight=eyeHeight(),neutralHeadHeight=position('head').y;
+  const setFaceView=value=>cameraControls.setFaceView(value,neutralEyeHeight);
   setFaceView(true);
-  const direction=new AvatarDirection(cameraControls,stageRoot),idle=createIdleAnimation(vrm);
+  const direction=new AvatarDirection(cameraControls,stageRoot),idle=createIdleAnimation(vrm),steering=createAvatarSteering(vrm);
   document.querySelector('#view-face').onclick=()=>{setFaceView(true);cameraControls.reset();};
   document.querySelector('#view-body').onclick=()=>{setFaceView(false);cameraControls.reset();};
   const idleCheckbox=document.querySelector('#idle-enabled');try{idleEnabled=localStorage.getItem('cleo-idle')!=='false';}catch{}idleCheckbox.checked=idleEnabled;
@@ -92,13 +96,14 @@ export async function createAvatarView() {
   document.querySelector('#physics').onclick = e => { physics = !physics; vrm.springBoneManager?.setInitState(); e.target.setAttribute('aria-pressed', physics); invalidate(); };
   let mode = 'rest', started = performance.now();
   const liveBuffer=new MotionBuffer();let pending=false,liveProfile='core40',liveError=false,livePaused=false,liveStream='';
-  let stagedPlan=null,framing='debug';
+  let stagedPlan=null,framing='debug',motionStage;
   let performanceTrack=null,performanceGate=null,entryPose=null,entryRoot=null,heldRoot=[0,0,0];
   function setMode(value) {
     if (!['rest', 'replay', 'turn','live'].includes(value)) throw new Error('Unknown mode');
+    if(value!=='live')motionStage?.reset();
     if(value!=='live'){window.Cleo?.stop();liveBuffer.clear();pending=false;liveStream='';}
     performanceTrack=null;performanceGate=null;entryPose=null;
-    idle.restore();direction.clear();mode = value; started = performance.now();stageRoot.position.set(0,0,0);stageRoot.rotation.y=0;stageRoot.updateMatrixWorld(true);retarget.reset();if(value==='rest'||value==='live')relaxedStance(vrm); vrm.springBoneManager?.setInitState();
+    steering.restore();idle.restore();faceControls.restorePresence();direction.clear();mode = value; started = performance.now();stageRoot.position.set(0,0,0);stageRoot.rotation.y=0;stageRoot.updateMatrixWorld(true);retarget.reset();if(value==='rest'||value==='live')relaxedStance(vrm); vrm.springBoneManager?.setInitState();
     if(value==='rest')status.textContent=`Relaxed stance · ${idleEnabled?'gentle idle':'display sleeps until input'}\n${after.vertices.toLocaleString()} vertices`;
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     invalidate();
@@ -113,7 +118,8 @@ export async function createAvatarView() {
   const engineStatus=document.querySelector('#engine-status'), bank=document.querySelector('#bank');let restoredSelection=false;
   function requestMotion() {
     const horizon=liveProfile==='core40'?40:8;
-    const needed=performanceGate?Math.max(horizon+1,(performanceGate.seconds-liveBuffer.seconds)*20+1):horizon+1;
+    const batch=stagedPlan?.motion_plan?.strategy==='batch'?(stagedPlan.motion_plan.batch_seconds??6):0;
+    const needed=performanceGate?Math.max(horizon+1,(performanceGate.seconds-liveBuffer.seconds)*20+1):batch&&!performanceTrack?.started?Math.max(horizon+1,batch*20+1):horizon+1;
     if(mode==='live'&&visible&&!pending&&!liveError&&!livePaused&&liveBuffer.remaining<=needed&&liveBuffer.frames.length+horizon<=liveBuffer.capacity&&window.Cleo) {
       pending=true;window.Cleo.next(); // Ready events retry rejected requests; no idle polling.
     }
@@ -121,20 +127,21 @@ export async function createAvatarView() {
   function performanceReady(){
     if(!performanceGate||!performanceTrack||liveError||performanceTrack.finished)return;
     if(liveBuffer.origin!==null&&liveBuffer.origin!==0)throw new Error('Scheduled Ardy track must start at frame zero');
-    if(liveBuffer.covers(performanceGate.seconds)){
+    const prepared=stagedPlan?.motion_plan?.strategy==='batch'?Math.max(performanceGate.seconds,stagedPlan.motion_plan.batch_seconds??6):performanceGate.seconds;
+    if(liveBuffer.covers(prepared)){
       const ack=performanceGate.ack;performanceGate=null;window.Cleo?.faceReady(ack);
     }else requestMotion();
   }
   function gatePerformance(event){
     if(!Number.isFinite(event.requiredMotionSeconds)||event.requiredMotionSeconds<0)throw new Error('Invalid scheduled motion window');
-    performanceGate={ack:event.runId,seconds:event.requiredMotionSeconds};performanceReady();
+    performanceGate={ack:event.runId,seconds:stagedPlan?.motion_plan?.strategy==='batch'?Math.max(event.requiredMotionSeconds,stagedPlan.motion_plan.batch_seconds??6):event.requiredMotionSeconds};performanceReady();
   }
   function beginPerformance(event){
     // Preserve the displayed pose while generation prepares a new frame-zero take.
     idle.restore();
     entryPose=Object.values(vrm.humanoid.normalizedHumanBones).map(({node})=>({node,position:node.position.clone(),quaternion:node.quaternion.clone()}));
     entryRoot=[...heldRoot];
-    liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=document.querySelector('#profile').value;
+    liveBuffer.clear();pending=false;liveStream=crypto.randomUUID();liveProfile=stagedPlan?.motion_plan?.core||document.querySelector('#profile').value;liveBuffer.capacity=stagedPlan?.motion_plan?.strategy==='batch'?480:128;
     mode='live';liveError=false;livePaused=false;performanceGate=null;
     performanceTrack=new PerformanceTrack(event.cueSeconds,event.tailSeconds);
     window.Cleo?.startPerformance(liveProfile,['cleopatra','main'].includes(event.tab)?stagedPlan?.embeddingId:bank.value,liveStream);requestMotion();invalidate();
@@ -178,6 +185,7 @@ export async function createAvatarView() {
     }
     else if(event.type==='talkPlayback')invalidate();
     else if(event.type==='speechEnd'){
+      motionStage?.finishCapture(Boolean(event.completed));
       if(performanceTrack&&event.completed){performanceTrack.finish();livePaused=true;performanceGate=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(true);invalidate();}
       else stopFace();
       engineStatus.textContent=event.message;
@@ -211,7 +219,7 @@ export async function createAvatarView() {
   console.log('CLEO_READY ' + JSON.stringify(window.validationState));
   function frame(now) {
     frameId=0;if(!visible)return;
-    const workStarted = performance.now();idle.restore();faceControls.restorePresence();
+    const workStarted = performance.now();steering.restore();idle.restore();faceControls.restorePresence();
     const dt = Math.min((now-last)/1000, .05); last = now;
     const elapsed = Math.max(0,now - started)/1000;
     const trackClock=performanceTrack?performanceTrack.sample(window.Cleo?.playbackSeconds()??-1):null;
@@ -258,7 +266,8 @@ export async function createAvatarView() {
       const local = bind.restJoints.map(() => [[1,0,0],[0,1,0],[0,0,1]]); local[0] = toMatrix(q);
       retarget.apply(joints, currentRoot, local);
     }
-    if(bodyApplied||mode==='replay'||mode==='turn')faceControls.captureBodyPose();
+    const cachedBody=motionStage?.update(dt,bodyApplied||mode==='replay',currentRoot)??false;
+    if(bodyApplied||cachedBody||mode==='replay'||mode==='turn')faceControls.captureBodyPose();
     // Dynamics are opt-in so geometry/retargeting can first be checked deterministically.
     if(speaking&&faceSegments.length) {
       const time=trackClock?trackClock.faceSeconds:window.Cleo?.playbackSeconds()??-1;
@@ -273,12 +282,15 @@ export async function createAvatarView() {
     if(direction.active&&speaking&&(performanceTrack?performanceTrack.started:(window.Cleo?.playbackSeconds()??-1)>=0)){
       for(const [name,value] of Object.entries(direction.state.expressions))if(vrm.expressionManager?.getExpression(name))vrm.expressionManager.setValue(name,value);
     }
-    const bodyActive=mode==='replay'||mode==='turn'||(mode==='live'&&bodyApplied&&!livePaused&&!liveError&&(!performanceTrack||performanceTrack.started&&!performanceTrack.finished));
+    const bodyActive=cachedBody||mode==='replay'||mode==='turn'||(mode==='live'&&bodyApplied&&!livePaused&&!liveError&&(!performanceTrack||performanceTrack.started&&!performanceTrack.finished));
     const faceActive=speaking&&faceSegments.length>0&&(trackClock?trackClock.faceSeconds>=0:(window.Cleo?.playbackSeconds()??-1)>=0);
     if(idleEnabled)idle.apply(now/1000,dt,bodyActive,faceActive);
     direction.apply();stageRoot.updateMatrixWorld(true);
-    cameraControls.update(new THREE.Vector3(...currentRoot).applyMatrix4(stageRoot.matrixWorld).toArray());
+    // Body travel is followed smoothly; Face/Torso use the stable floor anchor.
+    const trackRoot=framing==='face'||framing==='torso'||cachedBody?[0,standing,0]:currentRoot;
+    cameraControls.update(new THREE.Vector3(...trackRoot).applyMatrix4(stageRoot.matrixWorld).toArray(),dt,direction.state.root.heading);
     faceControls.present(now/1000,dt,{withBody:mode!=='rest',bodyActive,faceActive,idle:idleEnabled,weight:trackClock?.faceWeight??1,gains:direction.state.face,listener:camera.position});
+    steering.apply(direction.state.steering,camera.position,dt);
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
     heldRoot=[...currentRoot];
@@ -301,24 +313,34 @@ export async function createAvatarView() {
     }
     const activePerformance=performanceTrack?.started&&!performanceTrack.finished;
     window.validationState.idle={enabled:idleEnabled,body:!bodyActive,face:!faceActive};window.validationState.direction=direction.snapshot();
-    if(activePerformance||(!performanceTrack&&speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(!performanceTrack&&mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
+    if(motionStage?.active()||activePerformance||(!performanceTrack&&speaking&&faceSegments.length)||mode==='replay'||mode==='turn'||physics||(!performanceTrack&&mode==='live'&&!liveError&&!livePaused&&liveBuffer.remaining>1.01))frameId=requestAnimationFrame(frame);
     else if(idleEnabled)idleTimer=setTimeout(()=>{idleTimer=0;invalidate();},1000/20);
   }
   const setVisible=value=>{
     visible=Boolean(value)&&!document.hidden;
-    if(!visible){clearTimeout(idleTimer);idleTimer=0;cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
+    if(!visible){motionStage?.stop();clearTimeout(idleTimer);idleTimer=0;cameraControls.clearPointers();if(frameId)cancelAnimationFrame(frameId);frameId=0;}
     else if(!frameId){fitViewport();last=performance.now();reportAt=last;samples=[];ticks=0;pending=false;requestMotion();frameId=requestAnimationFrame(frame);}
   };
-  function stopFace(){idle.restore();direction.clear();stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
+  function stopFace(){steering.restore();idle.restore();faceControls.restorePresence();direction.clear();stagedPlan=null;speaking=false;faceStream=null;faceSegments.length=0;faceControls.clear(mode==='live');if(performanceTrack){performanceTrack=null;performanceGate=null;entryPose=null;livePaused=true;}invalidate();}
   function setFrame(value){
     if(!['face','torso','body','debug'].includes(value))throw new Error('Unknown frame');
     if(value===framing)return;framing=value;grid.visible=value==='body'||value==='debug';
     stopFace();setMode('rest');direction.reset();heldRoot=[0,standing,0];
     if(value==='debug')return;
     const face=value==='face',torso=value==='torso';
-    cameraControls.applyDirection({yaw:0,elevation:face?0:4,distance:face?.62:torso?1.35:3.4,height:face?eyeHeight():torso?position('head').y-.18:.85,pan_x:0,pan_z:0});
+    // A frame switch establishes a new floor anchor. Do not ease from the last
+    // debug take's travel offset or retain its trailing-camera heading.
+    cameraControls.reframe({yaw:0,elevation:face?0:4,distance:face?.62:torso?1.35:3.4,height:face?neutralEyeHeight:torso?neutralHeadHeight-.18:.85,pan_x:0,pan_z:0});
     invalidate();
   }
+  motionStage=await createMotionStage(vrm,JSON.stringify(provenance),{
+    frame:()=>framing,root:()=>direction.state.root,
+    place(value){direction.state.root={...value};},steer:value=>{Object.assign(direction.state.steering,value);},
+    source(value){window.Cleo?.mainBodySource?.(value);},
+    invalidate,camera:cameraControls,startMotion,
+    pauseMotion(){livePaused=true;window.Cleo?.pause();},
+  });
+  window.avatarValidation.motionStage=motionStage;
   initialized=true;
-  return {setFrame,scene:()=>({camera:cameraControls.direction(),root:direction.snapshot().root}),stage(plan){stagedPlan={...plan};direction.stage(plan);},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
+  return {setFrame,motionCatalog:()=>motionStage?.catalog()||[],bodySource:()=>motionStage?.source()||'ardy',scene:()=>({camera:cameraControls.direction(),root:direction.snapshot().root,steering:direction.snapshot().steering,body_source:motionStage?.source(),motion_core:liveProfile}),stage(plan){stagedPlan={...plan};if(plan.frame){stagedPlan.motion_plan??={core:document.querySelector('#profile').value,strategy:document.querySelector('#stage-strategy').value,batch_seconds:Number(document.querySelector('#stage-batch-seconds').value)};window.Cleo?.mainMotionPlan?.(JSON.stringify(stagedPlan.motion_plan));}direction.stage(plan);if(plan.locomotion)motionStage?.command(plan.locomotion);if(plan.save_track)motionStage?.beginCapture(plan.save_track);},expressions:()=>['neutral','happy','relaxed','sad','angry','surprised'].filter(name=>name==='neutral'||vrm.expressionManager?.getExpression(name)),event:eventHandler,setVisible,setMode,setFaceView,startMotion,stopFace,faceSettings:()=>({...faceControls.settings}),pause(){livePaused=true;window.Cleo?.pause();},fitViewport};
 }

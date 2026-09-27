@@ -12,16 +12,21 @@ export function embeddingCatalog(bank=[]){
 export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   const $=selector=>document.querySelector(selector.replaceAll('cleopatra',scope)),isMain=scope==='main',channel=isMain?'main':'avatar';
   let prepared=!isMain,preparing=false,prepareFailed=false;
-  const context=()=>({motions:embeddingCatalog(hooks.state()?.bank),expressions:hooks.avatar()?.expressions()||['neutral']});
+  const context=()=>({...isMain?{frame:hooks.frame()}: {},motions:embeddingCatalog(hooks.state()?.bank),expressions:hooks.avatar()?.expressions()||['neutral'],tracks:hooks.avatar()?.motionCatalog?.()||[]});
   let active=false,warmId=null,loading=false,nativeReady=false,run=null,nativeConfig='',awaitingReady=false,historyKey='';
-  let loadingStage='',loadRequest=null,loadError='';
+  let loadingStage='',loadRequest=null,loadError='',reloadQueued=false;
   const media=mediaInput(scope,{changed:controls,error:text=>status(text),pushToTalk:isMain,send:()=>$('#cleopatra-form').requestSubmit()});
   const components={ardy:'unloaded',pocket:'unloaded',lam:'unloaded'};
-  const runtimeKey=()=>JSON.stringify(hooks.runtime());
+  const runtimeKey=()=>JSON.stringify([...hooks.runtime(),isMain?hooks.frame():'debug',isMain?hooks.avatar()?.bodySource?.():'ardy']);
   const status=text=>{$('#cleopatra-status').textContent=text;};
   function ready(){return active&&Boolean(hooks.avatar())&&nativeReady&&nativeConfig===runtimeKey()&&chat.ready()&&prepared;}
   function controls(){
     const model=chat.status();
+    // A tool can switch between live and cached body sources during a turn.
+    // Reconcile residency after that turn, without interrupting its speech.
+    if(isMain&&active&&!run&&!loading&&!preparing&&!model.busy&&nativeReady&&chat.ready()&&nativeConfig!==runtimeKey()&&!reloadQueued){
+      reloadQueued=true;queueMicrotask(()=>{reloadQueued=false;if(active&&!run&&!loading&&!chat.status().busy&&nativeConfig!==runtimeKey()){prepared=false;$('#cleopatra-load').click();}});
+    }
     if(isMain&&active&&nativeReady&&!loading&&chat.ready()&&!prepared&&!preparing&&!prepareFailed&&!loadError){
       const value=context();
       if(value.motions.length){preparing=true;chat.request({action:'mainPrepare',...value});status('Preparing Cleopatra’s situation and avatar controls…');}
@@ -75,7 +80,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     const attachment=media.take(),id=crypto.randomUUID(),log=$('#cleopatra-log');streamMessage(log,'user',(attachment?`[${attachment.kind}]\n`:'')+text,'','Cleopatra');
     run={id,phase:'generating',generationDone:false,streaming:isMain&&document.querySelector('#stream-speech').checked,phrases:new SpeechPhrases(),started:performance.now(),view:streamMessage(log,'assistant','','','Cleopatra')};
     $('#cleopatra-tools').textContent='';$('#cleopatra-text').value='';$('#cleopatra-text').blur();
-    chat.request({action:isMain?'mainSend':'avatarSend',...(isMain?{frame:hooks.frame(),scene:hooks.avatar().scene()}:{}),requestId:id,text,...(attachment?{file:attachment.file,kind:attachment.kind}:{}),motions,expressions:hooks.avatar().expressions()});
+    chat.request({action:isMain?'mainSend':'avatarSend',...(isMain?{frame:hooks.frame(),scene:hooks.avatar().scene()}:{}),requestId:id,text,...(attachment?{file:attachment.file,kind:attachment.kind}:{}),motions,expressions:hooks.avatar().expressions(),tracks:hooks.avatar().motionCatalog?.()||[]});
     status('Gemma is responding…');$('#cleopatra-latency').textContent='Send → voice: measuring…';controls();
   };
   function feedSpeech(text,plan,final=false){
@@ -108,7 +113,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     if(value.type==='chat'){
       media.event(value);
       if(isMain&&'mainPrepared' in value){prepared=Boolean(value.mainPrepared);if(prepared)preparing=false;const label=$('#main-prefill');if(value.state)label.textContent=prepared?`Gemma ${value.selection?.model==='gemma-e4b'?'E4B':'E2B'} prompt ready · ${Math.round(value.prefillMs||0)} ms preparation${value.prefillTokens>=0?' · '+value.prefillTokens+' tokens':''}`:'Prompt awaits Launch';}
-      if(isMain&&(value.unloaded||value.disconnected||value.error)){prepared=false;preparing=false;prepareFailed=Boolean(value.error);if(value.error&&active)status(value.error);}
+      if(isMain&&(value.unloaded||value.disconnected||value.error)){if(value.unloaded||value.disconnected)$('#main-prefill').textContent='Gemma is unloaded; saved disk prefixes remain available.';prepared=false;preparing=false;prepareFailed=Boolean(value.error);if(value.error&&active)status(value.error);}
       if(value.error&&active&&(loading||value.channel===channel||value.disconnected)){failLoad(value.error);}
       if(loading&&value.state&&!value.busy&&value.requestId===loadRequest){
         if(loadingStage==='gemma'&&chat.ready())continueLoading();
@@ -150,5 +155,5 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     if(value.type==='talkRejected'&&run?.phase==='performing')stop(value.message);
     controls();
   }
-  return {event,refresh:controls,stop,load(){ $('#cleopatra-load').click(); },select(tab){if(active&&tab!==scope){stop();nativeReady=false;}active=tab===scope;controls();},hidden(){if(active)stop('Paused while hidden');}};
+  return {event,refresh:controls,frameChanged(){if(active&&!loading&&!run&&nativeReady&&chat.ready()&&nativeConfig!==runtimeKey()){prepared=!isMain;$('#cleopatra-load').click();}},stop,load(){ $('#cleopatra-load').click(); },select(tab){if(active&&tab!==scope){stop();nativeReady=false;}active=tab===scope;controls();},hidden(){if(active)stop('Paused while hidden');}};
 }

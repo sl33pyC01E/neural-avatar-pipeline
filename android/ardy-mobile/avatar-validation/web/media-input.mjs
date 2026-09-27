@@ -12,7 +12,7 @@ export function mediaInput(scope,{changed=()=>{},beforeInput=()=>{},error=()=>{}
   }
   for(const kind of ['audio','image'])if($(kind))$(kind).onclick=()=>{$('media')?.close();beforeInput();window.Cleo?.inputAttach?.(kind,scope);};
   if($('camera')){
-    $('camera').onclick=()=>$('media').showModal();$('media-close').onclick=()=>$('media').close();
+    $('camera').onclick=()=>{beforeInput();window.Cleo?.inputCamera?.(scope);};$('media-close').onclick=()=>$('media').close();
     $('capture').onclick=()=>{$('media').close();beforeInput();window.Cleo?.inputCamera?.(scope);};
   }
   function begin(){if(held||recording||blocked||anyRecording)return;beforeInput();held=true;recorded=false;sendRecording=false;window.Cleo?.inputRecord?.(true,scope);paint();}

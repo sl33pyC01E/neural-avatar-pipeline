@@ -4,7 +4,25 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.9.0 · llama.cpp and module workspace
+## Latest checkpoint: 0.10.0 · agent motion and portable Android handoff
+
+Version 26 adds agent-controlled camera modes, floor/body/torso/head steering,
+Core8/Core40 batch/live plans, timed gestures, saved-pose capture and layered
+locomotion. Manual inspectors live only in Debug → Ardy → Stage. Main Face
+avoids loading unused Ardy sessions; stable viewport sizing and camera tracking
+reduce loading/status-driven movement. The camera icon opens capture directly,
+and spoken streaming removes a leading Cleopatra speaker label.
+
+See [agent API and limits](portable/docs/agent-motion.md),
+[memory diagnosis / validation limits](portable/docs/validation.md), and
+[portable handoff](portable/README.md). `tools/export_unimobile.py` creates the
+standalone Windows/Android bundle at `Documents/unimobile`; its offline build
+uses included tools and durable payloads. The stack stays with Gemma E2B/E4B,
+Pocket TTS, LAM, Ardy, LLM2Vec and Cleopatra. MiniCPM and Qwen Omni experiments
+were discarded. The user performs all phone inference tests;
+[alternative-model research](OMNI_ALTERNATIVES.md) records the findings.
+
+## Previous checkpoint: 0.9.0 · llama.cpp and module workspace
 
 Both official Gemma 4 E2B/E4B IT QAT models now use **llama.cpp only**.
 The default pairing is **GPU encoder → NPU decoder**, with exactly three explicit

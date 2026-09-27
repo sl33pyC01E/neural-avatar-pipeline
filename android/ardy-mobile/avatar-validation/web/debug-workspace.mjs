@@ -30,7 +30,7 @@ export function createDebugWorkspace(){
     modules.set(panel.id,{select,panel});
   }
   segment('#pocket-panel', [['run','Speak',[]],['settings','Settings',['#pocket-settings']],['metrics','Diagnostics',['.metrics','.metrics + p']]]);
-  segment('#panel',[['run','Motion',['#motion-controls']],['appearance','Appearance',['#vrm-settings']],['inspect','Inspect',['#controls',':scope > .hint']]]);
+  segment('#panel',[['run','Motion',['#motion-controls']],['stage','Stage',['#stage-controls']],['appearance','Appearance',['#vrm-settings']],['inspect','Inspect',['#controls',':scope > .hint']]]);
   segment('#chat-panel',[['run','Chat',[]],['settings','Model',['#model-settings']],['cache','Prompts & cache',['#chat-cache-panel']],['metrics','Resources',['.resource-strip']]]);
   // Move setup controls out of the conversation. Keep Load/New/Unload reachable
   // in every model subview, rather than burying them inside a settings scroller.

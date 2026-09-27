@@ -37,9 +37,9 @@ final class ModelDiagnostics {
         }catch(Exception ignored){}
         if(pid!=0&&last.optInt("pid") == pid){
             JSONObject selection=last.optJSONObject("selection");
-            reason+=" during "+last.optString("stage","model loading");
+            reason+=". Last recorded state: "+last.optString("stage","model loading");
             if(selection!=null)reason+=" ("+(selection.optString("model").equals("gemma-e4b")?"E4B":"E2B")+", "+selection.optInt("contextTokens")+" context, "+selection.optInt("visualTokens")+" visual tokens)";
         }
-        return reason+". Retry Launch. If memory runs out again, lower the context/image budget or select E2B in Settings.";
+        return reason+". Face mode keeps Ardy on disk. Retry after freeing RAM, or select an explicit fallback pairing in Models. Process PSS excludes some GPU/NPU allocations.";
     }
 }

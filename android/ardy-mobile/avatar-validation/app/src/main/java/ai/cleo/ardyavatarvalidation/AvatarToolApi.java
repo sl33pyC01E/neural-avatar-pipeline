@@ -64,6 +64,7 @@ class AvatarToolApi {
         motions.forEach((key,value)->out.append(key).append(" = ").append(value.optString("label")).append("; "));
         return out.toString();
     }
+    String embeddingId(String key)throws IOException{JSONObject motion=motions.get(key);if(motion==null)throw new IOException("Unknown gesture");return motion.optString("id");}
     String motionCatalog(){StringBuilder out=new StringBuilder();motions.forEach((key,value)->out.append(key).append(" = ").append(value.optString("label")).append("; "));return out.toString();}
     JSONObject execute(String name,JSONObject args)throws Exception {
         if(++calls>3)throw new IOException("Avatar tool-call limit reached");
