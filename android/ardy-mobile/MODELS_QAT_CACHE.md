@@ -1,4 +1,4 @@
-# Cleopatra v22: Gemma QAT and persistent prefixes
+# Cleopatra v23: Gemma QAT and persistent prefixes
 
 Tab 7 **Models** selects Gemma 4 E2B IT or E4B IT and one runtime:
 
@@ -9,11 +9,34 @@ Tab 7 **Models** selects Gemma 4 E2B IT or E4B IT and one runtime:
 | llama.cpp OpenCL | Adreno GPU offload requested | GPU offload requested; unsupported operations may use CPU | Build / restore / clear |
 | llama.cpp Hexagon | Experimental NPU offload requested | CPU encoder | Build / restore / clear |
 
-The default remains LiteRT GPU. The new choices are integrated but have **not
-been executed on the phone by the agent**. A non-CPU load must report nonzero
-offloaded layers before being shown as ready; a missing driver or backend failure
-is displayed instead of silently labelling CPU execution as accelerated. Runtime
-logs are retained in app-private `cache/cleo-llama.log`.
+The default remains LiteRT GPU. Readiness follows the native `/health` endpoint.
+Backend evidence displays the requested device and the actual offloaded-layer
+count when available; missing diagnostic output is shown as unconfirmed, not a
+load failure. v22 incorrectly killed healthy OpenCL and Hexagon workers because
+b11200 hides native INFO messages at the default verbosity. v23 requests verbosity
+4 and removes that log-phrase readiness gate. The user's saved GPU/NPU attempts
+reached server-ready; native generation still needs the user's test.
+
+Each model/backend retains its latest private log, e.g.
+`cache/cleo-e2b-llama-opencl.log`, capped at 1 MiB. A matching `-startup.json`
+receipt retains settings, observed offload counts and buffer-size diagnostics.
+Logs are diagnostic and may include native prompt output; they are not the disk
+prefix cache. The agent has not started any phone inference.
+
+## Memory presets
+
+Models offers **Memory focused** (default for llama.cpp) or **Throughput**.
+Both use `--lazy-mode on`, `--ctx-checkpoints 2`, `--cache-ram 0` and explicit
+backend/context settings with `--fit off`. The memory preset lowers batch/ubatch
+from 256/128 to 128/64. On CPU only, it also sets `--no-repack`, keeping immutable
+weights file-backed instead of allocating an anonymous repacked copy. GPU/NPU
+retain their backend-specific layouts. Changing the preset requires Load/apply.
+
+These settings may cost throughput and have not yet been measured on the phone.
+File-backed pages still consume RAM while resident; this does not guarantee
+LiteRT's footprint. Both GGUFs include large Q6_K embeddings and mostly BF16
+vision/audio projectors despite the Q4_0 label. See the saved-log diagnosis and
+passive pre-change memory snapshot in [ACCELERATOR_MEMORY.md](ACCELERATOR_MEMORY.md).
 
 Main, Browser and tab 9 use the selected backend through the same validated avatar
 and browser APIs. Text and reasoning stream separately; thoughts stay collapsed.
@@ -71,7 +94,8 @@ llama.cpp's progressive prefix matching; this preserves correctness when changin
 between modules sharing the one native slot.
 
 Cache identity includes the pinned runtime, official artifact hashes, installed
-file identity, backend/context/image/reasoning settings, and exact rendered
+file identity, backend/context/image/reasoning/memory settings, effective native
+launch options, and exact rendered
 system/tool prefix. Saved state is checksummed; data and metadata are atomically
 renamed. A corrupt or incompatible file is rejected and rebuilt. Retention is
 bounded to 12 completed prefixes / 2 GiB, with old files pruned. Cache failure
@@ -90,7 +114,7 @@ loading or guarantee a speedup on every backend.
 - Android build and lint pass; APK payload hashes, extracted worker/DSP hashes,
   retained Pocket/LAM/Ardy assets and signature were checked.
 - Production streaming/tool protocol: 18 host checks. Production disk-cache
-  lifecycle: 38 assertions against an authenticated fake HTTP peer, including
+  lifecycle: 44 assertions against an authenticated fake HTTP peer, including
   process-restart restore without prefill, corruption, edits, model separation,
   rebuild and scoped deletion. This does not execute native inference.
 - Actual downloaded chat templates: 20 host rendering checks cover common-prefix
@@ -100,7 +124,8 @@ loading or guarantee a speedup on every backend.
   selection, cache controls/metrics, prompt editing, layouts and existing avatar
   flows pass.
 
-Reports are under `validation/*v22*`. GPU/NPU operator support, native streaming,
+Baseline reports are under `validation/*v22*`; v23 reruns the production protocol,
+cache, launch/log-capture and desktop UI checks under `validation/*v23*`. GPU/NPU operator support, native streaming,
 tool/grammar quality, disk restore equivalence, speed, thermals and full-stack RAM
 still require the user's phone test. No phone UI test, generation, benchmark or
 audio playback was run by the agent.

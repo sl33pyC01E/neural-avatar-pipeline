@@ -48,6 +48,9 @@ public final class LlamaCacheCheck {
             try(LlamaRuntime e4=new LlamaRuntime(root,settings,new JSONObject(identity.toString()).put("model","e4b"),server.getAddress().getPort())){
                 JSONObject other=e4.preparePrefix(base,null,0,false);check(!firstKey.equals(other.getString("key"))&&evaluations==5,"E4B cannot restore E2B state");
             }
+            try(LlamaRuntime changedLaunch=new LlamaRuntime(root,settings,new JSONObject(identity.toString()).put("launchOptions",new JSONArray(LlamaLaunch.options("llama-cpu","mapped"))),server.getAddress().getPort())){
+                JSONObject other=changedLaunch.preparePrefix(base,null,0,false);check(!firstKey.equals(other.getString("key"))&&evaluations==6,"Changed runtime launch policy cannot restore the previous KV identity");
+            }
             File unrelated=new File(root,"model.gguf");Files.writeString(unrelated.toPath(),"untouched");
             check(first.clearCache().getInt("files")==0&&Files.readString(unrelated.toPath()).equals("untouched"),"Clear deletes only owned prefixes");
         }finally{server.stop(0);try(var paths=Files.walk(root.toPath())){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}

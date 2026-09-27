@@ -9,14 +9,16 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.regex.*;
 import org.json.*;
 
 /** Pinned app-private llama.cpp worker. Starts only on an explicit model load. */
 final class LlamaRuntime implements AutoCloseable {
     private final Context context;
     private final String token=UUID.randomUUID().toString();
-    private final File cacheDir,log,pidFile;
+    private final File cacheDir,pidFile;
+    private File log;
+    private LlamaLog capture;
+    private JSONObject startupEvidence=new JSONObject();
     private volatile Process process;
     private volatile HttpURLConnection connection;
     private volatile boolean closed,cancelled;
@@ -38,29 +40,33 @@ final class LlamaRuntime implements AutoCloseable {
         File model=model(manifest,"gemma-4-"+variant+"_q4_0-it.gguf"),projector=model(manifest,"gemma-4-"+variant+"-it-mmproj.gguf");
         identity=new JSONObject().put("runtime",manifest.getJSONObject("runtime").getString("commit")).put("settings",settings).put("models",manifest.getJSONArray("models"));
         String backend=settings.getString("backend"),dir=context.getApplicationInfo().nativeLibraryDir;
-        boolean gpu=backend.equals("llama-opencl"),npu=backend.equals("llama-hexagon");
+        List<String> options=LlamaLaunch.options(backend,settings.optString("llamaMemory","mapped"));identity.put("launchOptions",new JSONArray(options));
+        log=new File(context.getCacheDir(),"cleo-"+variant.toLowerCase(Locale.ROOT)+"-"+backend+".log");capture=new LlamaLog(log);
         try(ServerSocket socket=new ServerSocket(0,0,InetAddress.getByName("127.0.0.1"))){port=socket.getLocalPort();}
         List<String> cmd=new ArrayList<>(List.of(dir+"/libcleo_llama_runner.so",pidFile.getPath(),dir+"/libcleo_llama_server.so",
-            "-m",model.getPath(),"--mmproj",projector.getPath(),"-c",String.valueOf(settings.getInt("contextTokens")),
-            "-t","2","-tb","2","-b","256","-ub","128","-ngl",(gpu||npu)?"999":"0","--device",gpu?"GPUOpenCL":npu?"HTP0":"none",
-            gpu?"--mmproj-offload":"--no-mmproj-offload","--no-warmup","--parallel","1","--cache-ram","0","--poll","0","--poll-batch","0",
-            "--jinja","--no-webui","--no-context-shift","--image-max-tokens",String.valueOf(settings.getInt("visualTokens")),
+            "-m",model.getPath(),"--mmproj",projector.getPath(),"-c",String.valueOf(settings.getInt("contextTokens"))));
+        cmd.addAll(options);cmd.addAll(List.of("--image-max-tokens",String.valueOf(settings.getInt("visualTokens")),
             "--slot-save-path",cacheDir.getPath()+"/","--host","127.0.0.1","--port",String.valueOf(port),"--api-key",token));
-        ProcessBuilder builder=new ProcessBuilder(cmd).directory(context.getCacheDir()).redirectErrorStream(true).redirectOutput(log);
+        ProcessBuilder builder=new ProcessBuilder(cmd).directory(context.getCacheDir()).redirectErrorStream(true);
         builder.environment().put("LD_LIBRARY_PATH",dir+":/vendor/lib64");
         builder.environment().put("ADSP_LIBRARY_PATH",dir+";/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp");
         builder.environment().put("GGML_HEXAGON_DEVICES","1");
         builder.environment().put("GGML_OPENCL_KERNEL_CACHE_DIR",context.getCacheDir().getPath());
-        synchronized(this){if(closed)throw new InterruptedIOException("Unloaded");process=builder.start();}
+        synchronized(this){if(closed)throw new InterruptedIOException("Unloaded");process=builder.start();capture.start(process.getInputStream());}
         long start=(System.nanoTime()/1_000_000L),last=0;
         while((System.nanoTime()/1_000_000L)-start<240000){
             check();if(!process.isAlive())throw new IOException("llama.cpp stopped while loading. "+tail());
             HttpURLConnection c=open("/health");c.setReadTimeout(1000);c.setConnectTimeout(1000);
             boolean ready=false;try{ready=c.getResponseCode()==200;}catch(IOException ignored){}finally{c.disconnect();}
             if(ready){
-                String output=tail();Matcher m=Pattern.compile("offloaded ([0-9]+/[0-9]+) layers").matcher(output);
-                backendEvidence=(gpu?"OpenCL GPU":npu?"Hexagon NPU (experimental)":"CPU")+" · "+(m.find()?m.group(1)+" layers offloaded":"offload count not reported")+(gpu?" · vision offload requested":" · vision/audio encoder on CPU");
-                if((gpu||npu)&&!Pattern.compile("offloaded [1-9][0-9]*/[0-9]+ layers").matcher(output).find())throw new IOException("Requested accelerator did not confirm layer offload. "+tail());
+                // /health=200 is the readiness contract. Native INFO is TRACE (4)
+                // in b11200, so a missing log phrase must never kill a healthy worker.
+                String output="";try{output=capture.text(1024*1024);}catch(IOException ignored){}
+                startupEvidence=LlamaLaunch.evidence(backend,output);
+                backendEvidence=startupEvidence.getString("summary");
+                try{Files.write(new File(context.getCacheDir(),"cleo-"+variant.toLowerCase(Locale.ROOT)+"-"+backend+"-startup.json").toPath(),
+                    new JSONObject().put("selection",settings).put("evidence",startupEvidence).put("log",log.getName()).toString().getBytes(StandardCharsets.UTF_8));}
+                catch(IOException failure){startupEvidence.put("logWarning","Startup receipt could not be saved: "+failure.getMessage());}
                 cacheState=cacheStatus();return;
             }
             if((System.nanoTime()/1_000_000L)-last>3000){progress.accept("Loading Gemma QAT · "+backend+" · "+(((System.nanoTime()/1_000_000L)-start)/1000)+" s");last=(System.nanoTime()/1_000_000L);}
@@ -91,7 +97,7 @@ final class LlamaRuntime implements AutoCloseable {
         void send(com.google.ai.edge.litertlm.Message input,MessageCallback callback,ThinkingConfig thinking,ResponseFormat format){
             try{
                 if(ended)throw new IOException("Conversation closed");cancelled=false;check();
-                JSONArray next=new JSONArray(messages.toString()),add=LlamaProtocol.input(input,pending);for(int i=0;i<add.length();i++)next.put(add.get(i));
+                JSONArray next=new JSONArray();for(int i=0;i<messages.length();i++)next.put(messages.get(i));JSONArray add=LlamaProtocol.input(input,pending);for(int i=0;i<add.length();i++)next.put(add.get(i));
                 int budget=thinking==null?reasoning:thinking.getEnableThinking()?thinking.getThinkingTokenBudget():0;
                 JSONObject request=LlamaProtocol.request(next,tool,budget,maxTokens);
                 if(format!=null)request.put("response_format",new JSONObject().put("type","json_schema").put("json_schema",new JSONObject().put("name","browser_action").put("strict",true).put("schema",new JSONObject(format.getSchemaOrPattern()))));
@@ -148,7 +154,7 @@ final class LlamaRuntime implements AutoCloseable {
     }
     JSONObject cacheStatus()throws JSONException {
         File[] files=cacheDir.listFiles(f->f.getName().matches("[0-9a-f]{64}\\.bin"));long bytes=files==null?0:Arrays.stream(files).mapToLong(File::length).sum();
-        return new JSONObject().put("supported",true).put("enabled",settings!=null&&settings.optBoolean("diskCache",true)).put("files",files==null?0:files.length).put("bytes",bytes).put("limitBytes",CACHE_LIMIT).put("backendEvidence",backendEvidence);
+        return new JSONObject().put("supported",true).put("enabled",settings!=null&&settings.optBoolean("diskCache",true)).put("files",files==null?0:files.length).put("bytes",bytes).put("limitBytes",CACHE_LIMIT).put("backendEvidence",backendEvidence).put("startupEvidence",startupEvidence).put("logFile",log.getName());
     }
     JSONObject clearCache()throws Exception {
         File[] files=cacheDir.listFiles(f->f.isFile()&&f.getName().matches("[0-9a-f]{64}\\.(bin|json|partial|meta-partial)"));if(files!=null)for(File f:files)Files.delete(f.toPath());
@@ -167,9 +173,9 @@ final class LlamaRuntime implements AutoCloseable {
     private static byte[] read(InputStream input,int max)throws IOException {ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] bytes=new byte[8192];int n;while((n=input.read(bytes,0,Math.min(bytes.length,max-out.size())))>0)out.write(bytes,0,n);return out.toByteArray();}
     private static String digest(File f)throws Exception {MessageDigest digest=MessageDigest.getInstance("SHA-256");try(InputStream in=new FileInputStream(f)){byte[] b=new byte[1024*1024];int n;while((n=in.read(b))!=-1)digest.update(b,0,n);}StringBuilder s=new StringBuilder();for(byte b:digest.digest())s.append(String.format(Locale.ROOT,"%02x",b&255));return s.toString();}
     private static double elapsed(long start){return (System.nanoTime()-start)/1e6;}
-    private String tail(){try(RandomAccessFile f=new RandomAccessFile(log,"r")){f.seek(Math.max(0,f.length()-24000));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(IOException e){return e.toString();}}
+    private String tail(){try{return capture==null?"No native log captured":capture.text(24000);}catch(IOException e){return e.toString();}}
     int pid(){if(process==null||!process.isAlive())return 0;try{return Integer.parseInt(new String(Files.readAllBytes(pidFile.toPath()),StandardCharsets.UTF_8).trim());}catch(Exception e){return 0;}}
     private void check()throws IOException {if(closed||cancelled)throw new InterruptedIOException("Model operation cancelled");if(process!=null&&!process.isAlive())throw new IOException("llama.cpp worker stopped. "+tail());}
     void cancel(){cancelled=true;HttpURLConnection c=connection;if(c!=null)c.disconnect();}
-    @Override public synchronized void close(){closed=true;cancel();if(process!=null){process.destroyForcibly();process=null;}}
+    @Override public synchronized void close(){closed=true;cancel();if(process!=null){process.destroyForcibly();process=null;}if(capture!=null)capture.finish();}
 }

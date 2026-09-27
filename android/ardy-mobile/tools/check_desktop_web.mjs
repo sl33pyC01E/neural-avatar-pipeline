@@ -311,7 +311,7 @@ try {
   assert(await evaluate('!document.querySelector("#chat-reasoning").checked'),'Reasoning must default off');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096,diskCache:true});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096,diskCache:true,llamaMemory:'mapped'});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
@@ -342,11 +342,18 @@ try {
   const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));
   assert.deepEqual(await evaluate('[...document.querySelector("#chat-backend").options].map(o=>o.value)'),['litert-gpu','litert-cpu','llama-opencl','llama-cpu','llama-hexagon']);
   assert(await evaluate('document.querySelector("#chat-cache-prepare").disabled'),'LiteRT exposes unsupported KV operation');
+  assert(await evaluate('document.querySelector("#chat-llama-memory").disabled'),'LiteRT exposes inapplicable llama memory setting');
   for(const backend of ['llama-cpu','llama-opencl','llama-hexagon']){
     await evaluate(`document.querySelector('#chat-backend').value=${JSON.stringify(backend)};document.querySelector('#chat-backend').dispatchEvent(new Event('change'));document.querySelector('#chat-load').click()`);await sleep(60);
     assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).backend'),backend);
     assert(await evaluate('!document.querySelector("#chat-cache-prepare").disabled'),'llama cache controls disabled');
+    assert(await evaluate('!document.querySelector("#chat-llama-memory").disabled'),'llama memory control disabled');
+    assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).llamaMemory'),'mapped');
   }
+  await evaluate('document.querySelector("#chat-llama-memory").value="fast";document.querySelector("#chat-llama-memory").dispatchEvent(new Event("change"))');
+  assert(await evaluate('document.querySelector("#chat-send").disabled&&document.querySelector("#chat-cache-prepare").disabled'),'Memory change did not require reload');
+  await evaluate('document.querySelector("#chat-load").click()');await sleep(60);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).llamaMemory'),'fast');
   await evaluate('document.querySelector("#chat-cache-panel").open=true;document.querySelector("#chat-cache-scope").value="browser";document.querySelector("#chat-cache-prepare").click()');await sleep(60);
   assert(await evaluate('window.chatRequests.some(r=>r.action==="cachePrepare"&&r.scope==="browser"&&!r.rebuild)'));
   await evaluate('document.querySelector("#chat-cache-rebuild").click()');await sleep(60);
@@ -538,6 +545,7 @@ try {
   await call('Page.reload');
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
   assert.equal(await evaluate('document.querySelector("#chat-context").value'),'8192','Context choice did not persist');
+  assert.equal(await evaluate('document.querySelector("#chat-llama-memory").value'),'fast','Memory preset did not persist');
   await evaluate('window.debugTabs.select("cleopatra")');
   for(let i=0;i<150;i++){if(await evaluate('window.validationState.ready'))break;await sleep(200);}
   for(let i=0;i<50;i++){if(await evaluate('!document.querySelector("#cleopatra-load").disabled'))break;await sleep(100);}
@@ -571,7 +579,7 @@ try {
   assert(!/invalid avatar control/.test(await evaluate('document.querySelector("#main-status").textContent')),'Old response error remained after New chat');
   assert.deepEqual(await evaluate('({loads:window.chatRequests.filter(r=>r.action==="load").length,warms:window.warmRequests.length})'),beforeNew,'Response recovery reloaded resident engines');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
-  const report={passed:true,phoneTest:false,qatBackendSelectors:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+  const report={passed:true,phoneTest:false,qatBackendSelectors:true,llamaMemoryPresetForwardedAndPersisted:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,

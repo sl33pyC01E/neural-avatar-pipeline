@@ -118,12 +118,13 @@ public final class ModelChatService extends Service {
         Object context=request.opt("contextTokens");
         if(!Set.of(4096,8192,16384,32768,65536,131072).contains(contextTokens)||(context!=null&&(!(context instanceof Number)||((Number)context).doubleValue()!=contextTokens)))throw new IOException("Unsupported context size");
         if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu","llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
-        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true));
+        String llamaMemory=request.optString("llamaMemory","mapped");if(!Set.of("mapped","fast").contains(llamaMemory))throw new IOException("Unsupported memory preset");
+        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true)).put("llamaMemory",llamaMemory);
         long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
         if(backend.startsWith("llama-")){
             llama=new LlamaRuntime(this);ModelDiagnostics.stage(this,"llama.cpp initialization",selection);
             llama.load(selection,phase->emit(json("phase",phase)));checkCancelled();
-            loaded=true;loadMs=elapsed(start);emit(json("phase","Gemma QAT ready · "+llama.backendEvidence));return;
+            loaded=true;loadMs=elapsed(start);ModelDiagnostics.stage(this,"llama.cpp ready",selection);emit(json("phase","Gemma QAT ready · "+llama.backendEvidence));return;
         }
         emit(json("phase","Loading Gemma with vision and audio..."));
         File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");

@@ -4,7 +4,12 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.5 · Models, QAT acceleration and disk prefixes
+## Latest checkpoint: 0.8.6 · Accelerator startup and memory presets
+
+v23 fixes an app-side check that rejected GPU/NPU workers after they reached
+server-ready. Models also offers a default memory-focused llama.cpp preset and a
+throughput preset. Logs now preserve each model/backend's startup evidence.
+See [the diagnosis and verification limits](ACCELERATOR_MEMORY.md).
 
 Settings → **Prompt tree** lists every application instruction/template and tool
 description with its trigger. Save edits or restore defaults without reinstalling.
