@@ -1,0 +1,26 @@
+{
+  "checks": 52,
+  "viewport": {
+    "windowY": 170,
+    "windowX": 25,
+    "width": 400,
+    "scrollY": 1500,
+    "scrollX": 0,
+    "height": 800,
+    "revision": 7
+  },
+  "oldAmbiguousBoxRejected": true,
+  "modelInference": false,
+  "gemmaYxyx": true,
+  "phoneTest": false,
+  "passed": true,
+  "asymmetricTarget": {
+    "tapY": 65,
+    "tapX": 330,
+    "top": 40,
+    "left": 300,
+    "bottom": 90,
+    "right": 360
+  },
+  "viewportChangesRejected": true
+}

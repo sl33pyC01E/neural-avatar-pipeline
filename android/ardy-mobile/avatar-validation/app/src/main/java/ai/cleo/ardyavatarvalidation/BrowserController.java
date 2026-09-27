@@ -61,17 +61,17 @@ final class BrowserController {
         switch(action){
             case "start":
                 if(!visible)throw new IOException("Open tab 8 first");ensure();goal=request.getString("goal").trim();if((goal.isEmpty()&&!request.has("audioFile"))||goal.length()>4000)throw new IOException("Enter a goal up to 4,000 characters");
-                cancelPending();clearAudio();addAudio(request);if(goal.isEmpty())goal="Follow the user spoken goal attached to this message.";journal.clear();steps=0;waiting=false;approval=null;running=true;emit("Starting browser task…");schedule(350);break;
+                cancelPending();clearAudio();addAudio(request);if(goal.isEmpty())goal=PromptStorage.load(activity).text("browser.audio_goal");journal.clear();steps=0;waiting=false;approval=null;running=true;emit("Starting browser task…");schedule(350);break;
             case "pause":pause("Paused");break;
             case "stop":cancelPending();running=false;waiting=false;approval=null;goal="";journal.clear();clearAudio();if(overlay!=null)overlay.clear();emit("Stopped");break;
             case "resume":if(goal.isEmpty())throw new IOException("Enter a goal first");if(inflight)throw new IOException("Waiting for the previous response to stop");approval=null;running=true;waiting=false;emit("Resuming…");schedule(250);break;
             case "followup":
                 if(!waiting||approval!=null)return;String answer=request.optString("text","");if(answer.length()>4000)throw new IOException("Follow-up is too long");
-                addAudio(request);note("User follow-up: "+(request.has("audioFile")?"See latest attached user audio. "+answer:answer.isEmpty()?"I completed the requested input in the browser.":answer));waiting=false;running=true;schedule(250);break;
+                addAudio(request);note("User follow-up: "+(request.has("audioFile")?PromptStorage.load(activity).render("browser.followup_audio",Map.of("message",answer)):answer.isEmpty()?PromptStorage.load(activity).text("browser.followup_done"):answer));waiting=false;running=true;schedule(250);break;
             case "approve":
                 if(approval==null)return;JSONObject pending=approval;approval=null;waiting=false;running=true;
-                if(!sameViewport()){note("Page changed during confirmation; inspect again.");schedule(250);}else perform(pending);break;
-            case "reject":approval=null;waiting=false;running=true;note("User declined the proposed action. Choose another approach or ask.");overlay.clear();schedule(250);break;
+                if(!sameViewport()){note(PromptStorage.load(activity).text("browser.approval_changed"));schedule(250);}else perform(pending);break;
+            case "reject":approval=null;waiting=false;running=true;note(PromptStorage.load(activity).text("browser.declined"));overlay.clear();schedule(250);break;
             case "back":pause("Manual navigation");if(web.canGoBack())web.goBack();break;
             case "home":pause("Manual navigation");web.loadUrl("https://www.google.com/");break;
             case "inspect":pause("Paused for target inspection");inspect();break;
@@ -119,7 +119,7 @@ final class BrowserController {
                 File debug=debugRoot();java.nio.file.Files.copy(screenshot.toPath(),new File(debug,"viewport.png").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 lastInspection=new JSONObject().put("requestId",requestId).put("imageSha256",hash(screenshot)).put("capture","PixelCopy window viewport").put("coordinates","box_2d = [top,left,bottom,right], normalized 0–1000").put("viewport",expected.json()).put("state","Waiting for Gemma");saveInspection();
                 models.request(new JSONObject().put("action","agentStep").put("requestId",requestId).put("file",screenshot.getName()).put("audioFiles",new JSONArray(audioFiles))
-                    .put("text",BrowserPrompt.build(goal,String.join("\n",journal),web.getUrl(),expected)).toString());emit("Inspecting viewport…");
+                    .put("goal",goal).put("journal",String.join("\n",journal)).put("url",web.getUrl()).put("width",expected.width()).put("height",expected.height()).toString());emit("Inspecting viewport…");
             }catch(Exception failure){inflight=false;deleteScreenshot();pause(failure.getMessage());}
             finally{bitmap.recycle();}
         },main);}catch(Exception failure){bitmap.recycle();capturing=false;pause(failure.getMessage());}
@@ -127,12 +127,13 @@ final class BrowserController {
     void modelEvent(JSONObject event){
         if(event.optBoolean("unloaded")||event.optBoolean("disconnected")){cancelPending();pause("Model stopped. Load it in tab 7 to continue.");return;}
         if(!event.optString("requestId").equals(requestId)||!event.optString("channel").equals("browser"))return;
+        if(event.has("browserDiagnostic")&&lastInspection!=null)try{JSONObject data=event.getJSONObject("browserDiagnostic");for(Iterator<String> i=data.keys();i.hasNext();){String key=i.next();lastInspection.put(key,data.get(key));}saveInspection();}catch(JSONException ignored){}
         if(event.has("error")){inflight=false;inspectionState(event.optString("error"));deleteScreenshot();pause(event.optString("error"));return;}
         if(event.has("result")){
             inflight=false;deleteScreenshot();if(!running||!visible)return;
             try{
                 String raw=event.getJSONObject("result").getString("text");if(lastInspection!=null){lastInspection.put("response",raw).put("reasoning",event.getJSONObject("result").optString("reasoning")).put("selection",event.getJSONObject("result").optJSONObject("selection"));saveInspection();}
-                if(!sameViewport()){inspectionState("Discarded: viewport changed during generation");note("Page changed while inspecting; no action executed.");schedule(300);return;}
+                if(!sameViewport()){inspectionState("Discarded: viewport changed during generation");note(PromptStorage.load(activity).text("browser.changed"));schedule(300);return;}
                 JSONObject action=BrowserAction.parse(raw);String kind=action.getString("action");
                 if(lastInspection!=null)lastInspection.put("action",action);
                 if(kind.equals("click")){

@@ -28,7 +28,7 @@ public final class MainActivity extends Activity implements ResidentService.List
     private WebView view;
     private volatile ResidentService engines;
     private volatile String selectedTab="launch";
-    private boolean resumed,bound;
+    private boolean resumed,bound,settingsOpen;
     private ModelChatClient chat;
     private ChatInputs chatInputs;
     private BrowserController browser;
@@ -109,6 +109,15 @@ public final class MainActivity extends Activity implements ResidentService.List
             .put("backgroundRestricted",getSystemService(android.app.ActivityManager.class).isBackgroundRestricted()));}catch(Exception ignored){}
     }
     public final class Bridge {
+        @JavascriptInterface public void settingsVisible(boolean open){runOnUiThread(()->{settingsOpen=open;if(browser!=null)browser.show(!open&&resumed&&selectedTab.equals("browser"));});}
+        @JavascriptInterface public String promptTree(String raw){
+            try{if(raw.length()>80000)throw new IOException("Prompt request is too large");JSONObject request=new JSONObject(raw);String action=request.getString("action");
+                PromptTree prompts;
+                if(action.equals("load"))prompts=PromptStorage.load(MainActivity.this);
+                else {prompts=PromptStorage.save(MainActivity.this,request);if(selectedTab.equals("browser")&&browser!=null)browser.command("{\"action\":\"pause\"}");}
+                return new JSONObject().put("ok",true).put("tree",prompts.document()).toString();
+            }catch(Exception error){try{return new JSONObject().put("ok",false).put("error",error.getMessage()).toString();}catch(Exception impossible){return "{\"ok\":false,\"error\":\"Prompt operation failed\"}";}}
+        }
         @JavascriptInterface public void state(){if(engines!=null)engines.state();runOnUiThread(()->residencyState());}
         @JavascriptInterface public void mainFrame(String frame){if(engines!=null)engines.mainFrame(frame);}
         @JavascriptInterface public void residency(boolean enabled){getSharedPreferences("runtime",MODE_PRIVATE).edit().putBoolean("resident",enabled).apply();if(chat!=null)chat.request("{\"action\":\"resident\"}");runOnUiThread(()->residencyState());}
@@ -122,7 +131,7 @@ public final class MainActivity extends Activity implements ResidentService.List
                 else if("app".equals(which))startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
             }catch(android.content.ActivityNotFoundException unavailable){startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));}
         });}
-        @JavascriptInterface public void tab(String tab){if(!selectedTab.equals(tab)&&chatInputs!=null)runOnUiThread(()->chatInputs.stopRecording());selectedTab=tab;if(engines!=null)engines.tab(tab);if(browser!=null)browser.show("browser".equals(tab)&&resumed);}
+        @JavascriptInterface public void tab(String tab){if(!selectedTab.equals(tab)&&chatInputs!=null)runOnUiThread(()->chatInputs.stopRecording());selectedTab=tab;if(engines!=null)engines.tab(tab);if(browser!=null)browser.show("browser".equals(tab)&&resumed&&!settingsOpen);}
         @JavascriptInterface public void chat(String request){if(chat!=null)chat.request(request);}
         @JavascriptInterface public void browserBounds(String bounds){if(browser!=null)browser.bounds(bounds);}
         @JavascriptInterface public void browserCommand(String request){if(browser!=null)browser.command(request);}
@@ -196,6 +205,6 @@ public final class MainActivity extends Activity implements ResidentService.List
         else try{recordWanted=false;event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("recording",false).put("inputError",granted?"Microphone ready — hold to talk.":"Microphone permission was declined"));}catch(Exception ignored){}
     }
     @Override protected void onPause() { resumed=false;if(browser!=null)browser.show(false);if(chatInputs!=null)chatInputs.stopRecording();if(chat!=null)chat.request("{\"action\":\"background\"}");if(engines!=null)engines.visible(false);view.evaluateJavascript("window.cleoVisible?.(false)",null);view.onPause();super.onPause(); }
-    @Override protected void onResume() { super.onResume();resumed=true;residencyState();if(browser!=null&&"browser".equals(selectedTab))browser.show(true);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
+    @Override protected void onResume() { super.onResume();resumed=true;residencyState();if(browser!=null&&"browser".equals(selectedTab))browser.show(!settingsOpen);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
     @Override protected void onDestroy() { if(browser!=null)browser.close();if(chatInputs!=null)chatInputs.close();if(chat!=null)chat.close();if(engines!=null)engines.detach(this);if(bound)unbindService(connection);view.removeJavascriptInterface("Cleo");view.destroy();view=null;super.onDestroy(); }
 }

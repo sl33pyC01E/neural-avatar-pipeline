@@ -16,6 +16,7 @@
         <service android:name=".ModelChatService" android:process=":models" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-selected offline VLM chat, with resident models and explicit Unload control." />
         </service>
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <uses-native-library android:name="libvndksupport.so" android:required="false" />
         <service android:name=".BenchmarkService" android:process=":benchmark" android:exported="true"

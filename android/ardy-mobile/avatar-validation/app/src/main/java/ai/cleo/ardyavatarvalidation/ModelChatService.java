@@ -21,7 +21,10 @@ public final class ModelChatService extends Service {
     private long operationCancellation;
     private volatile Messenger client;
     private Engine engine;
-    private volatile Conversation conversation,avatarConversation,mainConversation,activeConversation;
+    private volatile LlamaRuntime llama;
+    private PromptTree prompts=PromptTree.defaultsOnly();
+    private String chatPromptKey="";
+    private volatile ModelSession conversation,avatarConversation,mainConversation,activeConversation;
     private MainAvatarToolApi mainTools;
     private String mainToolKey="";
     private volatile JSONArray mainHistory=new JSONArray();
@@ -45,10 +48,10 @@ public final class ModelChatService extends Service {
         try{JSONObject request=new JSONObject(message.getData().getString("json","{}"));
             String action=request.optString("action");resident=request.optBoolean("resident",resident);avatarPid=request.optInt("avatarPid",avatarPid);
             if(action.equals("status")){state();return true;}
-            if(action.equals("cancel")){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();return true;}
+            if(action.equals("cancel")){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();if(llama!=null)llama.cancel();return true;}
             if(action.equals("resident")){state();return true;}
             if(action.equals("unload")){unload();return true;}
-            if(action.equals("background")){if(busy.get()){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();}if(!resident)unload();return true;}
+            if(action.equals("background")){if(busy.get()){cancellation.incrementAndGet();if(activeConversation!=null)activeConversation.cancelProcess();if(llama!=null)llama.cancel();}if(!resident)unload();return true;}
             if(stopping||!busy.compareAndSet(false,true)){emit(json("error","A model operation is already running"));return true;}
             worker.execute(()->execute(request));
         }catch(Exception failure){emit(json("error",failure.toString()));}
@@ -72,8 +75,11 @@ public final class ModelChatService extends Service {
         state();
         monitor.scheduleWithFixedDelay(()->{JSONObject value=memory();long pss=value.optLong("pssKb",0);peak.accumulateAndGet(pss,Math::max);try{value.put("peakPssKb",peak.get());}catch(JSONException ignored){}emit(json("memory",value));},0,1000,TimeUnit.MILLISECONDS);
         try{
+            prompts=PromptStorage.load(this);
             switch(request.getString("action")){
                 case "load":load(request);break;
+                case "cachePrepare":cachePrepare(request);break;
+                case "cacheClear":if(llama==null)throw new IOException("Disk KV caching requires llama.cpp");llama.clearCache();break;
                 case "newChat":
                     if(conversation!=null){conversation.close();conversation=null;}
                     turns=0;history=new JSONArray();lastMetrics=new JSONObject();break;
@@ -111,9 +117,14 @@ public final class ModelChatService extends Service {
         String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280),contextTokens=request.optInt("contextTokens",4096);
         Object context=request.opt("contextTokens");
         if(!Set.of(4096,8192,16384,32768,65536,131072).contains(contextTokens)||(context!=null&&(!(context instanceof Number)||((Number)context).doubleValue()!=contextTokens)))throw new IOException("Unsupported context size");
-        if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
-        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens);
+        if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu","llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
+        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true));
         long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
+        if(backend.startsWith("llama-")){
+            llama=new LlamaRuntime(this);ModelDiagnostics.stage(this,"llama.cpp initialization",selection);
+            llama.load(selection,phase->emit(json("phase",phase)));checkCancelled();
+            loaded=true;loadMs=elapsed(start);emit(json("phase","Gemma QAT ready · "+llama.backendEvidence));return;
+        }
         emit(json("phase","Loading Gemma with vision and audio..."));
         File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");
         if(!file.isFile())throw new IOException("Missing full Gemma audio/vision model");
@@ -123,28 +134,37 @@ public final class ModelChatService extends Service {
         engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready · "+contextTokens+"-token context"));
         ModelDiagnostics.stage(this,"engine ready",selection);
     }
-    private Conversation createConversation(AvatarToolApi api)throws Exception {
-        List<ToolProvider> tools=new ArrayList<>();Contents instruction=null;
+    private ModelSession createConversation(AvatarToolApi api)throws Exception {
+        return createConversation(api,false);
+    }
+    private ModelSession createConversation(AvatarToolApi api,boolean browser)throws Exception {
+        List<ToolProvider> tools=new ArrayList<>();JSONObject llamaTool=null;String system=prompts.text(browser?"browser.system":"chat.system");
         if(api!=null){
-            instruction=Contents.Companion.of(api.instructions());
-            final String schema=api.description().toString();
+            system=api instanceof MainAvatarToolApi?prompts.text("main.system"):prompts.render("avatar.system",Map.of("motions",api.motionCatalog()));
+            llamaTool=prompts.describe(api.description(),api instanceof MainAvatarToolApi?"main.tools":"avatar.tools");
+            final String schema=llamaTool.toString();
             tools.add(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return schema;}public String execute(String arguments){throw new IllegalStateException("Avatar tools require explicit validation");}}));
         }
+        if(llama!=null)return new ModelSession(llama.session(system,llamaTool,selection.getInt("reasoning"),api==null?512:768));
+        Contents instruction=system.isBlank()?null:Contents.Companion.of(system);
         int reasoning=selection.getInt("reasoning");
         ConversationConfig config=new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
-            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),false);
-        return GemmaToolDecoding.create(api!=null,()->engine.createConversation(config));
+            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),browser);
+        return new ModelSession(GemmaToolDecoding.create(api!=null||browser,()->engine.createConversation(config)));
     }
     private com.google.ai.edge.litertlm.Message input(String prompt,String kind,byte[] media){
         List<Content> parts=new ArrayList<>();if("image".equals(kind))parts.add(new Content.ImageBytes(media));if("audio".equals(kind))parts.add(new Content.AudioBytes(media));parts.add(new Content.Text(prompt));
         return new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
     }
-    private List<ToolCall> stream(Conversation active,com.google.ai.edge.litertlm.Message input,GemmaStream text,long started,AtomicLong first)throws Exception {
+    private List<ToolCall> stream(ModelSession active,com.google.ai.edge.litertlm.Message input,GemmaStream text,long started,AtomicLong first)throws Exception {
+        return stream(active,input,text,started,first,null,null);
+    }
+    private List<ToolCall> stream(ModelSession active,com.google.ai.edge.litertlm.Message input,GemmaStream text,long started,AtomicLong first,ResponseFormat format,ThinkingConfig thinking)throws Exception {
         checkCancelled();activeConversation=active;
         AtomicReference<Throwable> error=new AtomicReference<>();CountDownLatch done=new CountDownLatch(1);
         List<ToolCall> calls=new ArrayList<>();Set<String> seen=new HashSet<>();
         try{
-            active.sendMessageAsync(input,new MessageCallback(){
+            MessageCallback callback=new MessageCallback(){
                 public void onMessage(com.google.ai.edge.litertlm.Message message){
                     StringBuilder chunk=new StringBuilder();for(Content part:message.getContents().getContents())if(part instanceof Content.Text)chunk.append(((Content.Text)part).getText());
                     if(chunk.length()>0)first.compareAndSet(-1,SystemClock.elapsedRealtimeNanos());
@@ -153,14 +173,19 @@ public final class ModelChatService extends Service {
                     try{JSONObject update=text.event();if(active==mainConversation&&mainTools!=null)update.put("avatarPlan",mainTools.plan());emit(update);}catch(JSONException failure){error.set(failure);}
                 }
                 public void onDone(){done.countDown();}public void onError(Throwable failure){error.set(failure);done.countDown();}
-            });
+            };
+            active.send(input,callback,thinking,format);
             if(!done.await(180,TimeUnit.SECONDS)){active.cancelProcess();throw new IOException("Gemma timed out; start a new conversation");}
             if(error.get()!=null)throw new IOException("Gemma response failed",error.get());checkCancelled();return calls;
         }finally{activeConversation=null;}
     }
     private JSONObject result(GemmaStream text,long started,AtomicLong first)throws Exception {
-        return new JSONObject().put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("totalMs",elapsed(started)).put("modelMs",elapsed(started))
-            .put("firstTokenMs",first.get()<0?-1:(first.get()-started)/1e6).put("prefixCache","Persistent Gemma conversation; reused token count unavailable");
+        JSONObject value=new JSONObject().put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("totalMs",elapsed(started)).put("modelMs",elapsed(started))
+            .put("firstTokenMs",first.get()<0?-1:(first.get()-started)/1e6).put("prefixCache","LiteRT RAM conversation; reused token count unavailable");
+        if(llama!=null){
+            JSONObject timing=llama.lastTiming;for(Iterator<String> i=timing.keys();i.hasNext();){String key=i.next();value.put(key,timing.get(key));}
+            JSONObject t=timing.optJSONObject("timings");value.put("prefixCache",t!=null&&t.has("cache_n")?t.optInt("cache_n")+" cached tokens":"llama.cpp prefix reuse enabled; count unavailable").put("diskCache",llama.cacheState).put("backendEvidence",llama.backendEvidence);
+        }return value;
     }
     private void send(JSONObject request)throws Exception {
         if(!loaded)throw new IOException("Load Gemma first");
@@ -168,7 +193,9 @@ public final class ModelChatService extends Service {
         if(prompt.length()>12000||!Set.of("","image","audio").contains(kind))throw new IOException("Invalid message");
         byte[] media=null;if(!kind.isEmpty()){File file=inputFile(request.getString("file"));if(file.length()>20*1024*1024)throw new IOException("Attachment too large");media=Files.readAllBytes(file.toPath());}
         if(prompt.isEmpty()&&kind.isEmpty())throw new IOException("Enter a message or attach media");
-        if(prompt.isEmpty())prompt=kind.equals("image")?"Describe this image.":"Respond to the speech in this audio.";
+        if(prompt.isEmpty())prompt=prompts.text(kind.equals("image")?"input.image.chat":"input.audio");
+        String promptKey=prompts.fingerprint("chat.system");
+        if(!promptKey.equals(chatPromptKey)){if(conversation!=null){conversation.close();conversation=null;}turns=0;history=new JSONArray();chatPromptKey=promptKey;}
         if(conversation==null)conversation=createConversation(null);
         long started=SystemClock.elapsedRealtimeNanos();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);
         stream(conversation,input(prompt,kind,media),text,started,first);JSONObject result=result(text,started,first);
@@ -181,8 +208,8 @@ public final class ModelChatService extends Service {
         String prompt=request.optString("text","").trim(),kind=request.optString("kind","");
         if(prompt.length()>4000||!Set.of("","audio","image").contains(kind)||(prompt.isEmpty()&&kind.isEmpty()))throw new IOException("Enter a message or attach audio/image");
         byte[] media=kind.isEmpty()?null:readMedia(request.getString("file"));
-        if(prompt.isEmpty())prompt=kind.equals("audio")?"Respond to the speech in this audio.":"Respond to this image.";
-        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString();
+        if(prompt.isEmpty())prompt=prompts.text(kind.equals("audio")?"input.audio":"input.image.avatar");
+        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString()+prompts.fingerprint("avatar.system","avatar.tools.");
         if(avatarConversation==null||!key.equals(avatarToolKey)){
             closeAvatarConversation();avatarTools=new AvatarToolApi(catalog,expressions);avatarToolKey=key;avatarConversation=createConversation(avatarTools);
         }
@@ -195,7 +222,7 @@ public final class ModelChatService extends Service {
             List<Content> responses=new ArrayList<>();
             for(ToolCall call:calls){
                 checkCancelled();JSONObject args=new JSONObject(call.getArguments()),out;
-                try{out=avatarTools.execute(call.getName(),args);}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
+                try{out=avatarTools.execute(call.getName(),args).put("status",prompts.text("avatar.tool_success"));}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
                 JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
                 responses.add(new Content.ToolResponse(call.getName(),out.toString()));
             }
@@ -209,7 +236,7 @@ public final class ModelChatService extends Service {
     }
     private void prepareMain(JSONObject request)throws Exception {
         if(!loaded)throw new IOException("Load Gemma first");
-        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString();
+        JSONArray catalog=request.getJSONArray("motions"),expressions=request.getJSONArray("expressions");String key=catalog.toString()+expressions.toString()+prompts.fingerprint("main.system","main.tools.");
         if(mainConversation==null||!key.equals(mainToolKey)){
             closeMainConversation();mainTools=new MainAvatarToolApi(catalog,expressions);mainToolKey=key;
             long start=SystemClock.elapsedRealtimeNanos();emit(json("phase","Preparing Cleopatra's situation and avatar controls…"));
@@ -234,11 +261,11 @@ public final class ModelChatService extends Service {
         String prompt=request.optString("text","").trim(),kind=request.optString("kind","");
         if(prompt.length()>4000||!Set.of("","audio","image").contains(kind)||(prompt.isEmpty()&&kind.isEmpty()))throw new IOException("Enter a message or attach audio/image");
         byte[] media=kind.isEmpty()?null:readMedia(request.getString("file"));
-        if(prompt.isEmpty())prompt=kind.equals("audio")?"Respond to the speech in this audio.":"Respond to this image.";
+        if(prompt.isEmpty())prompt=prompts.text(kind.equals("audio")?"input.audio":"input.image.avatar");
         prepareMain(request);
         mainTools.frame(request.getString("frame"));
         mainTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
-        com.google.ai.edge.litertlm.Message next=input("APP SCENE: frame="+request.getString("frame")+"; "+scene(request)+"\nUSER MESSAGE:\n"+prompt,kind,media);JSONArray actions=new JSONArray();
+        com.google.ai.edge.litertlm.Message next=input(prompts.render("main.turn",Map.of("frame",request.getString("frame"),"scene",scene(request),"message",prompt)),kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(mainConversation,next,text,started,first);
             if(calls.isEmpty())break;
@@ -246,7 +273,7 @@ public final class ModelChatService extends Service {
             List<Content> responses=new ArrayList<>();
             for(ToolCall call:calls){
                 checkCancelled();JSONObject args=new JSONObject(call.getArguments()),out;
-                try{if(!text.answer.toString().isBlank())throw new IOException("Controls must precede spoken text. Finish your answer with the current pose.");out=mainTools.execute(call.getName(),args);}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
+                try{if(!text.answer.toString().isBlank())throw new IOException(prompts.text("main.tool_late"));out=mainTools.execute(call.getName(),args).put("status",prompts.text("main.tool_success"));}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
                 JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
                 responses.add(new Content.ToolResponse(call.getName(),out.toString()));
             }
@@ -259,15 +286,46 @@ public final class ModelChatService extends Service {
         lastMetrics=result;emit(json("result",result));
     }
     private void agentStep(JSONObject request)throws Exception {
-        if(!loaded)throw new IOException("Load Gemma in tab 7 first");String prompt=request.getString("text");if(prompt.length()>24000)throw new IOException("Browser context too large");
+        if(!loaded)throw new IOException("Load Gemma in tab 7 first");
+        String prompt=BrowserPrompt.turn(prompts,request.getString("goal"),request.getString("journal"),request.optString("url"),request.getInt("width"),request.getInt("height"));
+        if(prompt.length()+prompts.text("browser.system").length()>24000)throw new IOException("Browser context too large; shorten the browser prompts");
         File file=inputFile(request.getString("file"));if(file.length()>20*1024*1024)throw new IOException("Screenshot too large");
         long started=SystemClock.elapsedRealtimeNanos();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);
         List<Content> parts=new ArrayList<>();parts.add(new Content.ImageBytes(Files.readAllBytes(file.toPath())));
-        JSONArray audio=request.optJSONArray("audioFiles");if(audio!=null){if(audio.length()>4)throw new IOException("Too many audio instructions");for(int i=0;i<audio.length();i++){parts.add(new Content.Text("User spoken instruction "+(i+1)+" (chronological order):"));parts.add(new Content.AudioBytes(readMedia(audio.getString(i))));}}
+        JSONArray audio=request.optJSONArray("audioFiles");if(audio!=null){if(audio.length()>4)throw new IOException("Too many audio instructions");for(int i=0;i<audio.length();i++){parts.add(new Content.Text(prompts.render("browser.audio_label",Map.of("index",String.valueOf(i+1)))));parts.add(new Content.AudioBytes(readMedia(audio.getString(i))));}}
         parts.add(new Content.Text(prompt));
         com.google.ai.edge.litertlm.Message message=new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
-        try(Conversation active=createConversation(null)){stream(active,message,text,started,first);}
-        lastMetrics=result(text,started,first).put("selection",new JSONObject(selection.toString()));emit(json("result",lastMetrics));
+        JSONArray attempts=new JSONArray();JSONObject diagnostic=new JSONObject().put("promptRevision",prompts.revision()).put("systemPrompt",prompts.text("browser.system")).put("turnPrompt",prompt).put("selection",new JSONObject(selection.toString())).put("attempts",attempts);
+        emit(json("browserDiagnostic",diagnostic));
+        boolean reasoning=selection.getInt("reasoning")>0;ResponseFormat format=ResponseFormat.json(BrowserAction.schema().toString());
+        try(ModelSession active=createConversation(null,true)){
+            stream(active,message,text,started,first,reasoning?null:format,reasoning?null:new ThinkingConfig(false,0));
+            String failure=recordBrowserAttempt(diagnostic,attempts,text,reasoning?"reasoning + validation":"JSON schema");
+            if(failure!=null){
+                checkCancelled();emit(json("phase","Correcting the browser action format…"));
+                String repair=prompts.render("browser.repair",Map.of("error",failure));diagnostic.put("repairPrompt",repair);
+                String thought=text.reasoning.toString();text=new GemmaStream();text.reasoning.append(thought);
+                // A bounded second turn retains the image. Disable thinking only for
+                // this format correction: upstream #3463 reports conflicts with JSON constraints.
+                stream(active,input(repair,"",null),text,started,first,format,new ThinkingConfig(false,0));
+                failure=recordBrowserAttempt(diagnostic,attempts,text,"JSON schema correction");
+                if(failure!=null)throw new IOException("Browser action rejected after one correction: "+failure+". Inspect target or edit Settings → Prompt tree.");
+            }
+        }
+        lastMetrics=result(text,started,first).put("selection",new JSONObject(selection.toString())).put("promptRevision",prompts.revision()).put("attempts",attempts)
+            .put("prefixCache",llama==null?"Fresh screenshot conversation; RAM reused only within a format correction":result(text,started,first).getString("prefixCache"));emit(json("result",lastMetrics));
+    }
+    private String recordBrowserAttempt(JSONObject diagnostic,JSONArray attempts,GemmaStream text,String mode)throws Exception {
+        String failure=null;try{BrowserAction.parse(text.answer.toString());}catch(Exception invalid){failure=invalid.getMessage();}
+        JSONObject attempt=new JSONObject().put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("mode",mode);
+        if(failure!=null)attempt.put("error",failure);attempts.put(attempt);diagnostic.put("response",text.answer.toString()).put("reasoning",text.reasoning.toString());emit(json("browserDiagnostic",diagnostic));return failure;
+    }
+    private void cachePrepare(JSONObject request)throws Exception {
+        if(!loaded||llama==null)throw new IOException("Load a llama.cpp QAT backend for disk KV caching");
+        String scope=request.optString("scope","chat");if(!Set.of("chat","browser").contains(scope))throw new IOException("Invalid prefix scope");
+        String system=prompts.text(scope+".system");JSONArray base=new JSONArray();if(!system.isBlank())base.put(new JSONObject().put("role","system").put("content",system));
+        emit(json("phase","Preparing "+scope+" prefix…"));llama.preparePrefix(base,null,selection.getInt("reasoning"),request.optBoolean("rebuild",false));
+        emit(json("phase",llama.cacheState.optString("operation")));
     }
     private void checkCancelled()throws InterruptedIOException{if(stopping||cancellation.get()!=operationCancellation)throw new InterruptedIOException("Response cancelled; conversation reset");}
     private static double elapsed(long started){return (SystemClock.elapsedRealtimeNanos()-started)/1e6;}
@@ -277,7 +335,7 @@ public final class ModelChatService extends Service {
     }
     private JSONObject memory(){
         JSONObject result=new JSONObject();JSONArray rows=new JSONArray();long pss=0,rss=0;double cpu=0;boolean complete=true,cpuComplete=true;
-        List<Integer> pids=List.of(android.os.Process.myPid());
+        List<Integer> pids=new ArrayList<>(List.of(android.os.Process.myPid()));LlamaRuntime runtime=llama;if(runtime!=null&&runtime.pid()>0)pids.add(runtime.pid());
         try{
             for(int pid:pids){JSONObject row=processMemory(pid);rows.put(row);if(!row.has("pssKb"))complete=false;if(!row.has("cpuTotalMs"))cpuComplete=false;pss+=row.optLong("pssKb");rss+=row.optLong("rssKb");cpu+=row.optDouble("cpuTotalMs",0);}
             result.put("modelPssKb",pss);if(cpuComplete)result.put("modelCpuTotalMs",cpu);
@@ -295,15 +353,15 @@ public final class ModelChatService extends Service {
         try{String stat=new String(Files.readAllBytes(new File("/proc/"+pid+"/stat").toPath()),StandardCharsets.UTF_8);String[] fields=stat.substring(stat.lastIndexOf(')')+2).split(" ");long ticks=Long.parseLong(fields[11])+Long.parseLong(fields[12]);row.put("cpuTotalMs",ticks*1000.0/android.system.Os.sysconf(android.system.OsConstants._SC_CLK_TCK));}catch(Exception ignored){}
         return row;
     }
-    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident));}catch(JSONException ignored){}}
+    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident).put("diskCache",llama==null?new JSONObject().put("supported",false).put("operation","LiteRT 0.17.1 retains KV in RAM only"):llama.cacheState));}catch(JSONException ignored){}}
     private void emit(JSONObject value){try{value.put("type","chat").put("modelPid",android.os.Process.myPid()).put("requestId",requestId).put("channel",channel);Messenger target=client;if(target!=null){android.os.Message message=android.os.Message.obtain(null,EVENT);Bundle bundle=new Bundle();bundle.putString("json",value.toString());message.setData(bundle);target.send(message);}}catch(Exception ignored){}}
     private static JSONObject json(String key,Object value){try{return new JSONObject().put(key,value);}catch(JSONException impossible){throw new IllegalArgumentException(impossible);}}
     private void closeAvatarConversation(){if(avatarConversation!=null){avatarConversation.close();avatarConversation=null;}avatarTools=null;avatarToolKey="";avatarHistory=new JSONArray();avatarTurns=0;}
     private void closeMainConversation(){mainPrepared=false;if(mainConversation!=null){mainConversation.close();mainConversation=null;}mainTools=null;mainToolKey="";mainHistory=new JSONArray();mainTurns=0;prefillMs=0;prefillTokens=-1;}
-    private void closeModels(){loaded=false;closeMainConversation();closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}if(engine!=null){try{if(engine.isInitialized())engine.close();}finally{engine=null;}}}
+    private void closeModels(){loaded=false;if(llama!=null){llama.close();llama=null;}closeMainConversation();closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}if(engine!=null){try{if(engine.isInitialized())engine.close();}finally{engine=null;}}}
     private void unload(){
         if(stopping)return;stopping=true;loaded=false;
-        Conversation active=activeConversation;if(active!=null)active.cancelProcess();
+        ModelSession active=activeConversation;if(active!=null)active.cancelProcess();if(llama!=null)llama.close();
         emit(json("unloaded",true));stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
         worker.execute(()->{try{closeModels();}finally{android.os.Process.killProcess(android.os.Process.myPid());}});
         new Handler(Looper.getMainLooper()).postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),3000);

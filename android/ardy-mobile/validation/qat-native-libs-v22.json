@@ -1,0 +1,264 @@
+{
+  "passed": true,
+  "nativeExecution": false,
+  "runtime": {
+    "version": "b11200",
+    "commit": "81bc6b83f827df746eb129235488d325c49cae52",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11200/llama-b11200-bin-android-arm64-snapdragon.tar.gz",
+    "bytes": 56854882,
+    "sha256": "ae31d1db24febb1ede09ccf034b6d52211577836397dea88baab91c41db00357"
+  },
+  "dependencyClosure": {
+    "libcleo_llama_runner.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libcleo_llama_server.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libllama-server-impl.so",
+        "libllama-common.so",
+        "libmtmd.so",
+        "libllama.so",
+        "libggml.so",
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libggml-base.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libggml-cpu.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libggml-hexagon.so": {
+      "machine": "AArch64",
+      "needed": [
+        "liblog.so",
+        "libdl.so",
+        "libggml-base.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "liblog.so",
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ]
+    },
+    "libggml-htp-v73.so": {
+      "machine": "Qualcomm Hexagon",
+      "needed": [
+        "libc.so",
+        "libgcc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libc.so",
+        "libgcc.so"
+      ]
+    },
+    "libggml-htp-v75.so": {
+      "machine": "Qualcomm Hexagon",
+      "needed": [
+        "libc.so",
+        "libgcc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libc.so",
+        "libgcc.so"
+      ]
+    },
+    "libggml-htp-v79.so": {
+      "machine": "Qualcomm Hexagon",
+      "needed": [
+        "libc.so",
+        "libgcc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libc.so",
+        "libgcc.so"
+      ]
+    },
+    "libggml-htp-v81.so": {
+      "machine": "Qualcomm Hexagon",
+      "needed": [
+        "libc.so",
+        "libgcc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libc.so",
+        "libgcc.so"
+      ]
+    },
+    "libggml-opencl.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libggml-base.so",
+        "libOpenCL.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libOpenCL.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libggml-rpc.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libggml.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libllama-common.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libllama.so",
+        "libggml.so",
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libllama-server-impl.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libllama-common.so",
+        "libmtmd.so",
+        "libllama.so",
+        "libggml.so",
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libllama.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libggml.so",
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    "libmtmd.so": {
+      "machine": "AArch64",
+      "needed": [
+        "libllama.so",
+        "libggml.so",
+        "libggml-cpu.so",
+        "libggml-rpc.so",
+        "libggml-opencl.so",
+        "libggml-hexagon.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "externalPlatformLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    }
+  },
+  "limitation": "Vendor OpenCL/FastRPC and DSP system libraries must be available on the actual device."
+}

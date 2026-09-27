@@ -2,10 +2,12 @@
 import { createModelChat } from './model-chat.mjs';
 import { createBrowserUI } from './browser-ui.mjs';
 import { createAvatarAgent } from './avatar-agent.mjs';
+import { createPromptTree } from './prompt-tree.mjs';
 let currentTab='launch',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
 const panels={launch:'#launch-panel',main:'#main-panel',welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel',cleopatra:'#cleopatra-panel'};
 const modelChat=createModelChat(),browserUI=createBrowserUI();
+const promptTree=createPromptTree();
 new ResizeObserver(()=>document.documentElement.style.setProperty('--content-top',`${document.querySelector('header').getBoundingClientRect().bottom+12}px`)).observe(document.querySelector('header'));
 const usesAvatar=tab=>['face','talk','avatar','full','cleopatra','main'].includes(tab);
 const pocketStatus=$('#pocket-status'),speak=$('#speak'),faceStatus=$('#face-status'),animateFace=$('#animate-face');
@@ -67,10 +69,12 @@ for(const id of ['send-on-enter','stream-speech']){
 }
 $('#main-text').enterKeyHint=$('#send-on-enter').checked?'send':'enter';
 $('#main-text').onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&$('#send-on-enter').checked){event.preventDefault();if(!$('#main-send').disabled)$('#main-form').requestSubmit();}};
-function closeSettings(){modelParent.prepend(modelSettings);menu.close();avatar?.fitViewport();}
-$('#app-settings').onclick=()=>{$('#settings-model-slot').append(modelSettings);modelSettings.open=true;menu.showModal();window.Cleo?.residencyStatus?.();};
+function closeSettings(){modelParent.prepend(modelSettings);menu.close();window.Cleo?.settingsVisible?.(false);avatar?.fitViewport();}
+$('#app-settings').onclick=()=>{window.Cleo?.settingsVisible?.(true);$('#settings-model-slot').append(modelSettings);modelSettings.open=true;menu.showModal();window.Cleo?.residencyStatus?.();};
 $('#settings-apply').onclick=()=>{closeSettings();launchMain().catch(fail);};
 $('#settings-close').onclick=closeSettings;menu.addEventListener('cancel',event=>{event.preventDefault();closeSettings();});
+$('#open-prompts').onclick=()=>{closeSettings();promptTree.open();};
+$('#chat-prompts').onclick=()=>promptTree.open();
 $('#open-debug').onclick=()=>{closeSettings();selectTab('welcome').catch(fail);};
 for(const button of document.querySelectorAll('[data-settings-tab]'))button.onclick=()=>{closeSettings();selectTab(button.dataset.settingsTab).catch(fail);};
 $('#app-home').onclick=()=>selectTab('launch').catch(fail);

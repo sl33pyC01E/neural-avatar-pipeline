@@ -91,7 +91,15 @@ if __name__ == '__main__':
         assert 'lib/arm64-v8a/libardy_llm2vec.so' in archive.namelist(), 'Ardy embedding runtime lost'
         litert=archive.read('lib/arm64-v8a/liblitertlm_jni.so')
         assert b'GemmaModelConstraintProvider' in litert and b'Constrained decoding was disabled at build time.' not in litert, 'Gemma tool grammar provider unavailable in packaged ARM64 runtime'
-        packaged_workers={'Gemma':'LiteRT-LM 0.17.1','ArdyEmbeddings':'libardy_llm2vec.so'}
+        runtime=json.loads((web.parents[1]/'payloads/gemma-qat/runtime-manifest.json').read_text())
+        required_runtime={item['file'] for item in runtime['files']}
+        for name in required_runtime:
+            assert 'lib/arm64-v8a/'+name in archive.namelist(), 'Missing QAT dependency '+name
+        for item in runtime['files']:
+            if item['file'].startswith(('libcleo_','libggml-htp-')):
+                assert hashlib.sha256(archive.read('lib/arm64-v8a/'+item['file'])).hexdigest()==item['sha256'], 'Worker/DSP payload changed '+item['file']
+        assert json.loads(archive.read('assets/gemma-qat.json'))==json.loads((web.parents[1]/'benchmark/gemma-qat.json').read_text()), 'Stale QAT manifest'
+        packaged_workers={'Gemma':'LiteRT-LM 0.17.1 + llama.cpp b11200 CPU/OpenCL/Hexagon experimental','ArdyEmbeddings':'libardy_llm2vec.so'}
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,

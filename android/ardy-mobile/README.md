@@ -4,7 +4,24 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.4 · Browser targeting
+## Latest checkpoint: 0.8.5 · Models, QAT acceleration and disk prefixes
+
+Settings → **Prompt tree** lists every application instruction/template and tool
+description with its trigger. Save edits or restore defaults without reinstalling.
+Edits persist on disk; affected conversations refresh on the next request while
+model weights stay resident. Browser output now uses a JSON schema with reasoning
+off and one bounded format correction if needed. The saved failure was shorthand
+(`click: [coordinates], explanation`) rather than JSON. See
+[prompt editing and browser handling](PROMPT_TREE.md).
+
+Tab **7 · Models** now also offers official Google E2B/E4B IT QAT Q4_0
+through pinned llama.cpp b11200: CPU, OpenCL GPU, and experimental Hexagon NPU.
+Its prompt panel opens the editable tree and builds/restores/clears actual KV
+files. Main, Browser and tab 9 share this runtime choice. LiteRT remains available
+and retains KV in RAM only. See [the implementation, controls and test limits](MODELS_QAT_CACHE.md)
+and [the runtime findings](PROMPT_CACHE_RESEARCH.md).
+
+### Retained browser targeting
 
 Browser clicks now use Gemma's documented `box_2d` order: top, left, bottom,
 right on independently normalized 0–1000 axes. One conversion drives the
@@ -67,7 +84,7 @@ LLM2Vec remains an on-demand embedding-cache operation, outside the live reply s
 
 ### Retained model settings
 
-Gemma 4 E2B/E4B use LiteRT CPU/GPU with the full audio/vision bundle. Qwen,
+Gemma 4 E2B/E4B offer LiteRT CPU/GPU or llama.cpp QAT CPU/OpenCL/experimental Hexagon, with vision/audio projectors. Qwen,
 Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
 active provisioning/benchmark commands. Ardy's independent GGUF LLM2Vec encoder
 and cached embedding bank remain available in tab 5.
@@ -139,7 +156,7 @@ expanded the debug sequence to these nine tabs:
 4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
 5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
 6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
-7. **Models:** Gemma E2B/E4B chat, image/audio input, CPU/GPU and reasoning settings, streamed text and metrics.
+7. **Models:** Gemma E2B/E4B, LiteRT or QAT llama.cpp CPU/OpenCL/experimental NPU, image/audio, reasoning, prompt tree, disk KV controls, streamed text and metrics.
 8. **Browser:** embedded Google browser, screenshot/action loop, text/audio goals and follow-up input, and pause/stop controls.
 9. **Cleopatra:** Gemma replies through live Ardy, Pocket/Anna, LAM and the VRM; explicit Load all and bounded avatar tools.
 

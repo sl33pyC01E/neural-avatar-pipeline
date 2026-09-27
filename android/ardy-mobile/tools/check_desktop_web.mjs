@@ -9,6 +9,7 @@ const assets=path.resolve(assetsArg),output=path.resolve(outputArg);
 await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(output,'browser-'));
 const motion=JSON.parse(await fs.readFile(motionFile,'utf8'));
+const promptDefaults=JSON.parse(await fs.readFile(new URL('../avatar-validation/app/build/prompt-tree-check/defaults.json',import.meta.url),'utf8'));
 const server=http.createServer(async(req,res)=>{
   try{
     const name=decodeURIComponent(new URL(req.url,'http://localhost').pathname).slice(1)||'index.html';
@@ -43,6 +44,13 @@ try {
     window.bridgeRequests=0;window.testClock=0;window.chatRequests=[];window.browserRequests=[];window.loadOrder=[];window.warmRequests=[];let modelLoaded=false,modelSelection={},chatHistory=[],mainPrepared=false;
     const emit=value=>setTimeout(()=>window.cleoEvent?.(value),10);
     window.Cleo={
+      settingsVisible(value){window.settingsOverlay=value;},
+      promptTree(raw){const r=JSON.parse(raw);window.promptRequests=(window.promptRequests||[]).concat(r);let tree=JSON.parse(localStorage.getItem('test-prompt-tree')||${JSON.stringify(JSON.stringify(promptDefaults))});
+        if(r.action!=='load'){
+          if(window.rejectPromptSave)return JSON.stringify({ok:false,error:'Simulated storage failure'});
+          if(r.revision!==tree.revision)return JSON.stringify({ok:false,error:'Prompts changed; reload before saving'});
+          const node=tree.nodes.find(n=>n.id===r.id);node.text=r.action==='reset'?node.defaultText:r.text;node.modified=node.text!==node.defaultText;tree.revision='test-saved-'+(window.promptRequests.length);localStorage.setItem('test-prompt-tree',JSON.stringify(tree));
+        }return JSON.stringify({ok:true,tree});},
       chat(raw){const r=JSON.parse(raw);window.chatRequests.push(r);
         if(r.action==='load'&&window.holdLoad){window.heldLoad=raw;return;}
         if(r.action==='load'||r.action==='mainPrepare')window.loadOrder.push(r.action);
@@ -82,6 +90,26 @@ try {
   assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full','chat','browser','cleopatra']);
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   const welcomeImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'welcome-tab.png'),Buffer.from(welcomeImage.data,'base64'));
+  await evaluate('document.querySelector("#app-settings").click();document.querySelector("#open-prompts").click()');
+  assert(await evaluate('document.querySelector("#prompt-dialog").open&&window.settingsOverlay'),'Prompt editor did not hide native browser overlay');
+  assert.equal(await evaluate('document.querySelectorAll("#prompt-tree button").length'),promptDefaults.nodes.length);
+  assert(await evaluate('document.querySelector("#prompt-trigger").textContent.includes("screenshot")'),'Prompt trigger missing');
+  await evaluate('document.querySelector("#prompt-text").value+="\\nReply carefully.";document.querySelector("#prompt-text").dispatchEvent(new Event("input"));document.querySelector("#prompt-close").click()');
+  assert(await evaluate('document.querySelector("#prompt-dialog").open'),'Closing discarded unsaved edit');
+  await evaluate('window.rejectPromptSave=true;document.querySelector("#prompt-save").click()');
+  assert(await evaluate('document.querySelector("#prompt-status").textContent.includes("storage failure")&&!document.querySelector("#prompt-save").disabled'),'Storage failure lost draft');
+  await evaluate('window.rejectPromptSave=false;document.querySelector("#prompt-save").click();document.querySelector("#prompt-close").click()');
+  assert(await evaluate('!window.settingsOverlay'),'Closing editor did not restore native browser overlay');
+  await call('Page.reload');for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
+  await evaluate('document.querySelector("#app-settings").click();document.querySelector("#open-prompts").click()');
+  assert(await evaluate('document.querySelector("#prompt-text").value.endsWith("Reply carefully.")'),'Saved prompt lost after reload');
+  const promptImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'prompt-tree.png'),Buffer.from(promptImage.data,'base64'));
+  await evaluate('document.querySelector("#prompt-search").value="main.tools";document.querySelector("#prompt-search").dispatchEvent(new Event("input"))');
+  assert(await evaluate('[...document.querySelectorAll("#prompt-tree button")].filter(b=>!b.hidden).every(b=>b.dataset.id.startsWith("main.tools"))'),'Prompt search incorrect');
+  await evaluate('document.querySelector("#prompt-search").value="";document.querySelector("#prompt-search").dispatchEvent(new Event("input"));document.querySelector("#prompt-reset").click()');
+  assert(await evaluate('!document.querySelector("#prompt-text").value.includes("Reply carefully.")'),'Prompt reset failed');
+  await evaluate('document.querySelector("#prompt-close").click()');
+  assert(await evaluate('!window.chatRequests.some(r=>r.action==="load")&&!window.warmRequest'),'Prompt editor loaded model weights');
   await evaluate('document.querySelector("#app-settings").click();document.querySelector("#open-debug").click()');
   assert.equal(await evaluate('window.debugTabs.current()'),'welcome');
   await evaluate('document.querySelector("[data-open=pocket]").click()');await sleep(100);
@@ -283,11 +311,11 @@ try {
   assert(await evaluate('!document.querySelector("#chat-reasoning").checked'),'Reasoning must default off');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096,diskCache:true});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
-  assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'Retained · count unavailable');
+  assert.equal(await evaluate('document.querySelector("[data-model-metric=cache]").textContent'),'Retained');
   await evaluate('window.cleoEvent({type:"chat",attachment:{file:"test.png",kind:"image",label:"Test image"}});document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="send").at(-1).kind'),'image');
   assert.deepEqual(await evaluate('[...document.querySelector("#chat-context").options].map(o=>Number(o.value))'),[4096,8192,16384,32768,65536,131072]);
@@ -312,6 +340,24 @@ try {
   const chatBounds=await evaluate('(()=>{const p=document.querySelector("#chat-panel").getBoundingClientRect(),m=document.querySelector("#chat-panel .resource-strip").getBoundingClientRect();return {panelBottom:p.bottom,metricsBottom:m.bottom,logHeight:document.querySelector("#chat-log").clientHeight}})()');
   assert(chatBounds.metricsBottom<=915&&chatBounds.logHeight>=40,'Chat controls overflow viewport: '+JSON.stringify(chatBounds));
   const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));
+  assert.deepEqual(await evaluate('[...document.querySelector("#chat-backend").options].map(o=>o.value)'),['litert-gpu','litert-cpu','llama-opencl','llama-cpu','llama-hexagon']);
+  assert(await evaluate('document.querySelector("#chat-cache-prepare").disabled'),'LiteRT exposes unsupported KV operation');
+  for(const backend of ['llama-cpu','llama-opencl','llama-hexagon']){
+    await evaluate(`document.querySelector('#chat-backend').value=${JSON.stringify(backend)};document.querySelector('#chat-backend').dispatchEvent(new Event('change'));document.querySelector('#chat-load').click()`);await sleep(60);
+    assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).backend'),backend);
+    assert(await evaluate('!document.querySelector("#chat-cache-prepare").disabled'),'llama cache controls disabled');
+  }
+  await evaluate('document.querySelector("#chat-cache-panel").open=true;document.querySelector("#chat-cache-scope").value="browser";document.querySelector("#chat-cache-prepare").click()');await sleep(60);
+  assert(await evaluate('window.chatRequests.some(r=>r.action==="cachePrepare"&&r.scope==="browser"&&!r.rebuild)'));
+  await evaluate('document.querySelector("#chat-cache-rebuild").click()');await sleep(60);
+  assert(await evaluate('window.chatRequests.some(r=>r.action==="cachePrepare"&&r.rebuild)'));
+  await evaluate('document.querySelector("#chat-cache-clear").click()');await sleep(60);
+  assert(await evaluate('window.chatRequests.some(r=>r.action==="cacheClear")'));
+  await evaluate('window.cleoEvent({type:"chat",diskCache:{supported:true,files:2,bytes:1048576,restoredTokens:420,restoreMs:25,operation:"Restored disk prefix"}})');
+  assert(await evaluate('document.querySelector("#chat-cache-status").textContent.includes("420 tokens restored")'),'Disk metrics lost');
+  assert(await evaluate('document.querySelector("#chat-panel .resource-strip").getBoundingClientRect().bottom<=document.querySelector("#chat-panel").getBoundingClientRect().bottom'),'Expanded cache controls push resource metrics offscreen');
+  const qatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-qat-cache-tab.png'),Buffer.from(qatImage.data,'base64'));
+  await evaluate('document.querySelector("#chat-cache-panel").open=false;document.querySelector("#chat-backend").value="litert-gpu";document.querySelector("#chat-backend").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(60);
   await evaluate('window.debugTabs.select("browser")');await sleep(100);
   const browserBounds=await evaluate('window.browserBounds');assert(browserBounds.height>.15&&browserBounds.y+browserBounds.height<=1,'Embedded browser bounds invalid');
   await evaluate('window.cleoEvent({type:"chat",channel:"browser",requestId:"geometry-check",partial:"Inspecting a visible target. ".repeat(60),reasoning:"Checking its position. ".repeat(40)});window.cleoEvent({type:"browser",status:"A very long action description ".repeat(30),running:true,waiting:false});document.querySelector("#browser-stream .reasoning").open=true');await sleep(120);
@@ -390,7 +436,7 @@ try {
   assert.equal(await evaluate('window.avatarValidation.framing()'),'face');
   assert.equal(await evaluate('window.avatarValidation.cameraControls.snapshot().radius'),.62);
   assert.equal(await evaluate('window.avatarValidation.cameraControls.direction().elevation'),0,'Face camera is elevated');
-  const eyeLevel=await evaluate(`(()=>{const {vrm,camera}=window.avatarValidation;const p=camera.position.clone();return {eye:vrm.humanoid.getRawBoneNode('leftEye').getWorldPosition(p).y,camera:camera.position.y};})()`);
+  const eyeLevel=await evaluate(`(()=>{const a=window.avatarValidation,{vrm,camera}=a;a.idle.restore();a.faceControls.restorePresence();vrm.humanoid.update();vrm.scene.updateMatrixWorld(true);const p=camera.position.clone();return {eye:(vrm.humanoid.getRawBoneNode('leftEye').getWorldPosition(p).y+vrm.humanoid.getRawBoneNode('rightEye').getWorldPosition(p).y)/2,camera:camera.position.y};})()`);
   assert(Math.abs(eyeLevel.eye-eyeLevel.camera)<.015,'Camera did not start at eye level: '+JSON.stringify(eyeLevel));
   assert(await evaluate('window.chatRequests.some(r=>r.action==="mainPrepare")'),'Main did not request system/tool prefill');
   assert(await evaluate('!document.querySelector("#main-send").disabled'),'Main not ready after prefill');
@@ -525,7 +571,7 @@ try {
   assert(!/invalid avatar control/.test(await evaluate('document.querySelector("#main-status").textContent')),'Old response error remained after New chat');
   assert.deepEqual(await evaluate('({loads:window.chatRequests.filter(r=>r.action==="load").length,warms:window.warmRequests.length})'),beforeNew,'Response recovery reloaded resident engines');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
-  const report={passed:true,phoneTest:false,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+  const report={passed:true,phoneTest:false,qatBackendSelectors:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,

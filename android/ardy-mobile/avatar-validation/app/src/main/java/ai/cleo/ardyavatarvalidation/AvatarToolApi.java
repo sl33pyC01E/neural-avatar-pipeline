@@ -64,6 +64,7 @@ class AvatarToolApi {
         motions.forEach((key,value)->out.append(key).append(" = ").append(value.optString("label")).append("; "));
         return out.toString();
     }
+    String motionCatalog(){StringBuilder out=new StringBuilder();motions.forEach((key,value)->out.append(key).append(" = ").append(value.optString("label")).append("; "));return out.toString();}
     JSONObject execute(String name,JSONObject args)throws Exception {
         if(++calls>3)throw new IOException("Avatar tool-call limit reached");
         if(!NAME.equals(name))throw new IOException("Unknown avatar tool");
