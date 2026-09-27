@@ -2,7 +2,7 @@ import {streamMessage} from './stream-message.mjs';
 const $=selector=>document.querySelector(selector);
 export function createModelChat(){
   let loaded=false,busy=false,recording=false,attachment=null,selection=null,pending=null,lastError='',metrics={},historyKey='';
-  const ids=['chat-model','chat-backend','chat-reasoning','reasoning-budget','image-budget','chat-context','chat-disk-cache','chat-llama-memory'];
+  const ids=['chat-model','chat-backend','chat-reasoning','reasoning-budget','image-budget','chat-context','chat-disk-cache','chat-llama-memory','chat-llama-encoder'];
   try{const saved=JSON.parse(localStorage.getItem('cleo-model-settings')||'{}');
     if(saved['chat-backend']==='cpu')saved['chat-backend']='litert-cpu';
     if(saved['chat-backend']==='opencl')saved['chat-backend']='litert-gpu';
@@ -10,7 +10,7 @@ export function createModelChat(){
   }catch{}
   // One-time migration from the previous default-on release; later user choices persist.
   try{if(!localStorage.getItem('cleo-reasoning-off-default-v1')){$('#chat-reasoning').checked=false;save();localStorage.setItem('cleo-reasoning-off-default-v1','1');}}catch{}
-  function settings(){return {model:$('#chat-model').value,contextTokens:Number($('#chat-context').value),visualTokens:Number($('#image-budget').value),backend:$('#chat-backend').value,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0,diskCache:$('#chat-disk-cache').checked,llamaMemory:$('#chat-llama-memory').value};}
+  function settings(){return {model:$('#chat-model').value,contextTokens:Number($('#chat-context').value),visualTokens:Number($('#image-budget').value),backend:$('#chat-backend').value,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0,diskCache:$('#chat-disk-cache').checked,llamaMemory:$('#chat-llama-memory').value,llamaEncoder:$('#chat-llama-encoder').value};}
   function dirty(){const value=settings();return !selection||Object.keys(value).some(k=>value[k]!==selection[k]);}
   function request(value){if(!window.Cleo?.chat){$('#chat-status').textContent='Models run in the Android app.';return null;}const requestId=value.requestId||crypto.randomUUID();window.Cleo.chat(JSON.stringify({...value,requestId}));return requestId;}
   function save(){try{localStorage.setItem('cleo-model-settings',JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(`#${id}`).type==='checkbox'?$(`#${id}`).checked:$(`#${id}`).value]))));}catch{}}
@@ -20,9 +20,10 @@ export function createModelChat(){
     $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload Gemma':'Load / apply Gemma';
     $('#chat-send').disabled=!loaded||busy||recording||dirty();$('#chat-new').disabled=busy||!loaded;$('#chat-unload').disabled=!loaded&&!busy;
     $('#chat-record').textContent=recording?'Finish recording':'Record';
-    const qat=settings().backend.startsWith('llama-');$('#chat-disk-cache').disabled=busy||recording||!qat;$('#chat-llama-memory').disabled=busy||recording||!qat;$('#llama-memory-note').hidden=!qat;
+    const qat=settings().backend.startsWith('llama-');$('#chat-disk-cache').disabled=busy||recording||!qat;$('#chat-llama-memory').disabled=busy||recording||!qat;$('#llama-memory-note').hidden=!qat;$('#chat-llama-encoder').disabled=busy||recording||!qat;$('#llama-encoder-note').hidden=!qat;
     const budget=settings().visualTokens,side=48*Math.floor(Math.sqrt(budget));$('#image-token-note').textContent=`Context: ${settings().contextTokens.toLocaleString()} tokens shared by prompt, media, tools and response. Visual budget: ${budget} tokens/image; ${qat?'llama.cpp applies the projector’s image budget; actual dimensions/tokens depend on the image and are reported by the runtime.':`a square image resizes to ${side} × ${side} (${(side/48)**2} actual visual tokens). Other aspect ratios vary.`} Larger contexts use more RAM; the largest sizes may not fit alongside the avatar models. Load/apply reallocates the context and starts fresh conversations.`;
-    $('#runtime-note').textContent=qat?`Official Google QAT Q4_0 · ${settings().model==='gemma-e4b'?'5.15 GB weights + 0.99 GB vision/audio':'3.35 GB weights + 0.99 GB vision/audio'} · llama.cpp b11200. ${settings().backend==='llama-hexagon'?'Hexagon NPU is experimental; encoder runs on CPU. Device support must be tested.':settings().backend==='llama-opencl'?'OpenCL requests GPU offload for weights and encoder; CPU remains available for unsupported operations.':'CPU runs the model and vision/audio encoder.'}`:'LiteRT-LM 0.17.1 · E2B 2.59 GB / E4B 3.66 GB. GPU or CPU; vision and audio included. Persistent disk KV is unavailable in this runtime.';
+    const encoder=settings().llamaEncoder==='gpu'||(settings().llamaEncoder==='auto'&&settings().backend==='llama-opencl')?'OpenCL GPU':'CPU';
+    $('#runtime-note').textContent=qat?`Official Google QAT Q4_0 · ${settings().model==='gemma-e4b'?'5.15 GB weights + 0.99 GB vision/audio':'3.35 GB weights + 0.99 GB vision/audio'} · llama.cpp b11200. ${settings().backend==='llama-hexagon'?'Language model: experimental Hexagon NPU.':settings().backend==='llama-opencl'?'Language model: OpenCL GPU.':'Language model: CPU.'} Vision/audio encoder: ${encoder}. Unsupported operations may use CPU.`:'LiteRT-LM 0.17.1 · E2B 2.59 GB / E4B 3.66 GB. GPU or CPU; vision and audio included. Persistent disk KV is unavailable in this runtime.';
     for(const id of ['chat-cache-prepare','chat-cache-rebuild','chat-cache-clear','chat-cache-scope'])$(`#${id}`).disabled=!loaded||!selection?.backend?.startsWith('llama-')||busy||recording||dirty();
     for(const id of ['chat-image','chat-audio'])$(`#${id}`).disabled=busy||recording;
     $('#chat-record').disabled=busy;$('#chat-attachment').textContent=attachment?attachment.label:'';$('#chat-clear-attachment').hidden=!attachment;

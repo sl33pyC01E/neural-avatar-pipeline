@@ -40,7 +40,7 @@ final class LlamaRuntime implements AutoCloseable {
         File model=model(manifest,"gemma-4-"+variant+"_q4_0-it.gguf"),projector=model(manifest,"gemma-4-"+variant+"-it-mmproj.gguf");
         identity=new JSONObject().put("runtime",manifest.getJSONObject("runtime").getString("commit")).put("settings",settings).put("models",manifest.getJSONArray("models"));
         String backend=settings.getString("backend"),dir=context.getApplicationInfo().nativeLibraryDir;
-        List<String> options=LlamaLaunch.options(backend,settings.optString("llamaMemory","mapped"));identity.put("launchOptions",new JSONArray(options));
+        List<String> options=LlamaLaunch.options(backend,settings.optString("llamaMemory","mapped"),settings.optString("llamaEncoder","auto"));identity.put("launchOptions",new JSONArray(options));
         log=new File(context.getCacheDir(),"cleo-"+variant.toLowerCase(Locale.ROOT)+"-"+backend+".log");capture=new LlamaLog(log);
         try(ServerSocket socket=new ServerSocket(0,0,InetAddress.getByName("127.0.0.1"))){port=socket.getLocalPort();}
         List<String> cmd=new ArrayList<>(List.of(dir+"/libcleo_llama_runner.so",pidFile.getPath(),dir+"/libcleo_llama_server.so",
@@ -62,7 +62,7 @@ final class LlamaRuntime implements AutoCloseable {
                 // /health=200 is the readiness contract. Native INFO is TRACE (4)
                 // in b11200, so a missing log phrase must never kill a healthy worker.
                 String output="";try{output=capture.text(1024*1024);}catch(IOException ignored){}
-                startupEvidence=LlamaLaunch.evidence(backend,output);
+                startupEvidence=LlamaLaunch.evidence(backend,settings.optString("llamaEncoder","auto"),output);
                 backendEvidence=startupEvidence.getString("summary");
                 try{Files.write(new File(context.getCacheDir(),"cleo-"+variant.toLowerCase(Locale.ROOT)+"-"+backend+"-startup.json").toPath(),
                     new JSONObject().put("selection",settings).put("evidence",startupEvidence).put("log",log.getName()).toString().getBytes(StandardCharsets.UTF_8));}

@@ -1,0 +1,16 @@
+{
+  "versionCode": 24,
+  "versionName": "0.8.7-split-encoder",
+  "compileDebugJavaWithJavac": true,
+  "assembleDebug": true,
+  "lintDebug": true,
+  "lintErrors": 0,
+  "lintWarnings": 11,
+  "apkSignatureV2Verified": true,
+  "phoneInferenceRun": false,
+  "phoneAppLaunched": false,
+  "nativeRuntimeRebuilt": false,
+  "newWeightsRequired": false,
+  "placement": "llama.cpp language --device HTP0; combined vision/audio --mmproj-device GPUOpenCL",
+  "phonePerformanceVerified": false
+}

@@ -8,11 +8,18 @@ import org.json.*;
 /** Launch policy and observations, independent of Android/inference for regression tests. */
 final class LlamaLaunch {
     static List<String> options(String backend,String memory)throws IOException {
-        if(!Set.of("llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of("mapped","fast").contains(memory))throw new IOException("Unsupported llama.cpp launch settings");
+        return options(backend,memory,"auto");
+    }
+    static String encoderDevice(String backend,String encoder) {
+        return encoder.equals("gpu")||(encoder.equals("auto")&&backend.equals("llama-opencl"))?"GPUOpenCL":"CPU";
+    }
+    static List<String> options(String backend,String memory,String encoder)throws IOException {
+        if(!Set.of("llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of("mapped","fast").contains(memory)||!Set.of("auto","cpu","gpu").contains(encoder))throw new IOException("Unsupported llama.cpp launch settings");
         boolean lean=memory.equals("mapped"),gpu=backend.equals("llama-opencl"),npu=backend.equals("llama-hexagon");
+        boolean gpuEncoder=encoderDevice(backend,encoder).equals("GPUOpenCL");
         List<String> args=new ArrayList<>(List.of("-t","2","-tb","2","-b",lean?"128":"256","-ub",lean?"64":"128",
             "-ngl",(gpu||npu)?"999":"0","--device",gpu?"GPUOpenCL":npu?"HTP0":"none",
-            gpu?"--mmproj-offload":"--no-mmproj-offload","--no-warmup","--parallel","1",
+            gpuEncoder?"--mmproj-offload":"--no-mmproj-offload","--mmproj-device",gpuEncoder?"GPUOpenCL":"none","--no-warmup","--parallel","1",
             "--cache-ram","0","--ctx-checkpoints","2","--lazy-mode","on","--fit","off",
             "--poll","0","--poll-batch","0","--jinja","--no-webui","--no-context-shift","--log-verbosity","4"));
         // GPU/NPU own their weight layout. CPU can avoid the anonymous repacked copy
@@ -20,6 +27,9 @@ final class LlamaLaunch {
         if(lean&&backend.equals("llama-cpu"))args.add("--no-repack");return args;
     }
     static JSONObject evidence(String backend,String output)throws JSONException {
+        return evidence(backend,"auto",output);
+    }
+    static JSONObject evidence(String backend,String encoder,String output)throws JSONException {
         String device=backend.equals("llama-opencl")?"GPUOpenCL":backend.equals("llama-hexagon")?"HTP0":"CPU";
         JSONObject result=new JSONObject().put("requestedDevice",device);int offloaded=-1,total=-1;
         Matcher layers=Pattern.compile("offloaded\\s+(\\d+)/(\\d+)\\s+layers").matcher(output);
@@ -28,6 +38,11 @@ final class LlamaLaunch {
         boolean confirmed=!backend.equals("llama-cpu")&&offloaded>0;
         result.put("offloadConfirmed",confirmed);
         String detail=backend.equals("llama-cpu")?"CPU":offloaded>=0?device+" · "+offloaded+"/"+total+" layers offloaded":device+" requested · offload count unavailable";
+        Set<String> encoders=new LinkedHashSet<>();Matcher observed=Pattern.compile("CLIP using ([^\\r\\n]+?) backend").matcher(output);
+        while(observed.find())encoders.add(observed.group(1));
+        String requestedEncoder=encoderDevice(backend,encoder);
+        result.put("requestedEncoderDevice",requestedEncoder).put("encoderBackends",new JSONArray(encoders));
+        detail+=" · vision/audio encoder: "+(encoders.isEmpty()?requestedEncoder+" requested · backend unconfirmed":String.join(", ",encoders));
         if(output.contains("Flash Attention not supported, set to disabled"))detail+=" · Flash Attention disabled by runtime";
         JSONArray buffers=new JSONArray();
         for(String line:output.split("\\R"))if(line.contains("buffer size")||line.contains("KV self size")||line.contains("lazy read enabled"))buffers.put(line.trim());

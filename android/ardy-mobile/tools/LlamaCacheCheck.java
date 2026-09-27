@@ -51,6 +51,12 @@ public final class LlamaCacheCheck {
             try(LlamaRuntime changedLaunch=new LlamaRuntime(root,settings,new JSONObject(identity.toString()).put("launchOptions",new JSONArray(LlamaLaunch.options("llama-cpu","mapped"))),server.getAddress().getPort())){
                 JSONObject other=changedLaunch.preparePrefix(base,null,0,false);check(!firstKey.equals(other.getString("key"))&&evaluations==6,"Changed runtime launch policy cannot restore the previous KV identity");
             }
+            String encoderKey="";
+            for(String encoder:List.of("cpu","gpu"))try(LlamaRuntime split=new LlamaRuntime(root,settings,new JSONObject(identity.toString()).put("launchOptions",new JSONArray(LlamaLaunch.options("llama-hexagon","mapped",encoder))),server.getAddress().getPort())){
+                JSONObject other=split.preparePrefix(base,null,0,false);String key=other.getString("key");
+                check(!key.equals(encoderKey)&&!key.equals(firstKey),"Encoder placement participates in exact KV identity");encoderKey=key;
+            }
+            check(evaluations==8&&restores==1,"Changing encoder placement rebuilds rather than restores incompatible state");
             File unrelated=new File(root,"model.gguf");Files.writeString(unrelated.toPath(),"untouched");
             check(first.clearCache().getInt("files")==0&&Files.readString(unrelated.toPath()).equals("untouched"),"Clear deletes only owned prefixes");
         }finally{server.stop(0);try(var paths=Files.walk(root.toPath())){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}

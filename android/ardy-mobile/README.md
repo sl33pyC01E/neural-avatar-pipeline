@@ -4,7 +4,12 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.6 · Accelerator startup and memory presets
+## Latest checkpoint: 0.8.7 · Separate encoder and language devices
+
+Models now selects the llama.cpp vision/audio encoder independently of the
+language runtime. Choose **NPU** language + **GPU · OpenCL** encoder for split
+placement. The packaged runtime supports this configuration; phone execution and
+memory benefits remain unverified. See [controls and limits](SPLIT_ENCODER.md).
 
 v23 fixes an app-side check that rejected GPU/NPU workers after they reached
 server-ready. Models also offers a default memory-focused llama.cpp preset and a

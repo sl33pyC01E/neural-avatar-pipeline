@@ -119,7 +119,8 @@ public final class ModelChatService extends Service {
         if(!Set.of(4096,8192,16384,32768,65536,131072).contains(contextTokens)||(context!=null&&(!(context instanceof Number)||((Number)context).doubleValue()!=contextTokens)))throw new IOException("Unsupported context size");
         if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu","llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
         String llamaMemory=request.optString("llamaMemory","mapped");if(!Set.of("mapped","fast").contains(llamaMemory))throw new IOException("Unsupported memory preset");
-        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true)).put("llamaMemory",llamaMemory);
+        String llamaEncoder=request.optString("llamaEncoder","auto");if(!Set.of("auto","cpu","gpu").contains(llamaEncoder))throw new IOException("Unsupported encoder device");
+        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true)).put("llamaMemory",llamaMemory).put("llamaEncoder",llamaEncoder);
         long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
         if(backend.startsWith("llama-")){
             llama=new LlamaRuntime(this);ModelDiagnostics.stage(this,"llama.cpp initialization",selection);

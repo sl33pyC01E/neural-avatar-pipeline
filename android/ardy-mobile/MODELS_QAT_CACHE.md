@@ -1,13 +1,18 @@
-# Cleopatra v23: Gemma QAT and persistent prefixes
+# Cleopatra v24: Gemma QAT and persistent prefixes
 
 Tab 7 **Models** selects Gemma 4 E2B IT or E4B IT and one runtime:
 
 | Runtime | Language model | Vision/audio | Disk KV |
 |---|---|---|---|
 | LiteRT GPU / CPU | Existing `.litertlm` bundle | Existing full bundle | No; RAM only |
-| llama.cpp CPU | Official Google QAT Q4_0 GGUF | Official combined projector, CPU | Build / restore / clear |
-| llama.cpp OpenCL | Adreno GPU offload requested | GPU offload requested; unsupported operations may use CPU | Build / restore / clear |
-| llama.cpp Hexagon | Experimental NPU offload requested | CPU encoder | Build / restore / clear |
+| llama.cpp CPU | Official Google QAT Q4_0 GGUF | CPU default; OpenCL selectable | Build / restore / clear |
+| llama.cpp OpenCL | Adreno GPU offload requested | OpenCL default; CPU selectable | Build / restore / clear |
+| llama.cpp Hexagon | Experimental NPU offload requested | CPU default; OpenCL selectable | Build / restore / clear |
+
+v24 adds a separate **vision + audio encoder** selector for llama.cpp. It uses
+`--mmproj-device` independently of the language `--device`, enabling GPU encoder
++ NPU decoder. Both encoders share this setting in the pinned runtime. See
+[split placement, inherited settings and test limits](SPLIT_ENCODER.md).
 
 The default remains LiteRT GPU. Readiness follows the native `/health` endpoint.
 Backend evidence displays the requested device and the actual offloaded-layer
@@ -94,7 +99,7 @@ llama.cpp's progressive prefix matching; this preserves correctness when changin
 between modules sharing the one native slot.
 
 Cache identity includes the pinned runtime, official artifact hashes, installed
-file identity, backend/context/image/reasoning/memory settings, effective native
+file identity, backend/encoder/context/image/reasoning/memory settings, effective native
 launch options, and exact rendered
 system/tool prefix. Saved state is checksummed; data and metadata are atomically
 renamed. A corrupt or incompatible file is rejected and rebuilt. Retention is
@@ -114,7 +119,7 @@ loading or guarantee a speedup on every backend.
 - Android build and lint pass; APK payload hashes, extracted worker/DSP hashes,
   retained Pocket/LAM/Ardy assets and signature were checked.
 - Production streaming/tool protocol: 18 host checks. Production disk-cache
-  lifecycle: 44 assertions against an authenticated fake HTTP peer, including
+  lifecycle: 57 assertions against an authenticated fake HTTP peer, including
   process-restart restore without prefill, corruption, edits, model separation,
   rebuild and scoped deletion. This does not execute native inference.
 - Actual downloaded chat templates: 20 host rendering checks cover common-prefix
@@ -124,8 +129,10 @@ loading or guarantee a speedup on every backend.
   selection, cache controls/metrics, prompt editing, layouts and existing avatar
   flows pass.
 
-Baseline reports are under `validation/*v22*`; v23 reruns the production protocol,
-cache, launch/log-capture and desktop UI checks under `validation/*v23*`. GPU/NPU operator support, native streaming,
+Baseline reports are under `validation/*v22*`; v23/v24 rerun the production protocol,
+cache, launch/log-capture and desktop UI checks under their respective version names.
+v24 covers independent encoder placement, saved settings, later-tab inheritance,
+encoder log evidence and cache invalidation. GPU/NPU operator support, native streaming,
 tool/grammar quality, disk restore equivalence, speed, thermals and full-stack RAM
 still require the user's phone test. No phone UI test, generation, benchmark or
 audio playback was run by the agent.

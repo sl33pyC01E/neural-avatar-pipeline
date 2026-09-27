@@ -29,17 +29,26 @@ public final class LlamaLaunchCheck {
         JSONObject partial=LlamaLaunch.evidence("llama-hexagon","offloaded 20/43 layers to GPU\n");
         check(partial.getString("summary").contains("HTP0")&&partial.getString("summary").contains("20/43"),"Partial offload must retain actual count and requested device");
         check(!LlamaLaunch.evidence("llama-cpu","offloaded 0/43 layers to GPU").getBoolean("offloadConfirmed"),"CPU never labelled accelerated");
-        for(String backend:List.of("llama-cpu","llama-opencl","llama-hexagon"))for(String memory:List.of("mapped","fast")){
-            List<String> args=LlamaLaunch.options(backend,memory);boolean cpu=backend.equals("llama-cpu"),mapped=memory.equals("mapped");
+        JSONObject split=LlamaLaunch.evidence("llama-hexagon","gpu","offloaded 36/36 layers to GPU\nclip_ctx: CLIP using OpenCL backend\nclip_ctx: CLIP using OpenCL backend\n");
+        check(split.getString("requestedDevice").equals("HTP0")&&split.getString("requestedEncoderDevice").equals("GPUOpenCL"),"Language and encoder requests must be distinct");
+        check(split.getJSONArray("encoderBackends").length()==1&&split.getJSONArray("encoderBackends").getString(0).equals("OpenCL"),"Actual encoder backend captured without duplicating vision/audio initialization");
+        check(LlamaLaunch.evidence("llama-hexagon","gpu",healthy).getString("summary").contains("backend unconfirmed"),"Requested encoder must not be presented as observed");
+        JSONObject fallback=LlamaLaunch.evidence("llama-hexagon","gpu","CLIP using CPU backend\n");
+        check(fallback.getJSONArray("encoderBackends").getString(0).equals("CPU"),"Encoder fallback remains visible despite GPU request");
+        for(String backend:List.of("llama-cpu","llama-opencl","llama-hexagon"))for(String memory:List.of("mapped","fast"))for(String encoder:List.of("auto","cpu","gpu")){
+            List<String> args=LlamaLaunch.options(backend,memory,encoder);boolean cpu=backend.equals("llama-cpu"),mapped=memory.equals("mapped");
             check(option(args,"--log-verbosity").equals("4"),"Native offload diagnostics enabled");
             check(option(args,"--lazy-mode").equals("on")&&option(args,"--ctx-checkpoints").equals("2")&&option(args,"--cache-ram").equals("0"),"Embedding and cache residency policy");
             check(args.contains("--no-repack")== (cpu&&mapped),"Only memory-focused CPU overrides backend weight layout");
             check(option(args,"-b").equals(mapped?"128":"256")&&option(args,"-ub").equals(mapped?"64":"128"),"Memory preset reaches graph batch sizes");
             check(option(args,"-ngl").equals(cpu?"0":"999")&&option(args,"--device").equals(cpu?"none":backend.equals("llama-opencl")?"GPUOpenCL":"HTP0"),"Requested backend remains explicit");
-            check(args.contains("--mmproj-offload")==backend.equals("llama-opencl"),"Projector offload follows supported backend policy");
+            boolean encoderGpu=encoder.equals("gpu")||(encoder.equals("auto")&&backend.equals("llama-opencl"));
+            check(args.contains("--mmproj-offload")==encoderGpu&&args.contains("--no-mmproj-offload")!=encoderGpu,"Projector offload is independent of language device, without conflicting flags");
+            check(option(args,"--mmproj-device").equals(encoderGpu?"GPUOpenCL":"none"),"Explicit projector device prevents accidental HTP inheritance");
         }
         try{LlamaLaunch.options("llama-bogus","mapped");throw new AssertionError("Unknown backend accepted");}catch(IOException expected){checks++;}
         try{LlamaLaunch.options("llama-cpu","bogus");throw new AssertionError("Unknown preset accepted");}catch(IOException expected){checks++;}
+        try{LlamaLaunch.options("llama-hexagon","mapped","bogus");throw new AssertionError("Unknown encoder accepted");}catch(IOException expected){checks++;}
         Path directory=Files.createTempDirectory("cleo-native-log-check-");Path file=directory.resolve("native.log");
         try{
             LlamaLog capture=new LlamaLog(file.toFile());
