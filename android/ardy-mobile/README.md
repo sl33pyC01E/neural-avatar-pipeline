@@ -4,7 +4,17 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.3 · Input, attention and phrase streaming
+## Latest checkpoint: 0.8.4 · Browser targeting
+
+Browser clicks now use Gemma's documented `box_2d` order: top, left, bottom,
+right on independently normalized 0–1000 axes. One conversion drives the
+preview and tap. Screenshots copy the displayed native viewport with PixelCopy;
+streamed replies no longer change its size. **Inspect target** pauses tab 8 and
+shows the last captured image, response, model settings and mapped target.
+The old response was not retained, so the cause of the reported miss remains
+unconfirmed. See [targeting changes and verification](BROWSER_TARGETING.md).
+
+### Retained input, attention and phrase streaming
 
 Main now starts at eye level, with the same camera-relative gaze during idle
 and speech. The composer has hold-to-talk (release to send), a camera/media

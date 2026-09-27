@@ -52,9 +52,9 @@ public final class ModelChatProtocolCheck {
         check(stream.event().getString("partial").isEmpty(),"Reasoning not spoken");
         stream.append("Hello",Map.of());stream.append(" there!",null);
         check(stream.event().getString("partial").equals("Hello there!")&&stream.event().getString("reasoning").equals("Choose a wave."),"Streaming deltas remain separate and ordered");
-        String[] invalid={"{\"action\":\"click\",\"box\":[0,0,1001,2]}","{\"action\":\"click\",\"box\":[0,0,0,2]}","{\"action\":\"click\",\"box\":[\"0\",0,2,2]}","{\"action\":\"type\",\"text\":1}","{\"action\":\"enter\",\"confirm\":\"true\"}","{\"action\":\"shell\"}","{\"action\":\"scroll\",\"direction\":\"left\"}","{\"action\":\"ask\",\"question\":\"\"}","{\"action\":\"back\"} trailing"};
+        String[] invalid={"{\"action\":\"click\",\"box_2d\":[0,0,1001,2]}","{\"action\":\"click\",\"box_2d\":[0,0,0,2]}","{\"action\":\"click\",\"box_2d\":[\"0\",0,2,2]}","{\"action\":\"type\",\"text\":1}","{\"action\":\"enter\",\"confirm\":\"true\"}","{\"action\":\"shell\"}","{\"action\":\"scroll\",\"direction\":\"left\"}","{\"action\":\"ask\",\"question\":\"\"}","{\"action\":\"back\"} trailing"};
         for(String text:invalid){try{BrowserAction.parse(text);throw new AssertionError("Unsafe action accepted: "+text);}catch(IOException|JSONException expected){}}
-        check(BrowserAction.parse("```json\n{\"action\":\"click\",\"box\":[0,0,1000,1000],\"confirm\":true}\n```").getBoolean("confirm"),"Confirmation preserved");
+        check(BrowserAction.parse("```json\n{\"action\":\"click\",\"box_2d\":[0,0,1000,1000],\"confirm\":true}\n```").getBoolean("confirm"),"Confirmation preserved");
         check(BrowserAction.parse("{\"action\":\"ask\",\"question\":\"Which tab?\"}").getString("action").equals("ask"),"Follow-up action");
         BrowserAction.parse("{\"action\":\"done\",\"summary\":\"Finished\"}");
 

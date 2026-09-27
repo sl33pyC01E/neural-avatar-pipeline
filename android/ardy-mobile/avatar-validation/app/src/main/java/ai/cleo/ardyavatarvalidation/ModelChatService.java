@@ -267,7 +267,7 @@ public final class ModelChatService extends Service {
         parts.add(new Content.Text(prompt));
         com.google.ai.edge.litertlm.Message message=new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
         try(Conversation active=createConversation(null)){stream(active,message,text,started,first);}
-        lastMetrics=result(text,started,first);emit(json("result",lastMetrics));
+        lastMetrics=result(text,started,first).put("selection",new JSONObject(selection.toString()));emit(json("result",lastMetrics));
     }
     private void checkCancelled()throws InterruptedIOException{if(stopping||cancellation.get()!=operationCancellation)throw new InterruptedIOException("Response cancelled; conversation reset");}
     private static double elapsed(long started){return (SystemClock.elapsedRealtimeNanos()-started)/1e6;}

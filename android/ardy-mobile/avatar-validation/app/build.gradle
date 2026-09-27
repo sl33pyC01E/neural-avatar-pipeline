@@ -11,8 +11,8 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 20
-        versionName '0.8.3-input-speech'
+        versionCode 21
+        versionName '0.8.4-browser-targeting'
         ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')

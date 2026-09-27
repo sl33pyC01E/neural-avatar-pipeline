@@ -18,11 +18,7 @@ final class BrowserAction {
         String kind=string(action,"action",32);
         if(!Set.of("click","scroll","type","enter","back","ask","done").contains(kind))throw new IOException("Unsupported action "+kind);
         if(action.has("confirm")&&!(action.get("confirm") instanceof Boolean))throw new IOException("confirm must be true or false");
-        if(kind.equals("click")){
-            JSONArray box=action.getJSONArray("box");if(box.length()!=4)throw new IOException("Click requires four box coordinates");
-            double[] v=new double[4];for(int i=0;i<4;i++){if(!(box.get(i) instanceof Number))throw new IOException("Coordinates must be numbers");v[i]=box.getDouble(i);if(!Double.isFinite(v[i])||v[i]<0||v[i]>1000)throw new IOException("Box is outside the viewport");}
-            if(v[2]<=v[0]||v[3]<=v[1])throw new IOException("Empty click box");
-        }
+        if(kind.equals("click"))BrowserTarget.coordinates(action);
         if(kind.equals("scroll")&&!Set.of("up","down").contains(string(action,"direction",8)))throw new IOException("Unknown scroll direction");
         if(kind.equals("type"))string(action,"text",4000);
         if(kind.equals("ask")&&string(action,"question",4000).isBlank())throw new IOException("Empty follow-up question");

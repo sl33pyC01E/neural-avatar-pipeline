@@ -8,7 +8,7 @@ export function createBrowserUI(){
   function bounds(){if(!active)return;const r=$('#browser-viewport').getBoundingClientRect();window.Cleo?.browserBounds?.(JSON.stringify({x:r.x/innerWidth,y:r.y/innerHeight,width:r.width/innerWidth,height:r.height/innerHeight}));}
   const resize=new ResizeObserver(bounds);resize.observe($('#browser-viewport'));window.addEventListener('resize',bounds);visualViewport?.addEventListener('resize',bounds);
   $('#browser-form').onsubmit=event=>{event.preventDefault();const goal=$('#browser-goal').value.trim();if(media.recording()||(!goal&&!media.get()))return;$('#browser-goal').blur();$('#browser-followup').hidden=true;const audio=media.take();command({action:'start',goal,...(audio?{audioFile:audio.file}:{})});};
-  for(const action of ['pause','resume','stop','back','home','approve','reject'])$(`#browser-${action}`).onclick=()=>{if(['approve','reject'].includes(action))$('#browser-followup').hidden=true;command({action});};
+  for(const action of ['pause','resume','stop','back','home','approve','reject','inspect'])$(`#browser-${action}`).onclick=()=>{if(['approve','reject'].includes(action))$('#browser-followup').hidden=true;command({action});};
   $('#browser-followup-form').onsubmit=event=>{event.preventDefault();if(media.recording())return;const audio=media.take();command({action:'followup',text:$('#browser-answer').value.trim(),...(audio?{audioFile:audio.file}:{})});$('#browser-answer').value='';$('#browser-followup').hidden=true;};
   return {modelEvent(value){
     media.event(value);

@@ -1,0 +1,13 @@
+{
+  "versionCode": 21,
+  "versionName": "0.8.4-browser-targeting",
+  "tasks": ["assembleDebug", "lintDebug"],
+  "buildPassed": true,
+  "lintErrors": 0,
+  "lintWarnings": 11,
+  "signatureVerified": true,
+  "phoneLaunched": false,
+  "phoneInference": false,
+  "apk": "eb49323d0355d5b5937366c779f28e6451f4980685b897b8b6f2a420c09187bb",
+  "limitation": "Native screenshot capture, touches and Gemma visual accuracy remain for the user's phone test."
+}
