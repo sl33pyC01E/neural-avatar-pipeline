@@ -105,6 +105,7 @@ public final class ModelChatService extends Service {
             state();
         }
     }
+    @androidx.annotation.OptIn(markerClass=com.google.ai.edge.litertlm.ExperimentalApi.class)
     private void load(JSONObject request)throws Exception {
         closeModels();loaded=false;history=new JSONArray();turns=0;lastMetrics=new JSONObject();
         String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280),contextTokens=request.optInt("contextTokens",4096);
@@ -149,7 +150,7 @@ public final class ModelChatService extends Service {
                     if(chunk.length()>0)first.compareAndSet(-1,SystemClock.elapsedRealtimeNanos());
                     text.append(chunk.toString(),message.getChannels());
                     for(ToolCall call:message.getToolCalls()){String key=call.getName()+call.getArguments().toString();if(seen.add(key))calls.add(call);}
-                    try{emit(text.event());}catch(JSONException failure){error.set(failure);}
+                    try{JSONObject update=text.event();if(active==mainConversation&&mainTools!=null)update.put("avatarPlan",mainTools.plan());emit(update);}catch(JSONException failure){error.set(failure);}
                 }
                 public void onDone(){done.countDown();}public void onError(Throwable failure){error.set(failure);done.countDown();}
             });
@@ -245,7 +246,7 @@ public final class ModelChatService extends Service {
             List<Content> responses=new ArrayList<>();
             for(ToolCall call:calls){
                 checkCancelled();JSONObject args=new JSONObject(call.getArguments()),out;
-                try{out=mainTools.execute(call.getName(),args);}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
+                try{if(!text.answer.toString().isBlank())throw new IOException("Controls must precede spoken text. Finish your answer with the current pose.");out=mainTools.execute(call.getName(),args);}catch(Exception invalid){out=new JSONObject().put("ok",false).put("error",invalid.getMessage());}
                 JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
                 responses.add(new Content.ToolResponse(call.getName(),out.toString()));
             }

@@ -14,7 +14,7 @@ export function createFaceControls(vrm,driver) {
   const gaze=vrm.lookAt?.applier,usesEyeBones=gaze?.constructor.type==='bone';
   let targetYaw=0,targetPitch=0,displayYaw=0,displayPitch=0,displayHead=headRest?.clone(),displayNeck=neckRest?.clone(),presenceBase=null;
   function restorePresence(){if(presenceBase){head?.quaternion.copy(presenceBase.head);neck?.quaternion.copy(presenceBase.neck);if(presenceBase.blink!==undefined)vrm.expressionManager?.setValue('blink',presenceBase.blink);presenceBase=null;}}
-  function present(time,dt,{withBody=false,bodyActive=false,faceActive=false,idle=true,weight=1,gains={head:1}}={}){
+  function present(time,dt,{withBody=false,bodyActive=false,faceActive=false,idle=true,weight=1,gains={head:1},listener=null}={}){
     // A single continuous display clock owns both resting and speaking attention.
     // Smoothing starts at the last displayed pose even when a driver clears itself.
     const headBase=withBody?bodyHead:headRest,neckBase=withBody?bodyNeck:neckRest;
@@ -29,8 +29,15 @@ export function createFaceControls(vrm,driver) {
     const attention=settings.naturalMotion?eyeGain:0;
     // Keep attention near the listener; compensate small head turns rather than
     // restarting the shared mapper's large audio-time gaze oscillation each reply.
-    const gazeYaw=(faceActive?targetYaw:0)+attention*(Math.sin(time*.43)*1.4-THREE.MathUtils.radToDeg(h.y));
-    const gazePitch=(faceActive?targetPitch:0)+attention*Math.sin(time*.37)*.7;
+    let listenerYaw=0,listenerPitch=0;
+    if(listener&&vrm.lookAt){
+      vrm.humanoid.update();vrm.scene.updateMatrixWorld(true);vrm.lookAt.lookAt(listener);
+      // Use the VRM's own head orientation and look-at offset, including body/idle motion.
+      listenerYaw=THREE.MathUtils.clamp(vrm.lookAt.yaw,-18,18)*Math.min(1,eyeGain);
+      listenerPitch=THREE.MathUtils.clamp(vrm.lookAt.pitch,-12,12)*Math.min(1,eyeGain);
+    }
+    const gazeYaw=listenerYaw+(faceActive?targetYaw:0)+attention*Math.sin(time*.43)*.6;
+    const gazePitch=listenerPitch+(faceActive?targetPitch:0)+attention*Math.sin(time*.37)*.3;
     displayYaw+=(gazeYaw-displayYaw)*amount;displayPitch+=(gazePitch-displayPitch)*amount;
     if(vrm.expressionManager?.getExpression('blink')){
       const blink=Math.max(0,1-Math.abs(time%4.7-4.25)/.12)*Math.min(1,eyeGain);

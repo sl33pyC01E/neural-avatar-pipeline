@@ -291,7 +291,24 @@ public final class ResidentService extends Service {
             }
         });
     }
+    private volatile SpeechTextQueue speechInput;
+    public synchronized boolean beginSpeech(String id,String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds) {
+        if(speechBusy.get()||speechInput!=null||!"main".equals(activeTab))return false;
+        try{
+            SpeechTextQueue input=new SpeechTextQueue(id);input.append(text);
+            speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds,input);
+            return speechInput==input;
+        }catch(Exception failure){emit("talkRejected",failure.getMessage());return false;}
+    }
+    public synchronized void appendSpeech(String id,String text,boolean finished){
+        SpeechTextQueue input=speechInput;if(input==null||!input.id.equals(id)||cancelled.get())return;
+        try{input.append(text);if(finished)input.finish();}
+        catch(Exception failure){stopSpeech();emit("talkRejected",failure.getMessage());}
+    }
     public synchronized void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds) {
+        speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds,null);
+    }
+    private void speakWithFace(String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds,SpeechTextQueue input) {
         if(stopping||!visible||(!"talk".equals(activeTab)&&!performanceTab(activeTab)))return;
         boolean full=performanceTab(activeTab)&&!("main".equals(activeTab)&&mainFrame.equals("face"));
         if(full&&(!Double.isFinite(cueSeconds)||cueSeconds<0||cueSeconds>3||!Double.isFinite(tailSeconds)||tailSeconds<.5||tailSeconds>3)){
@@ -300,6 +317,7 @@ public final class ResidentService extends Service {
         final int leadSamples=full?(int)Math.round(cueSeconds*24000):0,tailSamples=full?(int)Math.round(tailSeconds*24000):0;
         final double cue=leadSamples/24000.0,tail=tailSamples/24000.0;
         if(embeddingBusy.get()||!speechBusy.compareAndSet(false,true)){emit("talkRejected","Wait for the current engine task to finish");return;}
+        speechInput=input;
         cancelled.set(false);talkRequestedNanos=System.nanoTime();
         final long requested=talkRequestedNanos;final String stream=java.util.UUID.randomUUID().toString(),tab=activeTab;
         speechWorker.execute(()->{
@@ -324,9 +342,15 @@ public final class ResidentService extends Service {
                     if(full&&spokenSamples.get()==0&&leadSamples>0)playSamples(new float[leadSamples],24000);
                     playSamples(pcm,24000);spokenSamples.addAndGet(pcm.length);
                 })) {
-                    JSONObject speech=pocket.synthesize(text,threads,steps,chunkSize,precision,buffered,cancelled,message->emit("talkStage",message),(pcm,rate)->{
-                        recording.append(pcm,rate);pipe.accept(pcm,rate);
-                    });
+                    JSONObject speech=null;org.json.JSONArray phrases=new org.json.JSONArray();double audioSeconds=0,computeMs=0;
+                    for(String phrase=input==null?text:input.next(cancelled);phrase!=null&&!cancelled.get();phrase=input==null?null:input.next(cancelled)){
+                        JSONObject part=pocket.synthesize(phrase,threads,steps,chunkSize,precision,buffered,cancelled,message->emit("talkStage",message),(pcm,rate)->{
+                            recording.append(pcm,rate);pipe.accept(pcm,rate);
+                        });
+                        if(part==null)break;if(speech==null)speech=new JSONObject(part.toString());phrases.put(part);
+                        audioSeconds+=part.getDouble("audioSeconds");computeMs+=part.getDouble("computeMs");
+                    }
+                    if(speech!=null)speech.put("phrases",phrases).put("phraseCount",phrases.length()).put("audioSeconds",audioSeconds).put("computeMs",computeMs).put("computeRtf",audioSeconds>0?computeMs/1000/audioSeconds:-1);
                     // finish propagates worker failures, including a failed renderer acknowledgement.
                     if(speech!=null&&!cancelled.get()){recording.finish();clipReady=true;}
                     pipe.finish();
@@ -356,7 +380,7 @@ public final class ResidentService extends Service {
             finally {
                 faceReady=null;faceRun=null;
                 AudioTrack track=audio;audio=null;if(track!=null){try{track.stop();}catch(IllegalStateException ignored){}track.release();}
-                speechBusy.set(false);
+                speechInput=null;speechBusy.set(false);
                 if(performanceTab(tab))pauseMotion();
                 try{publish(new JSONObject().put("type","speechEnd").put("tab",tab).put("withFace",true).put("streamId",stream)
                     .put("completed",!failed&&!cancelled.get()).put("clipReady",clipReady).put("message",!failed&&cancelled.get()?"Stopped":outcome));}catch(JSONException ignored){}
@@ -471,6 +495,7 @@ public final class ResidentService extends Service {
     public void faceReady(String run) { CountDownLatch ready=faceReady;if(ready!=null&&run!=null&&run.equals(faceRun))ready.countDown(); }
     public synchronized void stopSpeech() {
         cancelled.set(true);AudioTrack track=audio;
+        SpeechTextQueue input=speechInput;if(input!=null)input.finish();
         CountDownLatch ready=faceReady;if(ready!=null)ready.countDown();
         if(track!=null)try{track.pause();track.flush();}catch(IllegalStateException ignored){}
     }

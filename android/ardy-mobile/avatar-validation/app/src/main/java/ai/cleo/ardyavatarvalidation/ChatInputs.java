@@ -23,8 +23,11 @@ final class ChatInputs {
         if(input==null)throw new IOException("Cannot open attachment");byte[] bytes=readBounded(input,20*1024*1024);
         if(kind.equals("image")){
             BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);
-            if(options.outWidth<=0||options.outHeight<=0||(long)options.outWidth*options.outHeight>16000000)throw new IOException("Choose an image up to 16 megapixels");
-            Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)throw new IOException("Unsupported image");
+            if(options.outWidth<=0||options.outHeight<=0)throw new IOException("Unsupported image");
+            // Full-resolution camera photos are decoded at a bounded size before rotation/PNG encoding.
+            options.inSampleSize=1;while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>2048)options.inSampleSize*=2;
+            options.inJustDecodeBounds=false;
+            Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);if(bitmap==null)throw new IOException("Unsupported image");
             try{android.media.ExifInterface exif=new android.media.ExifInterface(new ByteArrayInputStream(bytes));int orientation=exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,1);Matrix transform=new Matrix();
                 if(orientation==2)transform.setScale(-1,1);if(orientation==3)transform.setRotate(180);if(orientation==4)transform.setScale(1,-1);
                 if(orientation==5){transform.setRotate(90);transform.postScale(-1,1);}if(orientation==6)transform.setRotate(90);
@@ -49,7 +52,8 @@ final class ChatInputs {
             worker.execute(()->{try{ByteArrayOutputStream pcm=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int limit=16000*2*60;
                 while(recording&&pcm.size()<limit){int n=audio.read(buffer,0,Math.min(buffer.length,limit-pcm.size()));if(n<0){if(recording)throw new IOException("Audio input failed: "+n);break;}if(n>0)pcm.write(buffer,0,n);}
                 if(pcm.size()<3200)throw new IOException("Recording was too short");byte[] raw=pcm.toByteArray();File file=file("wav");
-                try(FileOutputStream out=new FileOutputStream(file)){out.write(wavHeader(raw.length));out.write(raw);}attached(scope,file,"audio",String.format(Locale.ROOT,"Recorded %.1f s",raw.length/32000.0));
+                try(FileOutputStream out=new FileOutputStream(file)){out.write(wavHeader(raw.length));out.write(raw);}
+                emit(scope,new JSONObject().put("attachment",new JSONObject().put("file",file.getName()).put("kind","audio").put("recorded",true).put("label",String.format(Locale.ROOT,"Recorded %.1f s",raw.length/32000.0))));
             }catch(Exception failure){error(scope,failure);}finally{recording=false;try{audio.stop();}catch(Exception ignored){}audio.release();recorder=null;try{emit(scope,new JSONObject().put("recording",false));}catch(JSONException ignored){}}});
         }catch(Exception failure){recording=false;error(scope,failure);}
     }

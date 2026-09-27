@@ -1,5 +1,5 @@
 """Host-only checks of production Gemma streaming and validated avatar tools. No inference."""
-import argparse,json,os,subprocess
+import argparse,json,os,subprocess,zipfile
 from pathlib import Path
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--jdk',type=Path,required=True)
@@ -9,6 +9,10 @@ root=Path(__file__).resolve().parents[1]
 out=root/'avatar-validation/app/build/gemma-protocol-check';out.mkdir(parents=True,exist_ok=True)
 cache=Path.home()/'.gradle/caches/modules-2/files-2.1'
 jars=[root/'payloads/dependencies/json-20250517.jar',root/'payloads/litert-api/classes.jar']
+annotation_aar=next((cache/'androidx.annotation/annotation-experimental/1.4.1').rglob('*.aar'))
+annotation_jar=out/'annotation-experimental.jar'
+with zipfile.ZipFile(annotation_aar) as archive: annotation_jar.write_bytes(archive.read('classes.jar'))
+jars.append(annotation_jar)
 for folder in ['org.jetbrains.kotlin/kotlin-stdlib/2.4.0','com.google.code.gson/gson']:
     found=sorted((cache/folder).rglob('*.jar'));assert found,folder;jars.append(found[-1])
 classpath=os.pathsep.join(map(str,jars))

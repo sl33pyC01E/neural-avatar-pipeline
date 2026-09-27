@@ -46,7 +46,7 @@ export function createCameraControls(canvas,camera,invalidate,onManual=()=>{}) {
     setFaceView(value,height){
       if(isFace===value)return;
       points.clear();
-      if(value){body=snapshot();faceDefault??={yaw:.05,pitch:1.5,radius:.62,height,pan:[0,0,0]};face??=structuredClone(faceDefault);}
+      if(value){body=snapshot();faceDefault??={yaw:0,pitch:Math.PI/2,radius:.62,height,pan:[0,0,0]};face??=structuredClone(faceDefault);}
       else face=snapshot();
       state=structuredClone(value?face:body);isFace=value;invalidate();
     },

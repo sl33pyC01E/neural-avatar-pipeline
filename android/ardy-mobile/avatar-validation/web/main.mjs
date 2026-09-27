@@ -39,6 +39,15 @@ const mainAgent=createAvatarAgent(modelChat,{
   avatar:()=>avatar,state:()=>lastState,cue:()=>performanceCue,frame:()=>mainFrame,
   runtime:()=>[$('#profile').value,Number($('#threads').value),$('#precision').value],
   stopTake(){window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();},
+  startStream(id,text,plan){
+    if(currentTab!=='main'||!pageVisible||!avatar)throw new Error('Main is hidden');
+    pipelineTab='main';speechBusy=true;performanceCue=mainFrame==='face'?0:plan.cue_seconds;
+    avatar.stage({...plan,frame:mainFrame});buttons();
+    if(!window.Cleo?.beginSpeech?.(id,text,...settings(),performanceCue,mainFrame==='face'?0:plan.tail_seconds)){
+      speechBusy=false;buttons();throw new Error('Speech could not start; wait for the previous take to finish.');
+    }
+  },
+  appendStream(id,text,finished){window.Cleo?.appendSpeech?.(id,text,finished);},
   startTake(text,plan){
     if(currentTab!=='main'||!pageVisible||!avatar)return;
     pipelineTab='main';speechBusy=true;performanceCue=mainFrame==='face'?0:plan.cue_seconds;
@@ -52,6 +61,12 @@ function frameMain(value){
   document.querySelectorAll('[data-frame]').forEach(button=>button.setAttribute('aria-pressed',button.dataset.frame===value));
 }
 const menu=$('#app-menu'),modelSettings=$('#model-settings'),modelParent=modelSettings.parentElement;
+for(const id of ['send-on-enter','stream-speech']){
+  const control=$('#'+id);try{control.checked=localStorage.getItem('cleo-'+id)!=='false';}catch{}
+  control.addEventListener('change',()=>{try{localStorage.setItem('cleo-'+id,String(control.checked));}catch{}$('#main-text').enterKeyHint=$('#send-on-enter').checked?'send':'enter';});
+}
+$('#main-text').enterKeyHint=$('#send-on-enter').checked?'send':'enter';
+$('#main-text').onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&$('#send-on-enter').checked){event.preventDefault();if(!$('#main-send').disabled)$('#main-form').requestSubmit();}};
 function closeSettings(){modelParent.prepend(modelSettings);menu.close();avatar?.fitViewport();}
 $('#app-settings').onclick=()=>{$('#settings-model-slot').append(modelSettings);modelSettings.open=true;menu.showModal();window.Cleo?.residencyStatus?.();};
 $('#settings-apply').onclick=()=>{closeSettings();launchMain().catch(fail);};

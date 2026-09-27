@@ -9,6 +9,10 @@
     <application android:label="Cleopatra" android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar" android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.camera"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/camera_paths" />
+        </provider>
         <service android:name=".ModelChatService" android:process=":models" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-selected offline VLM chat, with resident models and explicit Unload control." />
         </service>

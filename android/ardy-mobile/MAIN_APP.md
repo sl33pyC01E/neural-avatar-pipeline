@@ -1,4 +1,6 @@
-# Cleopatra 0.8.2 · Main
+# Cleopatra 0.8.3 · Main
+
+See [input, attention and phrase streaming](INPUT_SPEECH.md) for the current update.
 
 See [the tool syntax fix](TOOL_FIX.md) for the native parser failure, constrained
 avatar tool decoding, prompt correction and response-error recovery.
@@ -16,7 +18,9 @@ Core-8/Core-40, PocketTTS/Anna and LAM. It prefills the Main system/tool prompt
 before enabling Send. The bottom composer accepts text, images, WAV files and
 recorded audio; Gemma handles audio directly. Answer/thought channels stream
 separately, with reasoning collapsed and generation reasoning off by default.
-Speech consumes only the completed answer. Stop cancels generation/playback.
+Main starts speech as coherent phrases arrive, retaining one audio/face take.
+Settings can restore waiting for the complete reply. Stop cancels both
+generation and playback. Debug tab 9 still waits for the complete answer.
 
 ## Framing and tools
 

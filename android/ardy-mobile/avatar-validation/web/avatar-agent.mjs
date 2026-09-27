@@ -1,5 +1,6 @@
 import {mediaInput} from './media-input.mjs';
 import {streamMessage} from './stream-message.mjs';
+import {SpeechPhrases} from './speech-phrases.mjs';
 const $=selector=>document.querySelector(selector);
 // A bounded catalog of TEXT EMBEDDINGS. Ardy still generates every body frame live.
 export function embeddingCatalog(bank=[]){
@@ -14,7 +15,7 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
   const context=()=>({motions:embeddingCatalog(hooks.state()?.bank),expressions:hooks.avatar()?.expressions()||['neutral']});
   let active=false,warmId=null,loading=false,nativeReady=false,run=null,nativeConfig='',awaitingReady=false,historyKey='';
   let loadingStage='',loadRequest=null,loadError='';
-  const media=mediaInput(scope,{changed:controls,error:text=>status(text)});
+  const media=mediaInput(scope,{changed:controls,error:text=>status(text),pushToTalk:isMain,send:()=>$('#cleopatra-form').requestSubmit()});
   const components={ardy:'unloaded',pocket:'unloaded',lam:'unloaded'};
   const runtimeKey=()=>JSON.stringify(hooks.runtime());
   const status=text=>{$('#cleopatra-status').textContent=text;};
@@ -30,12 +31,13 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     media.block(Boolean(run)||loading||model.busy);
     $('#cleopatra-send').disabled=!ready()||Boolean(run)||loading;
     $('#cleopatra-new').disabled=Boolean(run)||model.busy||!model.loaded;
+    if(isMain)$('#cleopatra-stop').hidden=!run&&!loading&&!preparing;
     document.querySelectorAll('[data-frame]').forEach(button=>{if(isMain)button.disabled=Boolean(run)||loading||preparing;});
     if(ready()&&!run&&!loading&&awaitingReady){status(isMain?'Ready':'All five ready · live Ardy uses cached text embeddings');awaitingReady=false;}
     if(loadError)status(loadError);
   }
   function stop(message='Stopped'){
-    if(run?.phase==='generating')chat.request({action:'cancel'});
+    if(run&&!run.generationDone)chat.request({action:'cancel'});
     if((loading||preparing)&&chat.status().busy)chat.request({action:'cancel'});
     media.stop();if(preparing){preparing=false;prepareFailed=true;}run=null;loading=false;loadingStage='';loadRequest=null;awaitingReady=false;warmId=null;window.Cleo?.cancelWarmAll?.();hooks.stopTake();status(message);controls();
   }
@@ -71,11 +73,22 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
     const text=$('#cleopatra-text').value.trim();if(!text&&!media.get())return;
     const motions=embeddingCatalog(hooks.state()?.bank);if(!motions.length){status('No cached embeddings available; prepare one in tab 5.');return;}
     const attachment=media.take(),id=crypto.randomUUID(),log=$('#cleopatra-log');streamMessage(log,'user',(attachment?`[${attachment.kind}]\n`:'')+text,'','Cleopatra');
-    run={id,phase:'generating',started:performance.now(),view:streamMessage(log,'assistant','','','Cleopatra')};
+    run={id,phase:'generating',generationDone:false,streaming:isMain&&document.querySelector('#stream-speech').checked,phrases:new SpeechPhrases(),started:performance.now(),view:streamMessage(log,'assistant','','','Cleopatra')};
     $('#cleopatra-tools').textContent='';$('#cleopatra-text').value='';$('#cleopatra-text').blur();
     chat.request({action:isMain?'mainSend':'avatarSend',...(isMain?{frame:hooks.frame(),scene:hooks.avatar().scene()}:{}),requestId:id,text,...(attachment?{file:attachment.file,kind:attachment.kind}:{}),motions,expressions:hooks.avatar().expressions()});
     status('Gemma is responding…');$('#cleopatra-latency').textContent='Send → voice: measuring…';controls();
   };
+  function feedSpeech(text,plan,final=false){
+    if(!run?.streaming)return;
+    for(const phrase of run.phrases.append(text,final)){
+      if(run.phase==='generating'){
+        if(!active||!nativeReady)throw new Error('Reply ready; avatar models are unavailable.');
+        if(!plan)throw new Error('Missing avatar plan for streaming speech');
+        hooks.startStream(run.id,phrase,plan);run.phase='performing';status('Speaking as Gemma responds…');
+      }else hooks.appendStream(run.id,phrase,false);
+    }
+    if(final&&run.phase==='performing')hooks.appendStream(run.id,'',true);
+  }
   function event(value){
     if(value.type==='ensemble'&&value.requestId===warmId){
       if(value.state==='error'){failLoad(value.message);return;}
@@ -108,8 +121,8 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
       }
       if(value.disconnected||value.unloaded){if(run)stop(value.error||'Gemma unloaded');loading=false;}
       if(value.error&&loading){loading=false;status(value.error);}
-      if(run&&value.channel===channel&&value.requestId===run.id&&run.phase==='generating'){
-        if(value.partial!==undefined)run.view.update(value.partial,value.reasoning);
+      if(run&&value.channel===channel&&value.requestId===run.id&&!run.generationDone){
+        if(value.partial!==undefined){run.view.update(value.partial,value.reasoning);try{if(value.avatarPlan)feedSpeech(value.partial,value.avatarPlan);}catch(failure){stop(failure.message);return;}}
         if(value.avatarTool)$('#cleopatra-tools').textContent+=JSON.stringify(value.avatarTool,null,2)+'\n';
         if(value.error)stop(value.error);
         else if(value.result){
@@ -117,6 +130,11 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
           const text=value.result.text.trim();
           if(!text||text.length>2000){stop('Reply displayed; speech requires 1–2,000 characters. Ask for a shorter reply.');return;}
           if(!active||!nativeReady){stop('Reply ready; avatar models are unavailable.');return;}
+          if(run.streaming){
+            try{feedSpeech(value.result.text,value.result.avatarPlan,true);run.generationDone=true;}catch(failure){stop(failure.message);}
+            controls();return;
+          }
+          run.generationDone=true;
           run.phase='performing';
           status(isMain&&hooks.frame()==='face'?'Preparing voice and face…':'Scheduling live Ardy, voice and face…');
           hooks.startTake(text,value.result.avatarPlan);
@@ -127,9 +145,9 @@ export function createAvatarAgent(chat,hooks,scope='cleopatra'){
       if(value.type==='talkPlayback')$('#cleopatra-latency').textContent=`Send → track: ${Math.round(performance.now()-run.started)} ms · voice cue +${Math.round(hooks.cue()*1000)} ms`;
       if(value.type==='talkMetrics')$('#cleopatra-latency').textContent=`Send → voice: ${Math.round(run.preparationMs+(value.speechStartMs??value.playbackStartMs))} ms · ${value.underruns} underruns`;
       if(value.type==='speechStart')run.preparationMs=performance.now()-run.started;
-      if(value.type==='speechEnd'){run=null;chat.request({action:'status'});}
+      if(value.type==='speechEnd'){if(!run.generationDone)chat.request({action:'cancel'});run=null;chat.request({action:'status'});}
     }
-    if(value.type==='talkRejected'&&run?.phase==='performing')run=null;
+    if(value.type==='talkRejected'&&run?.phase==='performing')stop(value.message);
     controls();
   }
   return {event,refresh:controls,stop,load(){ $('#cleopatra-load').click(); },select(tab){if(active&&tab!==scope){stop();nativeReady=false;}active=tab===scope;controls();},hidden(){if(active)stop('Paused while hidden');}};

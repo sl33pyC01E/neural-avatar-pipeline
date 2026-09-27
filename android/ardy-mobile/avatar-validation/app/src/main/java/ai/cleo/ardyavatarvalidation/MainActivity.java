@@ -33,6 +33,8 @@ public final class MainActivity extends Activity implements ResidentService.List
     private ChatInputs chatInputs;
     private BrowserController browser;
     private String inputKind="image",inputScope="chat",recordScope="chat";
+    private boolean recordWanted;
+    private Uri cameraOutput;
     private final ServiceConnection connection=new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name,IBinder binder) {
             engines=((ResidentService.LocalBinder)binder).service();engines.attach(MainActivity.this);engines.tab(selectedTab);engines.visible(resumed);engines.state();
@@ -43,6 +45,7 @@ public final class MainActivity extends Activity implements ResidentService.List
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if(state!=null){inputScope=state.getString("inputScope","main");inputKind=state.getString("inputKind","image");String uri=state.getString("cameraOutput");if(uri!=null)cameraOutput=Uri.parse(uri);}
         view = new WebView(this);
         view.setBackgroundColor(0xff101416);
         view.getSettings().setJavaScriptEnabled(true);
@@ -128,7 +131,18 @@ public final class MainActivity extends Activity implements ResidentService.List
             inputKind=kind;inputScope=scope;Intent choose=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(kind.equals("image")?"image/*":"audio/wav").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(choose,72);
         });}
         @JavascriptInterface public void chatRecord(boolean start){inputRecord(start,"chat");}
+        @JavascriptInterface public void inputCamera(String scope){if(!java.util.Set.of("chat","browser","cleopatra","main").contains(scope))return;runOnUiThread(()->{
+            try{
+                java.io.File directory=new java.io.File(getCacheDir(),"camera");if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Cannot prepare camera");
+                cameraOutput=androidx.core.content.FileProvider.getUriForFile(MainActivity.this,getPackageName()+".camera",new java.io.File(directory,"capture.jpg"));
+                inputScope=scope;inputKind="image";
+                Intent capture=new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).putExtra(android.provider.MediaStore.EXTRA_OUTPUT,cameraOutput)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                capture.setClipData(ClipData.newRawUri("Photo",cameraOutput));startActivityForResult(capture,75);
+            }catch(Exception failure){cameraOutput=null;try{event(new JSONObject().put("type","chat").put("inputScope",scope).put("inputError","Camera unavailable. Choose an image instead."));}catch(Exception ignored){}}
+        });}
         @JavascriptInterface public void inputRecord(boolean start,String scope){if(!java.util.Set.of("chat","browser","cleopatra","main").contains(scope))return;runOnUiThread(()->{
+            recordWanted=start;
             if(!start){chatInputs.stopRecording();return;}
             recordScope=scope;
             if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},73);
@@ -146,6 +160,8 @@ public final class MainActivity extends Activity implements ResidentService.List
             if(engines!=null)engines.speakWithFace(text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds);
         }
         @JavascriptInterface public void warmAll(String profile,int threads,String precision,String request){if(engines!=null)engines.warmAll(profile,threads,precision,request);}
+        @JavascriptInterface public boolean beginSpeech(String id,String text,int threads,int steps,int chunkSize,String precision,boolean buffered,double cueSeconds,double tailSeconds){return engines!=null&&engines.beginSpeech(id,text,threads,steps,chunkSize,precision,buffered,cueSeconds,tailSeconds);}
+        @JavascriptInterface public void appendSpeech(String id,String text,boolean finished){if(engines!=null)engines.appendSpeech(id,text,finished);}
         @JavascriptInterface public void prepareModelLoad(String request){if(engines!=null)engines.prepareModelLoad(request);}
         @JavascriptInterface public void cancelWarmAll(){if(engines!=null)engines.cancelWarmAll();}
         @JavascriptInterface public void unloadAvatarModels(){if(engines!=null)engines.unloadAvatarModels();}
@@ -163,6 +179,7 @@ public final class MainActivity extends Activity implements ResidentService.List
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==75){if(result==RESULT_OK&&cameraOutput!=null)chatInputs.importFile(cameraOutput,"image",inputScope);cameraOutput=null;return;}
         if(request==72){if(result==RESULT_OK&&data!=null&&data.getData()!=null)chatInputs.importFile(data.getData(),inputKind,inputScope);return;}
         if(request!=71||result!=RESULT_OK||data==null||engines==null)return;
         ArrayList<Uri> uris=new ArrayList<>();
@@ -170,7 +187,14 @@ public final class MainActivity extends Activity implements ResidentService.List
         else if(data.getData()!=null)uris.add(data.getData());
         engines.importModels(uris.toArray(new Uri[0]));
     }
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==74){residencyState();return;}if(request==73){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)chatInputs.startRecording(recordScope);else try{event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("inputError","Microphone permission was declined"));}catch(Exception ignored){}}}
+    @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putString("inputScope",inputScope);state.putString("inputKind",inputKind);if(cameraOutput!=null)state.putString("cameraOutput",cameraOutput.toString());}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);if(request==74){residencyState();return;}if(request!=73)return;
+        boolean granted=results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED;
+        // A permission dialog ends a hold gesture. Never start a hidden microphone on return.
+        if(granted&&recordWanted&&resumed&&!recordScope.equals("main"))chatInputs.startRecording(recordScope);
+        else try{recordWanted=false;event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("recording",false).put("inputError",granted?"Microphone ready — hold to talk.":"Microphone permission was declined"));}catch(Exception ignored){}
+    }
     @Override protected void onPause() { resumed=false;if(browser!=null)browser.show(false);if(chatInputs!=null)chatInputs.stopRecording();if(chat!=null)chat.request("{\"action\":\"background\"}");if(engines!=null)engines.visible(false);view.evaluateJavascript("window.cleoVisible?.(false)",null);view.onPause();super.onPause(); }
     @Override protected void onResume() { super.onResume();resumed=true;residencyState();if(browser!=null&&"browser".equals(selectedTab))browser.show(true);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
     @Override protected void onDestroy() { if(browser!=null)browser.close();if(chatInputs!=null)chatInputs.close();if(chat!=null)chat.close();if(engines!=null)engines.detach(this);if(bound)unbindService(connection);view.removeJavascriptInterface("Cleo");view.destroy();view=null;super.onDestroy(); }

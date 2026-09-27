@@ -77,8 +77,9 @@ public final class PocketAnna implements AutoCloseable {
         // Native pause shortening is applied ONLY to the returned audio, after all callbacks.
         options.setSilenceScale(buffered?0.2f:1f);
         Map<String,String> extra=new HashMap<>(); extra.put("temperature","0.7"); extra.put("chunk_size",Integer.toString(chunkSize));
-        // Restore the backend's phrase boundaries; do not trade prosody for first-chunk latency.
-        extra.put("max_char_in_sentence","200");extra.put("min_char_in_sentence","30");
+        // Sherpa resets speech state per internal segment. Keep adjacent short sentences
+        // together so punctuation shapes prosody without restarting Anna at every period.
+        extra.put("max_char_in_sentence","400");extra.put("min_char_in_sentence","180");
         // Repeatable A/B comparisons. A new random seed on every click obscures precision/step changes.
         extra.put("seed","42");
         extra.put("max_reference_audio_len",Float.toString(reference.length/(float)referenceRate));

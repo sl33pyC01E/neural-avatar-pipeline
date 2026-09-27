@@ -4,7 +4,16 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.2 · Gemma tool syntax
+## Latest checkpoint: 0.8.3 · Input, attention and phrase streaming
+
+Main now starts at eye level, with the same camera-relative gaze during idle
+and speech. The composer has hold-to-talk (release to send), a camera/media
+menu and a text line. Send on Enter defaults on and can be disabled in Settings.
+Gemma's incoming reply is grouped into phrases for Pocket; one AudioTrack and
+LAM timeline span the entire reply. Short sentences are grouped to reduce
+Pocket state resets. See [implementation and verification](INPUT_SPEECH.md).
+
+### Retained Gemma tool syntax fix
 
 The reported response failure was an unquoted string in Gemma's native `act`
 call, rejected by LiteRT's parser. Avatar conversations now enable LiteRT's

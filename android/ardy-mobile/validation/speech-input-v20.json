@@ -1,0 +1,8 @@
+{
+  "nativeInference": false,
+  "continuousPcmSamples": 48017,
+  "cancellation": true,
+  "boundedText": true,
+  "lamResets": 1,
+  "passed": true
+}

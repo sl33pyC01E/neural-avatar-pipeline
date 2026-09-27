@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {SpeechPhrases} from '../avatar-validation/web/speech-phrases.mjs';
+const reply='Hello there. I am Cleopatra. We can have a relaxed conversation with natural pacing, without treating every short sentence as a separate performance. I can begin this thought while more words arrive. '+ 'A longer thought with room for emphasis and small pauses. '.repeat(8);
+const stream=new SpeechPhrases(),out=[];
+for(let i=1;i<=reply.length;i++)out.push(...stream.append(reply.slice(0,i)));
+assert(out.length>0,'Speech waited for final text');out.push(...stream.append(reply,true));
+assert.equal(out.join(''),reply);assert(out.every(p=>p.length<=360));
+const short=new SpeechPhrases();assert.deepEqual(short.append('Hello. I am Cleopatra.'),[]);
+assert.deepEqual(short.append('Hello. I am Cleopatra.',true),['Hello. I am Cleopatra.']);
+assert.throws(()=>short.append('Again',true),/finished/);
+const revised=new SpeechPhrases();revised.append('First');assert.throws(()=>revised.append('Different'),/revised/);
+assert.throws(()=>new SpeechPhrases().append('a'.repeat(2001)),/2,000/);
+const longWord=new SpeechPhrases();const chunks=longWord.append('x'.repeat(800),true);assert.equal(chunks.join(''),'x'.repeat(800));assert(chunks.every(p=>p.length<=360));
+console.log(JSON.stringify({passed:true,noInference:true,incrementalExactOnce:true,shortSentencesGrouped:true,boundedPhrases:true,revisionsRejected:true,phrases:out.length}));

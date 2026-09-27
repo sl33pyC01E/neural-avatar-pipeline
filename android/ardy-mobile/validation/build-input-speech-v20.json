@@ -1,0 +1,15 @@
+{
+  "versionCode": 20,
+  "versionName": "0.8.3-input-speech",
+  "tasks": [
+    "assembleDebug",
+    "lintDebug"
+  ],
+  "buildPassed": true,
+  "lintErrors": 0,
+  "lintWarnings": 11,
+  "signatureVerified": true,
+  "phoneLaunched": false,
+  "phoneInference": false,
+  "apk": "4383f227d7f981c20a8c61622412b94f2820e4ed0589df32553a3faa33e9ec35"
+}

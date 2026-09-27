@@ -67,7 +67,8 @@ export async function createAvatarView() {
   const retarget = createRetargeter(vrm, bind, alignment);
   retarget.reset();relaxedStance(vrm);
   const faceControls=createFaceControls(vrm,faceDriver);
-  const setFaceView=value=>cameraControls.setFaceView(value,position('head').y+.10);
+  const eyeHeight=()=>((position('leftEye')?.y??position('head').y+.08)+(position('rightEye')?.y??position('head').y+.08))/2;
+  const setFaceView=value=>cameraControls.setFaceView(value,eyeHeight());
   setFaceView(true);
   const direction=new AvatarDirection(cameraControls,stageRoot),idle=createIdleAnimation(vrm);
   document.querySelector('#view-face').onclick=()=>{setFaceView(true);cameraControls.reset();};
@@ -272,13 +273,13 @@ export async function createAvatarView() {
     const bodyActive=mode==='replay'||mode==='turn'||(mode==='live'&&bodyApplied&&!livePaused&&!liveError&&(!performanceTrack||performanceTrack.started&&!performanceTrack.finished));
     const faceActive=speaking&&faceSegments.length>0&&(trackClock?trackClock.faceSeconds>=0:(window.Cleo?.playbackSeconds()??-1)>=0);
     if(idleEnabled)idle.apply(now/1000,dt,bodyActive,faceActive);
-    faceControls.present(now/1000,dt,{withBody:mode!=='rest',bodyActive,faceActive,idle:idleEnabled,weight:trackClock?.faceWeight??1,gains:direction.state.face});
+    direction.apply();stageRoot.updateMatrixWorld(true);
+    cameraControls.update(new THREE.Vector3(...currentRoot).applyMatrix4(stageRoot.matrixWorld).toArray());
+    faceControls.present(now/1000,dt,{withBody:mode!=='rest',bodyActive,faceActive,idle:idleEnabled,weight:trackClock?.faceWeight??1,gains:direction.state.face,listener:camera.position});
     vrm.expressionManager?.update();
     if (physics) vrm.springBoneManager?.update(dt);
-    direction.apply();stageRoot.updateMatrixWorld(true);
     heldRoot=[...currentRoot];
     if(trackClock)window.validationState.performance={...trackClock,motionSeconds:liveBuffer.seconds,motionEndSeconds:liveBuffer.endSeconds,origin:liveBuffer.origin,gate:performanceGate?.seconds??null,finished:performanceTrack.finished};
-    cameraControls.update(new THREE.Vector3(...currentRoot).applyMatrix4(stageRoot.matrixWorld).toArray());
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (canvas.width !== Math.round(width*renderer.getPixelRatio()) || canvas.height !== Math.round(height*renderer.getPixelRatio())) {
       renderer.setSize(width,height,false); camera.aspect=width/height; camera.updateProjectionMatrix();
@@ -312,7 +313,7 @@ export async function createAvatarView() {
     stopFace();setMode('rest');direction.reset();heldRoot=[0,standing,0];
     if(value==='debug')return;
     const face=value==='face',torso=value==='torso';
-    cameraControls.applyDirection({yaw:0,elevation:4,distance:face?.62:torso?1.35:3.4,height:face?position('head').y+.10:torso?position('head').y-.18:.85,pan_x:0,pan_z:0});
+    cameraControls.applyDirection({yaw:0,elevation:face?0:4,distance:face?.62:torso?1.35:3.4,height:face?eyeHeight():torso?position('head').y-.18:.85,pan_x:0,pan_z:0});
     invalidate();
   }
   initialized=true;
