@@ -4,12 +4,29 @@ This branch continues the existing **Ardy Mobile** Android application,
 `ai.cleo.ardymobile`, using the installed phone build as the recovery reference.
 The target avatar is `Zome_Cleopatra_v1.vrm`.
 
-## Latest checkpoint: 0.8.7 · Separate encoder and language devices
+## Latest checkpoint: 0.9.0 · llama.cpp and module workspace
 
-Models now selects the llama.cpp vision/audio encoder independently of the
-language runtime. Choose **NPU** language + **GPU · OpenCL** encoder for split
-placement. The packaged runtime supports this configuration; phone execution and
-memory benefits remain unverified. See [controls and limits](SPLIT_ENCODER.md).
+Both official Gemma 4 E2B/E4B IT QAT models now use **llama.cpp only**.
+The default pairing is **GPU encoder → NPU decoder**, with exactly three explicit
+fallbacks: GPU→GPU, GPU→CPU and CPU→CPU. The encoder setting covers vision and
+audio; unsupported native operations may still use CPU. Old saved device choices
+migrate to the requested default while model, context and quality choices survive.
+No phone performance result is implied by selecting a pairing.
+
+Debug navigation is now a module picker with separate Run, Settings and Diagnostics
+sections as appropriate. Every module has one controls scroll area; the avatar and
+browser viewport stay stable. Wide layouts place controls beside the avatar.
+Prompt browsing/editing is separate, reading positions persist, and streamed text
+only follows when already at the end. Leaving chat cancels its active response;
+recording requests cannot restart after leaving a module or hiding the app.
+Resident models remain available across navigation.
+
+LiteRT dependencies, its benchmark service and model options were removed.
+The cleanup tool verifies both QAT language models/projectors before deleting
+fingerprint-matched LiteRT, Qwen and Whisper phone weights and their named caches.
+Ardy/llm2vec, Anna/Pocket, LAM, VRM and saved prompt prefixes remain.
+See [checkpoint details and verification](MODULE_WORKSPACE.md) and
+[device placement](SPLIT_ENCODER.md).
 
 v23 fixes an app-side check that rejected GPU/NPU workers after they reached
 server-ready. Models also offers a default memory-focused llama.cpp preset and a
@@ -24,11 +41,10 @@ off and one bounded format correction if needed. The saved failure was shorthand
 (`click: [coordinates], explanation`) rather than JSON. See
 [prompt editing and browser handling](PROMPT_TREE.md).
 
-Tab **7 · Models** now also offers official Google E2B/E4B IT QAT Q4_0
+Tab **7 · Models** offers official Google E2B/E4B IT QAT Q4_0
 through pinned llama.cpp b11200: CPU, OpenCL GPU, and experimental Hexagon NPU.
 Its prompt panel opens the editable tree and builds/restores/clears actual KV
-files. Main, Browser and tab 9 share this runtime choice. LiteRT remains available
-and retains KV in RAM only. See [the implementation, controls and test limits](MODELS_QAT_CACHE.md)
+files. Main, Browser and tab 9 share the same llama.cpp runtime and device pairing. See [the implementation, controls and test limits](MODELS_QAT_CACHE.md)
 and [the runtime findings](PROMPT_CACHE_RESEARCH.md).
 
 ### Retained browser targeting
@@ -52,13 +68,11 @@ Pocket state resets. See [implementation and verification](INPUT_SPEECH.md).
 
 ### Retained Gemma tool syntax fix
 
-The reported response failure was an unquoted string in Gemma's native `act`
-call, rejected by LiteRT's parser. Avatar conversations now enable LiteRT's
-tool grammar at creation; ordinary chat/browser conversations keep their prior
-setting. Main's prompt no longer teaches pseudo-code with unquoted values.
-Nested errors are explained, and New chat clears a failed response without
-reloading the engines. Host checks passed; native generation remains for the
-user's phone test. See [the tool-call diagnosis](TOOL_FIX.md).
+The earlier LiteRT response failure was an unquoted string in Gemma's native
+`act` call. That diagnosis is preserved in [TOOL_FIX.md](TOOL_FIX.md). The current
+llama.cpp path sends the declared tool schema and validates completed tool
+arguments before applying avatar controls. Main's prompt avoids unquoted
+pseudo-code. New chat recovers from a failed response without reloading weights.
 
 ### Retained startup and skin changes
 
@@ -94,9 +108,8 @@ LLM2Vec remains an on-demand embedding-cache operation, outside the live reply s
 
 ### Retained model settings
 
-Gemma 4 E2B/E4B offer LiteRT CPU/GPU or llama.cpp QAT CPU/OpenCL/experimental Hexagon, with vision/audio projectors. Qwen,
-Whisper, WhisperX and the chat llama.cpp workers are removed from the app and
-active provisioning/benchmark commands. Ardy's independent GGUF LLM2Vec encoder
+Gemma 4 E2B/E4B use llama.cpp QAT with the four encoder/decoder pairings above.
+LiteRT, Qwen and Whisper runtimes are removed from the app. Ardy's independent GGUF LLM2Vec encoder
 and cached embedding bank remain available in tab 5.
 
 Answers and Gemma-provided reasoning stream in tabs 7–9. Reasoning defaults off; enabled traces start
@@ -111,7 +124,7 @@ The default VRM stance lowers the arms and slightly bends the elbows; face frami
 at up to 20 fps, and yields to model animation. Hidden views sleep; Idle off
 restores demand-only rendering. See [Gemma avatar](GEMMA_AVATAR.md).
 
-The original Ardy app is preserved. Host checks and build results do not qualify
+The recovered Ardy assets are preserved. Host checks and build results do not qualify
 phone inference, model coexistence, voice quality or timing. The agent can install;
 the user launches and tests. The cancelled Spark Qwen build must stay stopped.
 
@@ -134,9 +147,9 @@ and corrects four Ardy history/mask/decoder contracts. See
 The checkpoint is installed for the user's visual/audio/model test; the original app and
 its models are retained. Desktop checks do not establish phone quality or speed.
 
-The [measurement kit](benchmark/README.md) compares Gemma LiteRT CPU/GPU with
-image/audio scores under matched idle and active avatar workloads. The user runs
-phone tests; the agent must not invoke the benchmark launcher.
+The [measurement kit](benchmark/README.md) retains historical LiteRT fixture reports.
+Its legacy service was removed in v25; current user-run comparisons use Models.
+The agent must not invoke phone inference or benchmark launchers.
 
 ## Agreed scope
 
@@ -166,7 +179,7 @@ expanded the debug sequence to these nine tabs:
 4. **Speak + Face:** face view and text input, using tabs 2/3 settings.
 5. **Ardy:** cached embeddings, live/batched generation and creation of new embeddings.
 6. **Together:** the combined scheduled body/voice/face pipeline and opt-in repeating benchmark workload.
-7. **Models:** Gemma E2B/E4B, LiteRT or QAT llama.cpp CPU/OpenCL/experimental NPU, image/audio, reasoning, prompt tree, disk KV controls, streamed text and metrics.
+7. **Models:** Gemma E2B/E4B QAT, llama.cpp encoder/decoder pairings, image/audio, reasoning, prompt tree, disk KV controls, streamed text and metrics.
 8. **Browser:** embedded Google browser, screenshot/action loop, text/audio goals and follow-up input, and pause/stop controls.
 9. **Cleopatra:** Gemma replies through live Ardy, Pocket/Anna, LAM and the VRM; explicit Load all and bounded avatar tools.
 
@@ -194,14 +207,14 @@ The intended components are:
 - the compatible 4-bit GGUF LLM2Vec encoder and a precached steering bank;
 - the Cleo/Cleopatra VRM avatar;
 - PocketTTS for speech output;
-- **Gemma 4 E2B** on LiteRT for text, vision and direct audio (current direction);
+- **Gemma 4 E2B/E4B IT QAT** on llama.cpp for text, vision and direct audio;
 - a small OpenCode/OpenClaw-style agent scaffold;
 - potentially ChromaDB for persistent storage.
 
 Gemma provides vision and direct audio input. Browser grounding uses normalized
 0–1000 coordinates relative to the captured viewport. The 1000-coordinate
 convention does not require a 1000×1000 input image. The full audio/vision bundle
-is retained; image allocation is fixed by the LiteRT artifact. Agent scaffolding
+is retained; the selected image token budget bounds dynamic image preprocessing. Agent scaffolding
 and persistent storage remain future work.
 See [the acceleration assessment](ACCELERATION.md) for model-specific GPU/NPU
 options and the evidence separating available backends from verified execution.

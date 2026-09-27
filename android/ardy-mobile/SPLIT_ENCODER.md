@@ -1,10 +1,7 @@
-# Cleopatra v24: GPU encoder with NPU language model
+# Cleopatra v25: GPU encoder with NPU language model
 
-In **Debug → 7 · Models → Model, context, images and reasoning**, select:
-
-- **Language runtime:** NPU · llama.cpp Hexagon · experimental
-- **llama.cpp vision + audio encoder:** GPU · OpenCL
-- Press **Load / apply Gemma**.
+In **Debug → 7 · Models → Model**, choose **Encoder → decoder: GPU → NPU**
+(the default), then press **Apply & load**. Both Gemma 4 E2B/E4B IT QAT use llama.cpp.
 
 This requests `--device HTP0 -ngl 999 --mmproj-device GPUOpenCL
 --mmproj-offload` using the already-packaged llama.cpp b11200 worker. No new
@@ -12,12 +9,10 @@ weights, conversion or native rebuild is required. Image embeddings are computed
 on the encoder backend, then consumed by the language model for prompt processing
 and token generation. Unsupported operations can still use CPU.
 
-The same encoder selector also permits CPU language + GPU encoder or GPU language
-+ CPU encoder. **Auto** preserves the previous defaults: GPU encoder with the
-OpenCL language model, CPU encoder otherwise. It is disabled for LiteRT, whose
-existing configuration is separate. Main, Browser and tab 9 inherit the Models
-selection. Changing placement requires reloading and changes the disk-prefix
-compatibility key.
+Fallbacks are GPU→GPU, GPU→CPU and CPU→CPU, in encoder-first order.
+There are no LiteRT, Auto, CPU→GPU or CPU→NPU options. Main, Browser and tab 9
+inherit the Models selection. Changing pairing requires reloading and changes
+the disk-prefix compatibility key. The app does not silently switch devices.
 
 Gemma's combined projector contains vision and audio encoders. The pinned runtime
 passes one device configuration into both, so this selector moves **both**, not

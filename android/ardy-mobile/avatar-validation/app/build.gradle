@@ -11,8 +11,8 @@ android {
         applicationId 'ai.cleo.ardyavatarvalidation'
         minSdk 29
         targetSdk 35
-        versionCode 24
-        versionName '0.8.7-split-encoder'
+        versionCode 25
+        versionName '0.9.0-module-workspace'
         ndk { abiFilters.addAll((project.findProperty('targetAbis') ?: 'arm64-v8a').split(',')) }
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/avatarAssets')
@@ -31,7 +31,6 @@ dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.24.3'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.4.0'
-    implementation 'com.google.ai.edge.litertlm:litertlm-android:0.17.1'
     implementation files('../../payloads/dependencies/sherpa-onnx-static-link-onnxruntime-1.13.8.aar')
 }
 

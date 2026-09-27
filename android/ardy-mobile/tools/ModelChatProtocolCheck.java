@@ -2,7 +2,7 @@ package ai.cleo.ardyavatarvalidation;
 import java.io.IOException;
 import java.util.*;
 import org.json.*;
-import com.google.ai.edge.litertlm.*;
+
 /** Exercises the production tool validator, stream accumulator and SDK schema adapter. No models. */
 public final class ModelChatProtocolCheck {
     interface Attempt {void run()throws Exception;}
@@ -43,11 +43,8 @@ public final class ModelChatProtocolCheck {
             new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",31).put("root",new JSONObject().put("x",1)))))) {
             JSONObject call=new JSONObject(valid.toString());for(String key:bad.keySet())call.put(key,bad.get(key));api.reset();rejects(()->api.execute("avatar_stage",call));
         }
-        ExperimentalFlags.INSTANCE.setVisualTokenBudget(560);check(ExperimentalFlags.INSTANCE.getVisualTokenBudget()==560,"Actual Android SDK visual budget setter");ExperimentalFlags.INSTANCE.setVisualTokenBudget(280);
-        final String schema=api.description().toString();
-        ToolManager manager=new ToolManager(List.of(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return schema;}public String execute(String args){throw new AssertionError("Automatic tool execution");}})));
-        String adapted=manager.getToolsDescription().toString();
-        check(adapted.contains("avatar_stage")&&adapted.contains("parameters"),"Actual LiteRT SDK accepted the OpenAPI tool schema");
+        String adapted=LlamaProtocol.request(new JSONArray(),api.description(),0,512).getJSONArray("tools").toString();
+        check(adapted.contains("avatar_stage")&&adapted.contains("parameters"),"Production llama.cpp tool schema");
         GemmaStream stream=new GemmaStream();stream.append("",Map.of("thought","Choose "));stream.append(null,Map.of("thought","a wave.","unknown","discard"));
         check(stream.event().getString("partial").isEmpty(),"Reasoning not spoken");
         stream.append("Hello",Map.of());stream.append(" there!",null);
@@ -75,19 +72,9 @@ public final class ModelChatProtocolCheck {
         main.reset();rejects(()->main.execute("act",new JSONObject().put("gesture","exec")));
         main.reset();main.execute("act",new JSONObject().put("schedule",new JSONArray().put(new JSONObject().put("at_seconds",1).put("expression","happy").put("strength",.2))));
         check(main.plan().getJSONArray("schedule").length()==1,"Face expression cues retained");
-        final String mainSchema=main.description().toString();
-        ToolManager mainManager=new ToolManager(List.of(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return mainSchema;}public String execute(String args){throw new AssertionError("Automatic execution");}})));
-        String mainAdapted=mainManager.getToolsDescription().toString();
-        check(mainAdapted.contains("act")&&mainAdapted.contains("gesture"),"Real SDK accepts Main API");
+        String mainAdapted=LlamaProtocol.request(new JSONArray(),main.description(),0,768).getJSONArray("tools").toString();
+        check(mainAdapted.contains("act")&&mainAdapted.contains("gesture"),"Main tool forwarded by production protocol");
         check(main.description().getJSONObject("parameters").getJSONArray("required").length()==0,"Main API has optional arguments");
-        // Exercise the production scope against the real SDK flag, including failed creation.
-        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(false);
-        GemmaToolDecoding.create(true,()->{check(ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Avatar grammar not enabled at creation");return null;});
-        check(!ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Avatar setting leaked to browser/chat");
-        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(true);
-        try{GemmaToolDecoding.create(false,()->{check(!ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Plain chat constrained");throw new IOException("creation failed");});throw new AssertionError("Missing exception");}catch(IOException expected){}
-        check(ExperimentalFlags.INSTANCE.getEnableConversationConstrainedDecoding(),"Failed creation did not restore SDK setting");
-        ExperimentalFlags.INSTANCE.setEnableConversationConstrainedDecoding(false);
         String malformed="Status Code: 3. Message: Failed to parse tool calls from code block: call:act{face:{eyes:1.0,head:1.0,mouth:1.0},gesture:neutral}\nfull response: parser dump";
         String explained=GemmaFailure.message(new IOException("Gemma response failed",new IllegalStateException(malformed)));
         check(explained.contains("invalid avatar control")&&!explained.contains("call:act")&&!explained.contains("parser dump"),"Native tool parse failure hidden or dumped");
@@ -95,6 +82,6 @@ public final class ModelChatProtocolCheck {
         check(GemmaFailure.message(new IOException("wrapper",new java.util.concurrent.CancellationException())).equals("Response stopped."),"Cancellation misreported");
         check(!main.instructions().contains("act(emotion=")&&!main.instructions().contains("act(gesture="),"Prompt teaches invalid unquoted tool syntax");
 
-        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("toolGrammarScopedAtCreation",true).put("observedParserFailureExplained",true).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("liveSdkToolSchema",true).put("extensiveControlsValidated",true).put("sdkVisualTokenBudget",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainSdkTools",new JSONArray(mainAdapted)).put("sdkTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
+        System.out.println(new JSONObject().put("passed",true).put("phoneTest",false).put("modelInference",false).put("observedParserFailureExplained",true).put("invalidAvatarInputsRejected",rejected).put("cachedEmbeddingResolution",true).put("llamaToolSchema",true).put("extensiveControlsValidated",true).put("mainFramingValidation",true).put("mainInstructions",main.instructions()).put("mainTools",new JSONArray(mainAdapted)).put("avatarTools",new JSONArray(adapted)).put("reasoningAndAnswerDeltasSeparated",true).put("browserParserPreserved",true));
     }
 }

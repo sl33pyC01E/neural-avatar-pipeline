@@ -98,8 +98,11 @@ public final class MainActivity extends Activity implements ResidentService.List
                 Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
     }
     @Override public void event(JSONObject event) {
-        if("stopped".equals(event.optString("type"))){finish();return;}
-        if(view!=null)view.evaluateJavascript("window.cleoEvent?.("+event.toString()+")",null);
+        runOnUiThread(()->{
+            if(isDestroyed()||isFinishing())return;
+            if("stopped".equals(event.optString("type"))){finish();return;}
+            if(view!=null)view.evaluateJavascript("window.cleoEvent?.("+event.toString()+")",null);
+        });
     }
     private void residencyState(){
         try{event(new JSONObject().put("type","residency")
@@ -131,7 +134,7 @@ public final class MainActivity extends Activity implements ResidentService.List
                 else if("app".equals(which))startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
             }catch(android.content.ActivityNotFoundException unavailable){startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));}
         });}
-        @JavascriptInterface public void tab(String tab){if(!selectedTab.equals(tab)&&chatInputs!=null)runOnUiThread(()->chatInputs.stopRecording());selectedTab=tab;if(engines!=null)engines.tab(tab);if(browser!=null)browser.show("browser".equals(tab)&&resumed&&!settingsOpen);}
+        @JavascriptInterface public void tab(String tab){if(!selectedTab.equals(tab))runOnUiThread(()->{recordWanted=false;if(chatInputs!=null)chatInputs.stopRecording();});selectedTab=tab;if(engines!=null)engines.tab(tab);if(browser!=null)browser.show("browser".equals(tab)&&resumed&&!settingsOpen);}
         @JavascriptInterface public void chat(String request){if(chat!=null)chat.request(request);}
         @JavascriptInterface public void browserBounds(String bounds){if(browser!=null)browser.bounds(bounds);}
         @JavascriptInterface public void browserCommand(String request){if(browser!=null)browser.command(request);}
@@ -201,10 +204,10 @@ public final class MainActivity extends Activity implements ResidentService.List
         super.onRequestPermissionsResult(request,permissions,results);if(request==74){residencyState();return;}if(request!=73)return;
         boolean granted=results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED;
         // A permission dialog ends a hold gesture. Never start a hidden microphone on return.
-        if(granted&&recordWanted&&resumed&&!recordScope.equals("main"))chatInputs.startRecording(recordScope);
+        if(granted&&recordWanted&&resumed&&recordScope.equals(selectedTab)&&!recordScope.equals("main"))chatInputs.startRecording(recordScope);
         else try{recordWanted=false;event(new JSONObject().put("type","chat").put("inputScope",recordScope).put("recording",false).put("inputError",granted?"Microphone ready — hold to talk.":"Microphone permission was declined"));}catch(Exception ignored){}
     }
-    @Override protected void onPause() { resumed=false;if(browser!=null)browser.show(false);if(chatInputs!=null)chatInputs.stopRecording();if(chat!=null)chat.request("{\"action\":\"background\"}");if(engines!=null)engines.visible(false);view.evaluateJavascript("window.cleoVisible?.(false)",null);view.onPause();super.onPause(); }
+    @Override protected void onPause() { resumed=false;recordWanted=false;if(browser!=null)browser.show(false);if(chatInputs!=null)chatInputs.stopRecording();if(chat!=null)chat.request("{\"action\":\"background\"}");if(engines!=null)engines.visible(false);view.evaluateJavascript("window.cleoVisible?.(false)",null);view.onPause();super.onPause(); }
     @Override protected void onResume() { super.onResume();resumed=true;residencyState();if(browser!=null&&"browser".equals(selectedTab))browser.show(!settingsOpen);if(engines!=null)engines.visible(true);if(view!=null){view.onResume();view.evaluateJavascript("window.cleoVisible?.(true)",null);} }
     @Override protected void onDestroy() { if(browser!=null)browser.close();if(chatInputs!=null)chatInputs.close();if(chat!=null)chat.close();if(engines!=null)engines.detach(this);if(bound)unbindService(connection);view.removeJavascriptInterface("Cleo");view.destroy();view=null;super.onDestroy(); }
 }

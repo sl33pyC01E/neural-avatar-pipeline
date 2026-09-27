@@ -1,7 +1,7 @@
 package ai.cleo.ardyavatarvalidation;
 
 import android.content.Context;
-import com.google.ai.edge.litertlm.*;
+import static ai.cleo.ardyavatarvalidation.ModelData.*;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -94,7 +94,7 @@ final class LlamaRuntime implements AutoCloseable {
                 preparePrefix(messages,tool,reasoning,false);tokens=cacheState.optInt("restoredTokens",cacheState.optInt("savedTokens",-1));
             }catch(Exception failure){check();cacheState=cacheStatus().put("operation","Disk cache unavailable; evaluating prompt normally").put("warning",failure.getMessage());}
         }
-        void send(com.google.ai.edge.litertlm.Message input,MessageCallback callback,ThinkingConfig thinking,ResponseFormat format){
+        void send(ModelMessage input,MessageCallback callback,ThinkingConfig thinking,ResponseFormat format){
             try{
                 if(ended)throw new IOException("Conversation closed");cancelled=false;check();
                 JSONArray next=new JSONArray();for(int i=0;i<messages.length();i++)next.put(messages.get(i));JSONArray add=LlamaProtocol.input(input,pending);for(int i=0;i<add.length();i++)next.put(add.get(i));
@@ -105,7 +105,7 @@ final class LlamaRuntime implements AutoCloseable {
                 for(int i=0;i<add.length();i++)messages.put(add.get(i));messages.put(result.assistant());pending.addAll(result.calls.values());
                 tokens=result.usage.optInt("total_tokens",-1);
                 lastTiming=new JSONObject().put("timings",result.timings).put("usage",result.usage).put("finishReason",result.finish);
-                if(!calls.isEmpty())callback.onMessage(new com.google.ai.edge.litertlm.Message(Role.MODEL,Contents.Companion.of(""),calls,Collections.emptyMap()));
+                if(!calls.isEmpty())callback.onMessage(new ModelMessage(Role.MODEL,Contents.of(""),calls,Collections.emptyMap()));
                 callback.onDone();
             }catch(Throwable e){ended=true;callback.onError(e);}
         }

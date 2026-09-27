@@ -1,4 +1,5 @@
 // Module shell. Welcome and isolated speech load no avatar or WebGL context.
+import { createDebugWorkspace } from './debug-workspace.mjs';
 import { createModelChat } from './model-chat.mjs';
 import { createBrowserUI } from './browser-ui.mjs';
 import { createAvatarAgent } from './avatar-agent.mjs';
@@ -6,6 +7,7 @@ import { createPromptTree } from './prompt-tree.mjs';
 let currentTab='launch',pageVisible=!document.hidden,avatar,avatarLoading,lastState,speechBusy=false,pipelineTab='talk',performanceCue=.5;
 const $=selector=>document.querySelector(selector);
 const panels={launch:'#launch-panel',main:'#main-panel',welcome:'#welcome-panel',pocket:'#pocket-panel',face:'#face-panel',talk:'#talk-panel',avatar:'#panel',full:'#full-panel',chat:'#chat-panel',browser:'#browser-panel',cleopatra:'#cleopatra-panel'};
+const debugWorkspace=createDebugWorkspace();window.debugWorkspace=debugWorkspace;
 const modelChat=createModelChat(),browserUI=createBrowserUI();
 const promptTree=createPromptTree();
 new ResizeObserver(()=>document.documentElement.style.setProperty('--content-top',`${document.querySelector('header').getBoundingClientRect().bottom+12}px`)).observe(document.querySelector('header'));
@@ -77,6 +79,8 @@ $('#open-prompts').onclick=()=>{closeSettings();promptTree.open();};
 $('#chat-prompts').onclick=()=>promptTree.open();
 $('#open-debug').onclick=()=>{closeSettings();selectTab('welcome').catch(fail);};
 for(const button of document.querySelectorAll('[data-settings-tab]'))button.onclick=()=>{closeSettings();selectTab(button.dataset.settingsTab).catch(fail);};
+$('#debug-module').onchange=event=>selectTab(event.target.value).catch(fail);
+$('#debug-home').onclick=()=>selectTab('welcome').catch(fail);
 $('#app-home').onclick=()=>selectTab('launch').catch(fail);
 $('#app-main').onclick=()=>launchMain().catch(fail);$('#launch').onclick=()=>launchMain().catch(fail);
 for(const button of document.querySelectorAll('[data-frame]'))button.onclick=()=>frameMain(button.dataset.frame);
@@ -106,6 +110,7 @@ window.addEventListener('unhandledrejection',event=>fail(event.reason));
 
 async function selectTab(tab){
   if(!panels[tab])return;
+  debugWorkspace.remember();
   if(tab!==currentTab){stopRepeat();window.Cleo?.quiet();avatar?.pause();avatar?.stopFace();}
   currentTab=tab;window.validationState.tab=tab;window.Cleo?.tab(tab);
   const debug=!['launch','main'].includes(tab);document.body.classList.toggle('debug',debug);$('#debug-nav').hidden=!debug;$('#app-main').hidden=!debug;$('#main-frames').hidden=tab!=='main';
@@ -116,7 +121,7 @@ async function selectTab(tab){
   for(const [key,panel] of Object.entries(panels))$(panel).hidden=key!==tab;
   $('canvas').hidden=!usesAvatar(tab);$('#avatar-view-controls').hidden=!usesAvatar(tab)||tab==='main';
   $('#subtitle').textContent={launch:'',main:'',welcome:'Local module lab',pocket:'Anna · isolated speech runtime',face:'LAM · last Anna clip',talk:'Anna + LAM · speech to face',avatar:'Ardy · motion and embeddings',full:'Anna + LAM + Ardy',chat:'Gemma · local multimodal chat',browser:'Gemma · browser actions',cleopatra:'Gemma + live Ardy + Anna + LAM'}[tab];
-  modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);mainAgent.select(tab);
+  debugWorkspace.select(tab);modelChat.select(tab);browserUI.select(tab);avatarAgent.select(tab);mainAgent.select(tab);
   buttons();avatar?.setVisible(false);
   if(usesAvatar(tab)){
     avatarLoading??=import('./avatar-view.mjs').then(module=>module.createAvatarView());

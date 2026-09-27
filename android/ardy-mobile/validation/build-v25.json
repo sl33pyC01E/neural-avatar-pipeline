@@ -1,0 +1,15 @@
+{
+  "versionCode": 25,
+  "versionName": "0.9.0-module-workspace",
+  "assembleDebug": true,
+  "lintDebug": {
+    "errors": 0,
+    "warnings": 11
+  },
+  "apkSignatureV2Verified": true,
+  "apkSha256": "2d02ccc7e7f085cd3502c7997272b8ab882934a41d24c88d4eb27226f8ae8a52",
+  "appLaunched": false,
+  "phoneInference": false,
+  "hostUiRenderer": "CPU SwiftShader",
+  "hostUiSectionLayouts": 60
+}

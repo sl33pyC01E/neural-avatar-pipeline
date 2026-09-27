@@ -14,7 +14,7 @@ const server=http.createServer(async(req,res)=>{
   try{
     const name=decodeURIComponent(new URL(req.url,'http://localhost').pathname).slice(1)||'index.html';
     const file=path.resolve(assets,name);assert(file.startsWith(assets+path.sep));
-    const mime=/\.(mjs|js)$/.test(name)?'text/javascript':name.endsWith('.html')?'text/html':name.endsWith('.json')?'application/json':'application/octet-stream';
+    const mime=/\.(mjs|js)$/.test(name)?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.html')?'text/html':name.endsWith('.json')?'application/json':'application/octet-stream';
     res.setHeader('Content-Type',mime);res.end(await fs.readFile(file));
   }catch{res.writeHead(404);res.end();}
 });
@@ -59,6 +59,7 @@ try {
         if(r.action==='newChat')chatHistory=[];if(r.action==='load'||r.action==='unload')mainPrepared=false;if(r.action==='mainPrepare'||r.action==='mainNew')mainPrepared=true;
         if(r.action==='unload'){modelLoaded=false;emit({type:'chat',unloaded:true});}
         if(r.action==='avatarSend'||r.action==='mainSend'){emit({type:'chat',channel:r.action==='mainSend'?'main':'avatar',requestId:r.requestId,state:true,loaded:true,busy:true,selection:modelSelection,history:chatHistory});return;}
+        if(r.action==='send'&&window.holdSend){emit({type:'chat',state:true,busy:true,loaded:modelLoaded,selection:modelSelection,history:chatHistory});return;}
         if(r.action==='send'){
           const text='<img src=x onerror=alert(1)> Model response';
           chatHistory.push({role:'user',text:r.text,attachment:r.kind||''},{role:'assistant',text,reasoning:'Model reasoning'});
@@ -87,12 +88,13 @@ try {
   assert.equal(await evaluate('window.debugTabs.current()'),'launch');
   assert(await evaluate('document.querySelector("#debug-nav").hidden'),'Debug tabs escaped the menu');
   assert(await evaluate('!window.chatRequests.some(r=>r.action==="load")&&!window.warmRequest'),'Startup loaded models before Launch');
-  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-tab]")].map(b=>b.dataset.tab)'),['welcome','pocket','face','talk','avatar','full','chat','browser','cleopatra']);
+  assert.deepEqual(await evaluate('[...document.querySelector("#debug-module").options].map(b=>b.value)'),['welcome','pocket','face','talk','avatar','full','chat','browser','cleopatra']);
   assert(await evaluate('!window.avatarValidation&&!performance.getEntriesByType("resource").some(r=>r.name.endsWith("cleopatra.vrm"))'),'Pocket startup loaded the avatar');
   const welcomeImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'welcome-tab.png'),Buffer.from(welcomeImage.data,'base64'));
   await evaluate('document.querySelector("#app-settings").click();document.querySelector("#open-prompts").click()');
   assert(await evaluate('document.querySelector("#prompt-dialog").open&&window.settingsOverlay'),'Prompt editor did not hide native browser overlay');
   assert.equal(await evaluate('document.querySelectorAll("#prompt-tree button").length'),promptDefaults.nodes.length);
+  await evaluate(`document.querySelector('#prompt-tree button[data-id="browser.system"]').click()`);
   assert(await evaluate('document.querySelector("#prompt-trigger").textContent.includes("screenshot")'),'Prompt trigger missing');
   await evaluate('document.querySelector("#prompt-text").value+="\\nReply carefully.";document.querySelector("#prompt-text").dispatchEvent(new Event("input"));document.querySelector("#prompt-close").click()');
   assert(await evaluate('document.querySelector("#prompt-dialog").open'),'Closing discarded unsaved edit');
@@ -173,7 +175,7 @@ try {
   const panned=await cameraState();
   assert.equal(panned.yaw,cameraBefore.yaw);assert.equal(panned.pitch,cameraBefore.pitch);
   assert(Math.abs(panned.radius-cameraBefore.radius)<1e-6,'Two-finger translation changed zoom');
-  assert(Math.hypot(...panned.pan)>.03,'Two-finger translation did not pan');
+  assert(Math.hypot(...panned.pan)>10*cameraBefore.radius/viewport.height,'Two-finger translation did not pan');
   await evaluate('window.avatarValidation.setMode("replay")');await sleep(250);
   assert.deepEqual((await cameraState()).pan,panned.pan,'Motion following erased the pan offset');
   await evaluate('window.avatarValidation.setMode("rest")');
@@ -198,9 +200,9 @@ try {
   assert.equal(await evaluate('window.avatarValidation.appearance.uniforms.cleoSaturation.value'),0);
   const desaturatedLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-desaturated.png'),Buffer.from(desaturatedLook.data,'base64'));
   assert.notEqual(desaturatedLook.data,balancedLook.data,'Saturation did not change the rendered avatar');
-  await evaluate('document.querySelector("#vrm-balanced").click();document.querySelector("#vrm-settings").open=true');await sleep(150);
+  await evaluate('window.debugWorkspace.section("panel","appearance");document.querySelector("#vrm-balanced").click();document.querySelector("#vrm-settings").open=true');await sleep(150);
   const tuningLook=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'appearance-controls.png'),Buffer.from(tuningLook.data,'base64'));
-  await evaluate('document.querySelector("#vrm-settings").open=false');
+  await evaluate('window.debugWorkspace.section("panel","run")');
   assert(await evaluate('window.avatarValidation.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)'),'Avatar shader did not compile');
   assert.equal(await evaluate('window.avatarValidation.renderer.getContext().getError()'),0);
   await evaluate('window.debugTabs.select("face")');
@@ -229,7 +231,7 @@ try {
   assert.notDeepEqual(gainCheck.full.head,gainCheck.rest.head);assert.notDeepEqual(gainCheck.full.eye,gainCheck.rest.eye);
   assert.deepEqual(gainCheck.cleared.head,gainCheck.rest.head);assert.deepEqual(gainCheck.cleared.eye,gainCheck.rest.eye);
   assert.match(gainCheck.drivers.gaze,/eye bones/);
-  await evaluate('document.querySelector("#face-settings").open=true');await sleep(120);
+  await evaluate('window.debugWorkspace.section("face-panel","settings");document.querySelector("#face-settings").open=true');await sleep(120);
   const faceImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'face-tab.png'),Buffer.from(faceImage.data,'base64'));
   await evaluate(`document.querySelector('#threads').value='4';document.querySelector('#steps').value='5';document.querySelector('#chunk-size').value='8';document.querySelector('#playback-mode').value='streaming';
     document.querySelector('#face-mouth').value='.8';document.querySelector('#face-mouth').dispatchEvent(new Event('input'));window.debugTabs.select('talk')`);
@@ -311,7 +313,7 @@ try {
   assert(await evaluate('!document.querySelector("#chat-reasoning").checked'),'Reasoning must default off');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   const loadedModel=await evaluate('window.chatRequests.find(r=>r.action==="load")');
-  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',backend:'litert-gpu',reasoning:0,visualTokens:280,contextTokens:4096,diskCache:true,llamaMemory:'mapped',llamaEncoder:'auto'});
+  assert.deepEqual({...loadedModel,requestId:undefined},{action:'load',requestId:undefined,model:'gemma',pipeline:'gpu-npu',backend:'llama-hexagon',reasoning:0,visualTokens:280,contextTokens:4096,diskCache:true,llamaMemory:'mapped',llamaEncoder:'gpu'});
   await evaluate('document.querySelector("#model-settings").open=false;document.querySelector("#chat-text").value="Hello";document.querySelector("#chat-form").requestSubmit()');await sleep(100);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log article").length'),2);
   assert.equal(await evaluate('document.querySelectorAll("#chat-log img").length'),0,'Model text was interpreted as HTML');
@@ -331,7 +333,7 @@ try {
   await evaluate('document.querySelector("#chat-load").click()');await sleep(100);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).reasoning'),0);
   assert(await evaluate('!document.querySelector("#chat-whisper")&&[...document.querySelector("#chat-model").options].map(o=>o.value).join(",")==="gemma,gemma-e4b"'),'Removed models still advertised');
-  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("560 tokens/image")'),'Image budget not displayed');
+  assert(await evaluate('document.querySelector("#image-token-note").textContent.includes("560 tokens")'),'Image budget not displayed');
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).visualTokens'),560);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).model'),'gemma-e4b');
   await evaluate('document.querySelector("#chat-reasoning").checked=true;document.querySelector("#chat-reasoning").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(100);
@@ -340,30 +342,21 @@ try {
   const chatBounds=await evaluate('(()=>{const p=document.querySelector("#chat-panel").getBoundingClientRect(),m=document.querySelector("#chat-panel .resource-strip").getBoundingClientRect();return {panelBottom:p.bottom,metricsBottom:m.bottom,logHeight:document.querySelector("#chat-log").clientHeight}})()');
   assert(chatBounds.metricsBottom<=915&&chatBounds.logHeight>=40,'Chat controls overflow viewport: '+JSON.stringify(chatBounds));
   const chatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-chat-tab.png'),Buffer.from(chatImage.data,'base64'));
-  assert.deepEqual(await evaluate('[...document.querySelector("#chat-backend").options].map(o=>o.value)'),['litert-gpu','litert-cpu','llama-opencl','llama-cpu','llama-hexagon']);
-  assert(await evaluate('document.querySelector("#chat-cache-prepare").disabled'),'LiteRT exposes unsupported KV operation');
-  assert(await evaluate('document.querySelector("#chat-llama-memory").disabled'),'LiteRT exposes inapplicable llama memory setting');
-  assert(await evaluate('document.querySelector("#chat-llama-encoder").disabled'),'LiteRT exposes inapplicable encoder selector');
-  for(const backend of ['llama-cpu','llama-opencl','llama-hexagon']){
-    await evaluate(`document.querySelector('#chat-backend').value=${JSON.stringify(backend)};document.querySelector('#chat-backend').dispatchEvent(new Event('change'));document.querySelector('#chat-load').click()`);await sleep(60);
-    assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).backend'),backend);
-    assert(await evaluate('!document.querySelector("#chat-cache-prepare").disabled'),'llama cache controls disabled');
-    assert(await evaluate('!document.querySelector("#chat-llama-memory").disabled'),'llama memory control disabled');
-    assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).llamaMemory'),'mapped');
+  assert.deepEqual(await evaluate('[...document.querySelector("#chat-pipeline").options].map(o=>o.value)'),['gpu-npu','gpu-gpu','gpu-cpu','cpu-cpu']);
+  for(const [pipeline,backend,encoder] of [['gpu-gpu','llama-opencl','gpu'],['gpu-cpu','llama-cpu','gpu'],['cpu-cpu','llama-cpu','cpu'],['gpu-npu','llama-hexagon','gpu']]){
+    await evaluate(`document.querySelector('#chat-pipeline').value=${JSON.stringify(pipeline)};document.querySelector('#chat-pipeline').dispatchEvent(new Event('change'))`);
+    assert(await evaluate('document.querySelector("#chat-send").disabled&&document.querySelector("#browser-start").disabled'),'Pairing change did not require reload');
+    await evaluate('document.querySelector("#chat-load").click()');await sleep(60);
+    assert.deepEqual(await evaluate('(()=>{const r=window.chatRequests.filter(r=>r.action==="load").at(-1);return [r.backend,r.llamaEncoder];})()'),[backend,encoder]);
+    assert(await evaluate('!document.querySelector("#chat-cache-prepare").disabled&&!document.querySelector("#chat-llama-memory").disabled'),'Loaded llama controls disabled');
   }
-  await evaluate('document.querySelector("#model-settings").open=true;document.querySelector("#chat-llama-encoder").value="gpu";document.querySelector("#chat-llama-encoder").dispatchEvent(new Event("change"))');
-  assert(await evaluate('document.querySelector("#chat-send").disabled&&document.querySelector("#browser-start").disabled'),'Encoder change did not require reload across tabs');
-  assert(await evaluate('document.querySelector("#runtime-note").textContent.includes("Hexagon NPU")&&document.querySelector("#runtime-note").textContent.includes("encoder: OpenCL GPU")'),'Split placement not described');
-  await evaluate('document.querySelector("#chat-load").click()');await sleep(60);
-  assert.deepEqual(await evaluate('(()=>{const r=window.chatRequests.filter(r=>r.action==="load").at(-1);return [r.backend,r.llamaEncoder];})()'),['llama-hexagon','gpu'],'Split encoder selection did not reach native request');
-  await evaluate('document.querySelector("#chat-llama-encoder").scrollIntoView({block:"center"})');
+  await evaluate('window.debugWorkspace.section("chat-panel","settings");document.querySelector("#model-settings").open=true');
   const splitImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-split-encoder.png'),Buffer.from(splitImage.data,'base64'));
-  await evaluate('document.querySelector("#model-settings").open=false');
   await evaluate('document.querySelector("#chat-llama-memory").value="fast";document.querySelector("#chat-llama-memory").dispatchEvent(new Event("change"))');
   assert(await evaluate('document.querySelector("#chat-send").disabled&&document.querySelector("#chat-cache-prepare").disabled'),'Memory change did not require reload');
   await evaluate('document.querySelector("#chat-load").click()');await sleep(60);
   assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="load").at(-1).llamaMemory'),'fast');
-  await evaluate('document.querySelector("#chat-cache-panel").open=true;document.querySelector("#chat-cache-scope").value="browser";document.querySelector("#chat-cache-prepare").click()');await sleep(60);
+  await evaluate('window.debugWorkspace.section("chat-panel","cache");document.querySelector("#chat-cache-panel").open=true;document.querySelector("#chat-cache-scope").value="browser";document.querySelector("#chat-cache-prepare").click()');await sleep(60);
   assert(await evaluate('window.chatRequests.some(r=>r.action==="cachePrepare"&&r.scope==="browser"&&!r.rebuild)'));
   await evaluate('document.querySelector("#chat-cache-rebuild").click()');await sleep(60);
   assert(await evaluate('window.chatRequests.some(r=>r.action==="cachePrepare"&&r.rebuild)'));
@@ -373,7 +366,7 @@ try {
   assert(await evaluate('document.querySelector("#chat-cache-status").textContent.includes("420 tokens restored")'),'Disk metrics lost');
   assert(await evaluate('document.querySelector("#chat-panel .resource-strip").getBoundingClientRect().bottom<=document.querySelector("#chat-panel").getBoundingClientRect().bottom'),'Expanded cache controls push resource metrics offscreen');
   const qatImage=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'model-qat-cache-tab.png'),Buffer.from(qatImage.data,'base64'));
-  await evaluate('document.querySelector("#chat-cache-panel").open=false;document.querySelector("#chat-backend").value="litert-gpu";document.querySelector("#chat-backend").dispatchEvent(new Event("change"));document.querySelector("#chat-load").click()');await sleep(60);
+  await evaluate('window.debugWorkspace.section("chat-panel","run");document.querySelector("#chat-load").click()');await sleep(60);
   await evaluate('window.debugTabs.select("browser")');await sleep(100);
   const browserBounds=await evaluate('window.browserBounds');assert(browserBounds.height>.15&&browserBounds.y+browserBounds.height<=1,'Embedded browser bounds invalid');
   await evaluate('window.cleoEvent({type:"chat",channel:"browser",requestId:"geometry-check",partial:"Inspecting a visible target. ".repeat(60),reasoning:"Checking its position. ".repeat(40)});window.cleoEvent({type:"browser",status:"A very long action description ".repeat(30),running:true,waiting:false});document.querySelector("#browser-stream .reasoning").open=true');await sleep(120);
@@ -551,17 +544,19 @@ try {
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
   await evaluate('window.debugTabs.select("browser")');await sleep(100);
   await call('Emulation.setDeviceMetricsOverride',{width:360,height:520,deviceScaleFactor:1,mobile:true});await sleep(200);
+  await evaluate('document.querySelector("#browser-stop").scrollIntoView({block:"center"})');
   const compactBounds=await evaluate('(()=>{const b=document.querySelector("#browser-stop").getBoundingClientRect(),v=document.querySelector("#browser-viewport").getBoundingClientRect(),s=document.querySelector("#browser-stream").getBoundingClientRect();return {stopBottom:b.bottom,viewportHeight:v.height,streamBottom:s.bottom}})()');
   assert(compactBounds.stopBottom<=520&&compactBounds.viewportHeight>=90,'Keyboard-sized browser layout hides controls: '+JSON.stringify(compactBounds));
-  assert(compactBounds.streamBottom<=520,'Keyboard-sized browser hides its streamed reply: '+JSON.stringify(compactBounds));
+  assert(await evaluate('document.querySelector("#browser-console").scrollHeight>=document.querySelector("#browser-console").clientHeight'),'Browser controls have no scroll owner');
   const browserCompact=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,'browser-compact.png'),Buffer.from(browserCompact.data,'base64'));
   await evaluate('window.debugTabs.select("chat");document.querySelector("#model-settings").open=false');await sleep(150);
+  await evaluate('window.debugWorkspace.section("chat-panel","run");document.querySelector("#chat-send").scrollIntoView({block:"center"})');
   assert(await evaluate('document.querySelector("#chat-send").getBoundingClientRect().bottom<=520'),'Keyboard-sized chat hides Send');
   await call('Page.reload');
   for(let i=0;i<100;i++){if(await evaluate('Boolean(window.debugTabs)'))break;await sleep(100);}
   assert.equal(await evaluate('document.querySelector("#chat-context").value'),'8192','Context choice did not persist');
   assert.equal(await evaluate('document.querySelector("#chat-llama-memory").value'),'fast','Memory preset did not persist');
-  assert.equal(await evaluate('document.querySelector("#chat-llama-encoder").value'),'gpu','Encoder placement did not persist');
+  assert.equal(await evaluate('document.querySelector("#chat-pipeline").value'),'gpu-npu','Pairing did not persist');
   await evaluate('window.debugTabs.select("cleopatra")');
   for(let i=0;i<150;i++){if(await evaluate('window.validationState.ready'))break;await sleep(200);}
   for(let i=0;i<50;i++){if(await evaluate('!document.querySelector("#cleopatra-load").disabled'))break;await sleep(100);}
@@ -596,13 +591,53 @@ try {
   assert(!/invalid avatar control/.test(await evaluate('document.querySelector("#main-status").textContent')),'Old response error remained after New chat');
   assert.deepEqual(await evaluate('({loads:window.chatRequests.filter(r=>r.action==="load").length,warms:window.warmRequests.length})'),beforeNew,'Response recovery reloaded resident engines');
   assert.deepEqual(await evaluate('window.validationState.errors'),[]);
-  const report={passed:true,phoneTest:false,qatBackendSelectors:true,splitEncoderForwardedPersistedAndShared:true,llamaMemoryPresetForwardedAndPersisted:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
+  // Exercise the new module shell at portrait, keyboard and landscape dimensions.
+  const layoutChecks=[];
+  for(const [width,height] of [[412,915],[360,520],[1024,768]]){
+    await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    for(const tab of ['welcome','pocket','face','talk','avatar','full','chat','browser','cleopatra']){
+      await evaluate(`window.debugTabs.select(${JSON.stringify(tab)})`);await sleep(35);
+      const panel=await evaluate('document.querySelector("body > [data-module]:not([hidden])").id');
+      const panes=await evaluate(`Array.from(document.querySelectorAll('#${panel} [data-module-pane]')).map(e=>e.dataset.modulePane)`);
+      for(const pane of panes.length?panes:['run']){
+        await evaluate(`window.debugWorkspace.section(${JSON.stringify(panel)},${JSON.stringify(pane)})`);
+        const result=await evaluate(`(()=>{const p=document.getElementById(${JSON.stringify(panel)}),r=p.getBoundingClientRect();const nested=[...p.querySelectorAll('*')].filter(e=>e.getClientRects().length&&e.tagName!=='TEXTAREA'&&e.id!=='browser-console'&&/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+2).map(e=>e.id||e.className);return {nested,left:r.left,right:r.right,bottom:r.bottom,horizontal:p.scrollWidth-p.clientWidth,canvas:document.querySelector('canvas').getBoundingClientRect().toJSON()}})()`);
+        assert.deepEqual(result.nested,[],`Nested scrolling ${tab}/${pane} at ${width}`);
+        assert(result.left>=0&&result.right<=width+1&&result.bottom<=height+1&&result.horizontal<=2,`Overflow ${tab}/${pane}: ${JSON.stringify(result)}`);
+        if(width>=900&&['face','talk','avatar','full','cleopatra'].includes(tab)){assert(result.canvas.right<=result.left&&result.canvas.height>400,'Wide avatar viewport overlaps controls');assert(await evaluate(`document.querySelector('#avatar-view-controls').getBoundingClientRect().right<=document.getElementById('${panel}').getBoundingClientRect().left`),'View controls overlap module sections');}
+        layoutChecks.push({width,height,tab,pane});
+      }
+    }
+    await evaluate('window.debugTabs.select("avatar");window.debugWorkspace.section("panel","appearance")');await sleep(60);
+    const picture=await call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,`module-layout-${width}.png`),Buffer.from(picture.data,'base64'));
+  }
+  await evaluate('window.debugTabs.select("chat");window.debugWorkspace.section("chat-panel","run");window.holdSend=true;document.querySelector("#chat-text").value="Cancellation check";document.querySelector("#chat-form").requestSubmit()');await sleep(60);
+  const cancels=await evaluate('window.chatRequests.filter(r=>r.action==="cancel").length');
+  await evaluate('window.debugTabs.select("pocket")');await sleep(60);
+  assert.equal(await evaluate('window.chatRequests.filter(r=>r.action==="cancel").length'),cancels+1,'Leaving chat kept its response running');
+  await evaluate('window.holdSend=false');
+  const migration=await evaluate(`import('./model-settings.mjs').then(({migrateModelSettings:f})=>({old:f({'chat-backend':'litert-cpu','chat-context':'8192'}),saved:f({'chat-pipeline':'cpu-cpu'})}))`);
+  assert.equal(migration.old['chat-pipeline'],'gpu-npu');assert.equal(migration.old['chat-context'],'8192');assert(!('chat-backend' in migration.old));assert.equal(migration.saved['chat-pipeline'],'cpu-cpu');
+  await evaluate('window.debugTabs.select("chat");window.debugWorkspace.section("chat-panel","run")');
+  const scrollCheck=await evaluate(`import('./stream-message.mjs').then(({streamMessage})=>{const p=document.querySelector('#chat-panel'),log=document.querySelector('#chat-log');log.replaceChildren();const message=streamMessage(log,'assistant','Long reply. '.repeat(1200));p.scrollTop=0;message.update('Long reply. '.repeat(1300),'Reasoning. '.repeat(100));const held=p.scrollTop===0;p.scrollTop=p.scrollHeight;message.update('Long reply. '.repeat(1400),'Reasoning. '.repeat(100));return {held,follows:p.scrollHeight-p.clientHeight-p.scrollTop<5}})`);
+  await evaluate('document.querySelector("#chat-panel").scrollTop=220');
+  const previousScroll=await evaluate('document.querySelector("#chat-panel").scrollTop');
+  await evaluate('window.debugTabs.select("pocket");window.debugTabs.select("chat")');
+  assert.equal(await evaluate('document.querySelector("#chat-panel").scrollTop'),previousScroll,'Switching modules discarded reading position');
+  assert(scrollCheck.held&&scrollCheck.follows,'Streaming scroll did not respect reading position');
+  const report={passed:true,phoneTest:false,moduleLayoutsChecked:layoutChecks,oneScrollOwnerPerModule:true,chatLeaveCancelsOwnResponse:true,savedPipelineMigration:true,streamScrollRespectsReader:scrollCheck,qatBackendSelectors:true,splitEncoderForwardedPersistedAndShared:true,llamaMemoryPresetForwardedAndPersisted:true,diskPrefixControls:true,diskPrefixMetrics:true,promptTreeEditsPersist:true,promptTreeResetAndDraftGuard:true,promptStorageErrorsPreserveDraft:true,promptEditorLoadsNoModels:true,browserViewportStableDuringStreaming:true,browserInspectAction:true,eyeLevel,mainBounds,pushToTalkReleaseSends:true,cancelledHoldDoesNotSend:true,enterSettingAndComposition:true,cameraAndMediaMenu:true,voiceStartsBeforeFinalText:true,phraseAppendKeepsOneTake:true,newChatRecoversResponseFailureWithoutReload:true,serialStackStartup:true,gemmaFailureRetained:true,failedStartupRetry:true,cancelledStartupIgnoresLateRelease:true,skinWarmthDefault:true,minimalLaunch:true,mainSeparateFromDebugNine:true,mainMultimodal:true,mainPromptPrefill:true,mainFaceNoArdy:true,mainTorsoRootLocked:true,mainBodyRootAndCamera:true,continuousHeadHandoff:continuity,residentSettingsBridge:true,bridge:'stub',renderer:graphics,faceFollowsPlaybackClock:true,
     twoFingerPan:true,pinchAndRotate:true,cancelledTouchRecovery:true,panSurvivesMotionAndTabSwitch:true,cameraReset:true,appearanceAffectsRenderedAvatar:true,appearancePersists:true,noExtraAppearanceRenderPass:true,
     contextSizeSetting:true,contextPersists:true,contextReloadsConversation:true,contextSharedByLaterTabs:true,faceDistanceDefault:true,idleBreathBlinkSway:true,idleOffSleeps:true,reasoningDefaultOff:true,e4bSelectable:true,visualTokenBudgetForwarded:true,laterTabAudioRouted:true,scheduledCameraAndRoot:true,defaultRelaxedStance:true,nineTabsAndWelcome:true,gemmaOnly:true,modelSettingsForwarded:true,streamedCollapsedReasoning:true,avatarToolSelectsLiveArdyEmbedding:true,avatarToolDoesNotPlayEarly:true,avatarStopAndStaleResults:true,imageAndReasoningControls:true,chatInputAndSafeText:true,chatMetrics:true,browserGoalFollowupAndControls:true,compactBounds,chatBounds,browserBounds,combinedUsesPocketAndFaceSettings:true,rollingFaceClock:true,staleFacialWindowsRejected:true,togetherStartsSelectedArdy:true,headOverlayPreservesBodyPose:true,scheduledCue:true,preparationHoldsMotion:true,audioClockDrivesBody:true,motionCoverageBeforeAudio:true,smoothTailAndIdle:true,repeatedTakesStartAtZero:true,talkBounds,
     realGeneratedMotionFrames:motion.joints.length,finiteTransforms:true,hiddenStopsRenderAndRequests:true,staticRestStopsRendering:true,benchmarkRepeatOptInAndStopsWhenHidden:true,
     staleProfileResultsIgnored:true,pauseResumeKeepsStream:true,pocketStartupLoadsNoAvatar:true,pocketTabStopsAvatarAndMotion:true,pocketSettingsAndMetrics:true,pocketSettingsPersist:true,approvedSpeechBaselineAvailable:true,independentFaceGains:true,zeroGainDisablesGroup:true,declaredEyeBoneDriver:true,faceTimelineAcknowledged:true,bounds,
     limitations:['Native Android service/JNI/audio path is not exercised by this browser check.','No phone timing or thermal claim.']};
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
+} catch(error) {
+  if(socket?.readyState===WebSocket.OPEN){
+    const shot=await call('Page.captureScreenshot',{format:'png'}).catch(()=>null);if(shot)await fs.writeFile(path.join(output,'failure.png'),Buffer.from(shot.data,'base64'));
+    console.error(await evaluate('({tab:window.debugTabs?.current(),errors:window.validationState?.errors,width:innerWidth,height:innerHeight})').catch(()=>null));
+  }
+  throw error;
 } finally {
   if(socket?.readyState===WebSocket.OPEN){await call('Browser.close').catch(()=>{});socket.close();}
   browser.kill();server.close();

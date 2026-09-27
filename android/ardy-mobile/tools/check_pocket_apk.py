@@ -84,13 +84,12 @@ if __name__ == '__main__':
         unused = args.apk.stat().st_size - sum(i.compress_size for i in archive.infolist())
         assert unused < 8 * 1024**2, 'APK contains large unused ZIP space; remove only the output APK and repackage'
         web = Path(__file__).resolve().parents[1] / 'avatar-validation/web'
-        for name in [file.name for file in web.iterdir() if file.suffix in ('.mjs','.html')]:
+        for name in [file.name for file in web.iterdir() if file.suffix in ('.mjs','.html','.css')]:
             assert archive.read('assets/' + name) == (web / name).read_bytes(), f'Stale packaged UI: {name}'
         obsolete={'libcleo_llama.so','libcleo_llama_opencl.so','libcleo_whisper.so','libcleo_whisperx.so'}
         assert not any(Path(name).name in obsolete for name in archive.namelist()), 'Obsolete model runtime packaged'
         assert 'lib/arm64-v8a/libardy_llm2vec.so' in archive.namelist(), 'Ardy embedding runtime lost'
-        litert=archive.read('lib/arm64-v8a/liblitertlm_jni.so')
-        assert b'GemmaModelConstraintProvider' in litert and b'Constrained decoding was disabled at build time.' not in litert, 'Gemma tool grammar provider unavailable in packaged ARM64 runtime'
+        assert not any('litert' in name.lower() for name in archive.namelist()), 'Retired LiteRT runtime packaged'
         runtime=json.loads((web.parents[1]/'payloads/gemma-qat/runtime-manifest.json').read_text())
         required_runtime={item['file'] for item in runtime['files']}
         for name in required_runtime:
@@ -99,13 +98,13 @@ if __name__ == '__main__':
             if item['file'].startswith(('libcleo_','libggml-htp-')):
                 assert hashlib.sha256(archive.read('lib/arm64-v8a/'+item['file'])).hexdigest()==item['sha256'], 'Worker/DSP payload changed '+item['file']
         assert json.loads(archive.read('assets/gemma-qat.json'))==json.loads((web.parents[1]/'benchmark/gemma-qat.json').read_text()), 'Stale QAT manifest'
-        packaged_workers={'Gemma':'LiteRT-LM 0.17.1 + llama.cpp b11200 CPU/OpenCL/Hexagon experimental','ArdyEmbeddings':'libardy_llm2vec.so'}
+        packaged_workers={'Gemma':'llama.cpp b11200; GPU/NPU default; GPU/GPU, GPU/CPU, CPU/CPU fallbacks','ArdyEmbeddings':'libardy_llm2vec.so'}
     with args.apk.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     result = {'passed': True, 'concreteDexCallback': required, 'sherpaJniDescriptorMatches': True,
               'apkSha256': digest, 'apkBytes': args.apk.stat().st_size, 'lamPayloadBundled': True, 'lamPayloadHashVerified':True,'packagedWebMatchesSource': True,
               'repairedEncoderSha256':manifest['encoderRepair']['repairedSha256'],'allPocketPayloadHashesVerified':True,
-              'packagedModelRuntimes':packaged_workers,'gemmaToolGrammarProviderBundled':True,
+              'packagedModelRuntimes':packaged_workers,'litertRuntimeRemoved':True,
               'phoneTest': False, 'limitation': 'Verifies packaged ABI and payloads, not Android synthesis/model/browser execution.'}
     args.report.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))

@@ -1,4 +1,11 @@
-# Gemma phone measurements
+# Gemma phone measurements (historical LiteRT harness)
+
+**v25:** The app uses llama.cpp only; the LiteRT benchmark service below has been
+removed. Use Debug → Models for current device pairing, image/audio chat and
+resource measurements. Provision current models with `tools/prepare_gemma_qat.py`.
+`models.json` is now the QAT inventory; `archive/models-before-llama-only.json`
+retains the prior LiteRT identities. Instructions below describe the old checkpoint
+and must not be used to provision or benchmark v25.
 
 The comparison harness targets **Gemma 4 E2B** on LiteRT CPU/GPU, alongside live Ardy,
 Pocket/Anna, LAM and Cleopatra VRM. Qwen and separate Whisper/WhisperX transcription

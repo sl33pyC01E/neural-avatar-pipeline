@@ -1,5 +1,5 @@
 package ai.cleo.ardyavatarvalidation;
-import com.google.ai.edge.litertlm.*;
+import static ai.cleo.ardyavatarvalidation.ModelData.*;
 import java.util.*;
 import org.json.*;
 public final class LlamaProtocolCheck {
@@ -15,7 +15,7 @@ public final class LlamaProtocolCheck {
         check(!LlamaProtocol.request(new JSONArray(),null,0,512).getJSONObject("chat_template_kwargs").getBoolean("enable_thinking"),"Thinking off");
         check(request.getJSONArray("tools").getJSONObject(0).getJSONObject("function").getString("name").equals("act"),"Tool schema passed");
         LlamaProtocol.Stream s=new LlamaProtocol.Stream();
-        com.google.ai.edge.litertlm.Message thought=s.accept(delta(new JSONObject().put("reasoning_content","Plan")));
+        ModelMessage thought=s.accept(delta(new JSONObject().put("reasoning_content","Plan")));
         check(thought.getChannels().get("analysis").equals("Plan"),"Thought stays separate");
         s.accept(delta(new JSONObject().put("content","Hello ")));s.accept(delta(new JSONObject().put("content","world")));
         for(JSONObject fragment:List.of(new JSONObject().put("index",0).put("id","call_1").put("function",new JSONObject().put("name","act").put("arguments","{\"face\":")),new JSONObject().put("index",0).put("function",new JSONObject().put("arguments","{\"head\":0.5},\"schedule\":[{\"at_seconds\":1}]}"))))s.accept(delta(new JSONObject().put("tool_calls",new JSONArray().put(fragment))));
@@ -25,9 +25,9 @@ public final class LlamaProtocolCheck {
         check(s.answer.toString().equals("Hello world")&&s.reasoning.toString().equals("Plan"),"Streaming deltas append exactly once");
         check(s.timings.getInt("cache_n")==90&&s.usage.getInt("total_tokens")==120,"Actual cache/token metrics preserved");
         Deque<JSONObject> pending=new ArrayDeque<>(s.calls.values());
-        com.google.ai.edge.litertlm.Message reply=new com.google.ai.edge.litertlm.Message(Role.TOOL,Contents.Companion.of(List.of(new Content.ToolResponse("act","{\"ok\":true}"))),List.of(),Map.of());
+        ModelMessage reply=new ModelMessage(Role.TOOL,Contents.of(List.of(new Content.ToolResponse("act","{\"ok\":true}"))),List.of(),Map.of());
         JSONObject wired=LlamaProtocol.input(reply,pending).getJSONObject(0);check(wired.getString("tool_call_id").equals("call_1")&&wired.getString("name").equals("act")&&pending.isEmpty(),"Tool response matched by ID/name");
-        com.google.ai.edge.litertlm.Message media=new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(List.of(new Content.ImageBytes(new byte[]{1,2}),new Content.AudioBytes(new byte[]{3,4}),new Content.Text("Describe"))),List.of(),Map.of());
+        ModelMessage media=new ModelMessage(Role.USER,Contents.of(List.of(new Content.ImageBytes(new byte[]{1,2}),new Content.AudioBytes(new byte[]{3,4}),new Content.Text("Describe"))),List.of(),Map.of());
         JSONArray parts=LlamaProtocol.input(media,new ArrayDeque<>()).getJSONObject(0).getJSONArray("content");
         check(parts.getJSONObject(0).getJSONObject("image_url").getString("url").endsWith("AQI="),"Image stays in request");
         check(parts.getJSONObject(1).getJSONObject("input_audio").getString("format").equals("wav"),"Direct Gemma audio");

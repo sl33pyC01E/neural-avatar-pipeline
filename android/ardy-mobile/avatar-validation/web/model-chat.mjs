@@ -1,39 +1,35 @@
+import {modelPipelines,migrateModelSettings} from './model-settings.mjs';
 import {streamMessage} from './stream-message.mjs';
 const $=selector=>document.querySelector(selector);
 export function createModelChat(){
-  let loaded=false,busy=false,recording=false,attachment=null,selection=null,pending=null,lastError='',metrics={},historyKey='';
-  const ids=['chat-model','chat-backend','chat-reasoning','reasoning-budget','image-budget','chat-context','chat-disk-cache','chat-llama-memory','chat-llama-encoder'];
-  try{const saved=JSON.parse(localStorage.getItem('cleo-model-settings')||'{}');
-    if(saved['chat-backend']==='cpu')saved['chat-backend']='litert-cpu';
-    if(saved['chat-backend']==='opencl')saved['chat-backend']='litert-gpu';
+  let activeTab='launch',loaded=false,busy=false,recording=false,attachment=null,selection=null,pending=null,lastError='',metrics={},historyKey='';
+  const ids=['chat-model','chat-pipeline','chat-reasoning','reasoning-budget','image-budget','chat-context','chat-disk-cache','chat-llama-memory'];
+  try{const saved=migrateModelSettings(JSON.parse(localStorage.getItem('cleo-model-settings')||'{}'));
     for(const id of ids){const e=$(`#${id}`);if(id in saved){if(e.type==='checkbox')e.checked=Boolean(saved[id]);else if([...e.options].some(o=>o.value===String(saved[id])))e.value=saved[id];}}
   }catch{}
   // One-time migration from the previous default-on release; later user choices persist.
   try{if(!localStorage.getItem('cleo-reasoning-off-default-v1')){$('#chat-reasoning').checked=false;save();localStorage.setItem('cleo-reasoning-off-default-v1','1');}}catch{}
-  function settings(){return {model:$('#chat-model').value,contextTokens:Number($('#chat-context').value),visualTokens:Number($('#image-budget').value),backend:$('#chat-backend').value,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0,diskCache:$('#chat-disk-cache').checked,llamaMemory:$('#chat-llama-memory').value,llamaEncoder:$('#chat-llama-encoder').value};}
+  function settings(){const {label,...devices}=modelPipelines[$('#chat-pipeline').value];return {model:$('#chat-model').value,contextTokens:Number($('#chat-context').value),visualTokens:Number($('#image-budget').value),pipeline:$('#chat-pipeline').value,...devices,reasoning:$('#chat-reasoning').checked?Number($('#reasoning-budget').value):0,diskCache:$('#chat-disk-cache').checked,llamaMemory:$('#chat-llama-memory').value};}
   function dirty(){const value=settings();return !selection||Object.keys(value).some(k=>value[k]!==selection[k]);}
   function request(value){if(!window.Cleo?.chat){$('#chat-status').textContent='Models run in the Android app.';return null;}const requestId=value.requestId||crypto.randomUUID();window.Cleo.chat(JSON.stringify({...value,requestId}));return requestId;}
   function save(){try{localStorage.setItem('cleo-model-settings',JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(`#${id}`).type==='checkbox'?$(`#${id}`).checked:$(`#${id}`).value]))));}catch{}}
   function controls(){
     for(const id of ids)$(`#${id}`).disabled=busy||recording;
     $('#reasoning-budget').disabled=busy||!$('#chat-reasoning').checked;
-    $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload Gemma':'Load / apply Gemma';
+    $('#chat-load').disabled=busy||recording;$('#chat-load').textContent=loaded&&!dirty()?'Reload':'Apply & load';
     $('#chat-send').disabled=!loaded||busy||recording||dirty();$('#chat-new').disabled=busy||!loaded;$('#chat-unload').disabled=!loaded&&!busy;
     $('#chat-record').textContent=recording?'Finish recording':'Record';
-    const qat=settings().backend.startsWith('llama-');$('#chat-disk-cache').disabled=busy||recording||!qat;$('#chat-llama-memory').disabled=busy||recording||!qat;$('#llama-memory-note').hidden=!qat;$('#chat-llama-encoder').disabled=busy||recording||!qat;$('#llama-encoder-note').hidden=!qat;
-    const budget=settings().visualTokens,side=48*Math.floor(Math.sqrt(budget));$('#image-token-note').textContent=`Context: ${settings().contextTokens.toLocaleString()} tokens shared by prompt, media, tools and response. Visual budget: ${budget} tokens/image; ${qat?'llama.cpp applies the projector’s image budget; actual dimensions/tokens depend on the image and are reported by the runtime.':`a square image resizes to ${side} × ${side} (${(side/48)**2} actual visual tokens). Other aspect ratios vary.`} Larger contexts use more RAM; the largest sizes may not fit alongside the avatar models. Load/apply reallocates the context and starts fresh conversations.`;
-    const encoder=settings().llamaEncoder==='gpu'||(settings().llamaEncoder==='auto'&&settings().backend==='llama-opencl')?'OpenCL GPU':'CPU';
-    $('#runtime-note').textContent=qat?`Official Google QAT Q4_0 · ${settings().model==='gemma-e4b'?'5.15 GB weights + 0.99 GB vision/audio':'3.35 GB weights + 0.99 GB vision/audio'} · llama.cpp b11200. ${settings().backend==='llama-hexagon'?'Language model: experimental Hexagon NPU.':settings().backend==='llama-opencl'?'Language model: OpenCL GPU.':'Language model: CPU.'} Vision/audio encoder: ${encoder}. Unsupported operations may use CPU.`:'LiteRT-LM 0.17.1 · E2B 2.59 GB / E4B 3.66 GB. GPU or CPU; vision and audio included. Persistent disk KV is unavailable in this runtime.';
-    for(const id of ['chat-cache-prepare','chat-cache-rebuild','chat-cache-clear','chat-cache-scope'])$(`#${id}`).disabled=!loaded||!selection?.backend?.startsWith('llama-')||busy||recording||dirty();
+    const budget=settings().visualTokens;
+    $('#image-token-note').textContent=`Context: ${settings().contextTokens.toLocaleString()} tokens shared by prompt, media, tools and response. Image budget: ${budget} tokens; actual resolution depends on the image. Higher budgets use more RAM. Apply reallocates the context and starts fresh conversations.`;
+    $('#runtime-note').textContent=`Gemma QAT · llama.cpp · ${modelPipelines[settings().pipeline].label}. Unsupported operations can use CPU. Main, Browser and Cleopatra share this selection.`;
+    for(const id of ['chat-cache-prepare','chat-cache-rebuild','chat-cache-clear','chat-cache-scope'])$(`#${id}`).disabled=!loaded||busy||recording||dirty();
     for(const id of ['chat-image','chat-audio'])$(`#${id}`).disabled=busy||recording;
     $('#chat-record').disabled=busy;$('#chat-attachment').textContent=attachment?attachment.label:'';$('#chat-clear-attachment').hidden=!attachment;
-    $('#browser-model').textContent=loaded?`Gemma ${selection.model==='gemma-e4b'?'E4B':'E2B'} · ${selection.backend} · ${(selection.contextTokens??4096)/1024}K context · reasoning ${selection.reasoning?selection.reasoning+' tokens':'off'}${dirty()?' · apply settings in tab 7':''}`:'Load Gemma in tab 7 first.';
+    $('#browser-model').textContent=loaded?`Gemma ${selection.model==='gemma-e4b'?'E4B':'E2B'} · ${modelPipelines[selection.pipeline]?.label||selection.backend} · ${(selection.contextTokens??4096)/1024}K context · reasoning ${selection.reasoning?selection.reasoning+' tokens':'off'}${dirty()?' · apply settings in tab 7':''}`:'Load Gemma in tab 7 first.';
     $('#browser-start').disabled=!loaded||busy||recording||dirty();
   }
   function load(){if(busy||recording)return null;save();const id=request({action:'load',...settings()});if(id){busy=true;loaded=false;lastError='';$('#chat-status').textContent='Loading Gemma…';$('#chat-log').replaceChildren();pending=null;historyKey='';metrics={};paintMetrics();controls();}return id;}
-  $('#chat-cache-panel').addEventListener('toggle',()=>{if($('#chat-cache-panel').open)$('#model-settings').open=false;});
-  $('#model-settings').addEventListener('toggle',()=>{if($('#model-settings').open)$('#chat-cache-panel').open=false;});
-  $('#chat-load').onclick=load;$('#chat-text').onfocus=()=>{$('#model-settings').open=false;};
+  $('#chat-load').onclick=load;
   for(const id of ids)$(`#${id}`).onchange=()=>{save();controls();};
   function message(role,text,reasoning='',media=''){return streamMessage($('#chat-log'),role,(media?`[${media}]\n`:'')+text,reasoning);}
   $('#chat-form').onsubmit=event=>{event.preventDefault();if(!loaded||busy||recording||dirty())return;const text=$('#chat-text').value.trim();if(!text&&!attachment)return;
@@ -50,7 +46,7 @@ export function createModelChat(){
   }
   function event(value){
     const disk=value.diskCache||value.result?.diskCache;
-    if(disk)$('#chat-cache-status').textContent=disk.supported?[disk.operation||'Disk cache ready',`${disk.files||0} prefixes · ${Math.round((disk.bytes||0)/1048576)} MiB`,disk.savedTokens!=null?`${disk.savedTokens} tokens saved`:null,disk.restoredTokens!=null?`${disk.restoredTokens} tokens restored`:null,disk.prefillMs!=null?`prefill ${ms(disk.prefillMs)}`:null,disk.saveMs!=null?`save ${ms(disk.saveMs)}`:null,disk.restoreMs!=null?`restore ${ms(disk.restoreMs)}`:null,disk.backendEvidence,disk.warning].filter(Boolean).join(' · '):disk.operation||'LiteRT keeps KV in RAM only.';
+    if(disk)$('#chat-cache-status').textContent=disk.supported?[disk.operation||'Disk cache ready',`${disk.files||0} prefixes · ${Math.round((disk.bytes||0)/1048576)} MiB`,disk.savedTokens!=null?`${disk.savedTokens} tokens saved`:null,disk.restoredTokens!=null?`${disk.restoredTokens} tokens restored`:null,disk.prefillMs!=null?`prefill ${ms(disk.prefillMs)}`:null,disk.saveMs!=null?`save ${ms(disk.saveMs)}`:null,disk.restoreMs!=null?`restore ${ms(disk.restoreMs)}`:null,disk.backendEvidence,disk.warning].filter(Boolean).join(' · '):disk.operation||'Load Gemma to manage disk prefixes.';
     if(!value.inputScope||value.inputScope==='chat'){if(value.attachment)attachment=value.attachment;if(value.inputError)$('#chat-status').textContent=value.inputError;}
     if('recording' in value)recording=value.recording;
     if(value.memory){metrics.memory=value.memory;paintMetrics();}
@@ -67,5 +63,5 @@ export function createModelChat(){
     if(value.unloaded){lastError='';loaded=false;busy=false;selection=null;pending=null;$('#chat-status').textContent='Gemma unloaded';}
     controls();
   }
-  controls();return {event,settings,load,request,select(tab){if(['chat','browser','cleopatra','main'].includes(tab))request({action:'status'});},ready:()=>loaded&&!busy&&!recording&&!dirty(),status:()=>({loaded,busy,recording,dirty:dirty(),selection})};
+  controls();return {event,settings,load,request,select(tab){if(activeTab==='chat'&&tab!=='chat'&&pending&&!pending.done)request({action:'cancel'});activeTab=tab;if(['chat','browser','cleopatra','main'].includes(tab))request({action:'status'});},ready:()=>loaded&&!busy&&!recording&&!dirty(),status:()=>({loaded,busy,recording,dirty:dirty(),selection})};
 }

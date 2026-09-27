@@ -3,7 +3,7 @@ package ai.cleo.ardyavatarvalidation;
 import android.app.*;
 import android.content.Intent;
 import android.os.*;
-import com.google.ai.edge.litertlm.*;
+import static ai.cleo.ardyavatarvalidation.ModelData.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,7 +20,6 @@ public final class ModelChatService extends Service {
     private final AtomicLong cancellation=new AtomicLong();
     private long operationCancellation;
     private volatile Messenger client;
-    private Engine engine;
     private volatile LlamaRuntime llama;
     private PromptTree prompts=PromptTree.defaultsOnly();
     private String chatPromptKey="";
@@ -111,63 +110,42 @@ public final class ModelChatService extends Service {
             state();
         }
     }
-    @androidx.annotation.OptIn(markerClass=com.google.ai.edge.litertlm.ExperimentalApi.class)
     private void load(JSONObject request)throws Exception {
         closeModels();loaded=false;history=new JSONArray();turns=0;lastMetrics=new JSONObject();
-        String backend=request.optString("backend","litert-gpu"),model=request.optString("model","gemma");int reasoning=request.optInt("reasoning",0),visualTokens=request.optInt("visualTokens",280),contextTokens=request.optInt("contextTokens",4096);
-        Object context=request.opt("contextTokens");
-        if(!Set.of(4096,8192,16384,32768,65536,131072).contains(contextTokens)||(context!=null&&(!(context instanceof Number)||((Number)context).doubleValue()!=contextTokens)))throw new IOException("Unsupported context size");
-        if(!Set.of("gemma","gemma-e4b").contains(model)||!Set.of(70,140,280,560,1120).contains(visualTokens)||!Set.of("litert-cpu","litert-gpu","llama-cpu","llama-opencl","llama-hexagon").contains(backend)||!Set.of(0,128,256,512).contains(reasoning))throw new IOException("Unsupported Gemma settings");
-        String llamaMemory=request.optString("llamaMemory","mapped");if(!Set.of("mapped","fast").contains(llamaMemory))throw new IOException("Unsupported memory preset");
-        String llamaEncoder=request.optString("llamaEncoder","auto");if(!Set.of("auto","cpu","gpu").contains(llamaEncoder))throw new IOException("Unsupported encoder device");
-        selection=new JSONObject().put("model",model).put("backend",backend).put("reasoning",reasoning).put("visualTokens",visualTokens).put("contextTokens",contextTokens).put("diskCache",request.optBoolean("diskCache",true)).put("llamaMemory",llamaMemory).put("llamaEncoder",llamaEncoder);
-        long start=SystemClock.elapsedRealtimeNanos();boolean gpu=backend.equals("litert-gpu");
-        if(backend.startsWith("llama-")){
-            llama=new LlamaRuntime(this);ModelDiagnostics.stage(this,"llama.cpp initialization",selection);
-            llama.load(selection,phase->emit(json("phase",phase)));checkCancelled();
-            loaded=true;loadMs=elapsed(start);ModelDiagnostics.stage(this,"llama.cpp ready",selection);emit(json("phase","Gemma QAT ready · "+llama.backendEvidence));return;
-        }
-        emit(json("phase","Loading Gemma with vision and audio..."));
-        File file=new File(getFilesDir(),"benchmark/gemma-4-"+(model.equals("gemma-e4b")?"E4B":"E2B")+"-it.litertlm");
-        if(!file.isFile())throw new IOException("Missing full Gemma audio/vision model");
-        ExperimentalFlags.INSTANCE.setVisualTokenBudget(visualTokens); // Must precede engine creation: reserves the matching vision buffers.
-        ModelDiagnostics.stage(this,"engine initialization",selection);
-        engine=new Engine(new EngineConfig(file.getPath(),gpu?new Backend.GPU():new Backend.CPU(2,null),gpu?new Backend.GPU():new Backend.CPU(2,null),new Backend.CPU(2,null),contextTokens,8,getCacheDir().getPath()));
-        engine.initialize();checkCancelled();loadMs=elapsed(start);loaded=true;emit(json("phase","Gemma ready · "+contextTokens+"-token context"));
-        ModelDiagnostics.stage(this,"engine ready",selection);
+        selection=ModelSettings.select(request);
+        long start=SystemClock.elapsedRealtimeNanos();
+        llama=new LlamaRuntime(this);ModelDiagnostics.stage(this,"llama.cpp initialization",selection);
+        llama.load(selection,phase->emit(json("phase",phase)));checkCancelled();
+        loaded=true;loadMs=elapsed(start);ModelDiagnostics.stage(this,"llama.cpp ready",selection);emit(json("phase","Gemma ready · "+llama.backendEvidence));
     }
+
     private ModelSession createConversation(AvatarToolApi api)throws Exception {
         return createConversation(api,false);
     }
     private ModelSession createConversation(AvatarToolApi api,boolean browser)throws Exception {
-        List<ToolProvider> tools=new ArrayList<>();JSONObject llamaTool=null;String system=prompts.text(browser?"browser.system":"chat.system");
+        JSONObject llamaTool=null;String system=prompts.text(browser?"browser.system":"chat.system");
         if(api!=null){
             system=api instanceof MainAvatarToolApi?prompts.text("main.system"):prompts.render("avatar.system",Map.of("motions",api.motionCatalog()));
             llamaTool=prompts.describe(api.description(),api instanceof MainAvatarToolApi?"main.tools":"avatar.tools");
-            final String schema=llamaTool.toString();
-            tools.add(ToolKt.tool(new OpenApiTool(){public String getToolDescriptionJsonString(){return schema;}public String execute(String arguments){throw new IllegalStateException("Avatar tools require explicit validation");}}));
         }
-        if(llama!=null)return new ModelSession(llama.session(system,llamaTool,selection.getInt("reasoning"),api==null?512:768));
-        Contents instruction=system.isBlank()?null:Contents.Companion.of(system);
-        int reasoning=selection.getInt("reasoning");
-        ConversationConfig config=new ConversationConfig(instruction,Collections.emptyList(),tools,new SamplerConfig(40,.95,.3,42),false,
-            null,Collections.emptyMap(),null,api instanceof MainAvatarToolApi,(api==null?512:768)+reasoning,new ThinkingConfig(reasoning>0,reasoning),browser);
-        return new ModelSession(GemmaToolDecoding.create(api!=null||browser,()->engine.createConversation(config)));
+        if(llama==null)throw new IOException("Load Gemma first");
+        return new ModelSession(llama.session(system,llamaTool,selection.getInt("reasoning"),api==null?512:768));
     }
-    private com.google.ai.edge.litertlm.Message input(String prompt,String kind,byte[] media){
+
+    private ModelMessage input(String prompt,String kind,byte[] media){
         List<Content> parts=new ArrayList<>();if("image".equals(kind))parts.add(new Content.ImageBytes(media));if("audio".equals(kind))parts.add(new Content.AudioBytes(media));parts.add(new Content.Text(prompt));
-        return new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
+        return new ModelMessage(Role.USER,Contents.of(parts),Collections.emptyList(),Collections.emptyMap());
     }
-    private List<ToolCall> stream(ModelSession active,com.google.ai.edge.litertlm.Message input,GemmaStream text,long started,AtomicLong first)throws Exception {
+    private List<ToolCall> stream(ModelSession active,ModelMessage input,GemmaStream text,long started,AtomicLong first)throws Exception {
         return stream(active,input,text,started,first,null,null);
     }
-    private List<ToolCall> stream(ModelSession active,com.google.ai.edge.litertlm.Message input,GemmaStream text,long started,AtomicLong first,ResponseFormat format,ThinkingConfig thinking)throws Exception {
+    private List<ToolCall> stream(ModelSession active,ModelMessage input,GemmaStream text,long started,AtomicLong first,ResponseFormat format,ThinkingConfig thinking)throws Exception {
         checkCancelled();activeConversation=active;
         AtomicReference<Throwable> error=new AtomicReference<>();CountDownLatch done=new CountDownLatch(1);
         List<ToolCall> calls=new ArrayList<>();Set<String> seen=new HashSet<>();
         try{
             MessageCallback callback=new MessageCallback(){
-                public void onMessage(com.google.ai.edge.litertlm.Message message){
+                public void onMessage(ModelMessage message){
                     StringBuilder chunk=new StringBuilder();for(Content part:message.getContents().getContents())if(part instanceof Content.Text)chunk.append(((Content.Text)part).getText());
                     if(chunk.length()>0)first.compareAndSet(-1,SystemClock.elapsedRealtimeNanos());
                     text.append(chunk.toString(),message.getChannels());
@@ -183,7 +161,7 @@ public final class ModelChatService extends Service {
     }
     private JSONObject result(GemmaStream text,long started,AtomicLong first)throws Exception {
         JSONObject value=new JSONObject().put("text",text.answer.toString()).put("reasoning",text.reasoning.toString()).put("totalMs",elapsed(started)).put("modelMs",elapsed(started))
-            .put("firstTokenMs",first.get()<0?-1:(first.get()-started)/1e6).put("prefixCache","LiteRT RAM conversation; reused token count unavailable");
+            .put("firstTokenMs",first.get()<0?-1:(first.get()-started)/1e6).put("prefixCache","llama.cpp prefix reuse; reused token count unavailable");
         if(llama!=null){
             JSONObject timing=llama.lastTiming;for(Iterator<String> i=timing.keys();i.hasNext();){String key=i.next();value.put(key,timing.get(key));}
             JSONObject t=timing.optJSONObject("timings");value.put("prefixCache",t!=null&&t.has("cache_n")?t.optInt("cache_n")+" cached tokens":"llama.cpp prefix reuse enabled; count unavailable").put("diskCache",llama.cacheState).put("backendEvidence",llama.backendEvidence);
@@ -216,7 +194,7 @@ public final class ModelChatService extends Service {
             closeAvatarConversation();avatarTools=new AvatarToolApi(catalog,expressions);avatarToolKey=key;avatarConversation=createConversation(avatarTools);
         }
         avatarTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
-        com.google.ai.edge.litertlm.Message next=input(prompt,kind,media);JSONArray actions=new JSONArray();
+        ModelMessage next=input(prompt,kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(avatarConversation,next,text,started,first);
             if(calls.isEmpty())break;
@@ -228,7 +206,7 @@ public final class ModelChatService extends Service {
                 JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
                 responses.add(new Content.ToolResponse(call.getName(),out.toString()));
             }
-            next=new com.google.ai.edge.litertlm.Message(Role.TOOL,Contents.Companion.of(responses),Collections.emptyList(),Collections.emptyMap());
+            next=new ModelMessage(Role.TOOL,Contents.of(responses),Collections.emptyList(),Collections.emptyMap());
         }
         checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
         JSONObject result=result(text,started,first).put("avatarPlan",avatarTools.plan()).put("tools",actions);
@@ -267,7 +245,7 @@ public final class ModelChatService extends Service {
         prepareMain(request);
         mainTools.frame(request.getString("frame"));
         mainTools.reset();GemmaStream text=new GemmaStream();AtomicLong first=new AtomicLong(-1);long started=SystemClock.elapsedRealtimeNanos();
-        com.google.ai.edge.litertlm.Message next=input(prompts.render("main.turn",Map.of("frame",request.getString("frame"),"scene",scene(request),"message",prompt)),kind,media);JSONArray actions=new JSONArray();
+        ModelMessage next=input(prompts.render("main.turn",Map.of("frame",request.getString("frame"),"scene",scene(request),"message",prompt)),kind,media);JSONArray actions=new JSONArray();
         for(int round=0;;round++){
             List<ToolCall> calls=stream(mainConversation,next,text,started,first);
             if(calls.isEmpty())break;
@@ -279,7 +257,7 @@ public final class ModelChatService extends Service {
                 JSONObject action=new JSONObject().put("name",call.getName()).put("arguments",args).put("result",out);actions.put(action);emit(json("avatarTool",action));
                 responses.add(new Content.ToolResponse(call.getName(),out.toString()));
             }
-            next=new com.google.ai.edge.litertlm.Message(Role.TOOL,Contents.Companion.of(responses),Collections.emptyList(),Collections.emptyMap());
+            next=new ModelMessage(Role.TOOL,Contents.of(responses),Collections.emptyList(),Collections.emptyMap());
         }
         checkCancelled();if(text.answer.toString().isBlank())throw new IOException("Gemma did not provide a spoken answer");
         JSONObject result=result(text,started,first).put("avatarPlan",mainTools.plan()).put("tools",actions);
@@ -296,7 +274,7 @@ public final class ModelChatService extends Service {
         List<Content> parts=new ArrayList<>();parts.add(new Content.ImageBytes(Files.readAllBytes(file.toPath())));
         JSONArray audio=request.optJSONArray("audioFiles");if(audio!=null){if(audio.length()>4)throw new IOException("Too many audio instructions");for(int i=0;i<audio.length();i++){parts.add(new Content.Text(prompts.render("browser.audio_label",Map.of("index",String.valueOf(i+1)))));parts.add(new Content.AudioBytes(readMedia(audio.getString(i))));}}
         parts.add(new Content.Text(prompt));
-        com.google.ai.edge.litertlm.Message message=new com.google.ai.edge.litertlm.Message(Role.USER,Contents.Companion.of(parts),Collections.emptyList(),Collections.emptyMap());
+        ModelMessage message=new ModelMessage(Role.USER,Contents.of(parts),Collections.emptyList(),Collections.emptyMap());
         JSONArray attempts=new JSONArray();JSONObject diagnostic=new JSONObject().put("promptRevision",prompts.revision()).put("systemPrompt",prompts.text("browser.system")).put("turnPrompt",prompt).put("selection",new JSONObject(selection.toString())).put("attempts",attempts);
         emit(json("browserDiagnostic",diagnostic));
         boolean reasoning=selection.getInt("reasoning")>0;ResponseFormat format=ResponseFormat.json(BrowserAction.schema().toString());
@@ -355,12 +333,12 @@ public final class ModelChatService extends Service {
         try{String stat=new String(Files.readAllBytes(new File("/proc/"+pid+"/stat").toPath()),StandardCharsets.UTF_8);String[] fields=stat.substring(stat.lastIndexOf(')')+2).split(" ");long ticks=Long.parseLong(fields[11])+Long.parseLong(fields[12]);row.put("cpuTotalMs",ticks*1000.0/android.system.Os.sysconf(android.system.OsConstants._SC_CLK_TCK));}catch(Exception ignored){}
         return row;
     }
-    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident).put("diskCache",llama==null?new JSONObject().put("supported",false).put("operation","LiteRT 0.17.1 retains KV in RAM only"):llama.cacheState));}catch(JSONException ignored){}}
+    private void state(){try{emit(new JSONObject().put("state",true).put("loaded",loaded).put("busy",busy.get()).put("selection",selection).put("history",history).put("metrics",new JSONObject(lastMetrics.toString()).put("memory",memory())).put("turns",turns).put("avatarHistory",avatarHistory).put("avatarTurns",avatarTurns).put("mainHistory",mainHistory).put("mainTurns",mainTurns).put("mainPrepared",mainPrepared).put("prefillMs",prefillMs).put("prefillTokens",prefillTokens).put("resident",resident).put("diskCache",llama==null?new JSONObject().put("supported",false).put("operation","Load Gemma to manage disk prefixes"):llama.cacheState));}catch(JSONException ignored){}}
     private void emit(JSONObject value){try{value.put("type","chat").put("modelPid",android.os.Process.myPid()).put("requestId",requestId).put("channel",channel);Messenger target=client;if(target!=null){android.os.Message message=android.os.Message.obtain(null,EVENT);Bundle bundle=new Bundle();bundle.putString("json",value.toString());message.setData(bundle);target.send(message);}}catch(Exception ignored){}}
     private static JSONObject json(String key,Object value){try{return new JSONObject().put(key,value);}catch(JSONException impossible){throw new IllegalArgumentException(impossible);}}
     private void closeAvatarConversation(){if(avatarConversation!=null){avatarConversation.close();avatarConversation=null;}avatarTools=null;avatarToolKey="";avatarHistory=new JSONArray();avatarTurns=0;}
     private void closeMainConversation(){mainPrepared=false;if(mainConversation!=null){mainConversation.close();mainConversation=null;}mainTools=null;mainToolKey="";mainHistory=new JSONArray();mainTurns=0;prefillMs=0;prefillTokens=-1;}
-    private void closeModels(){loaded=false;if(llama!=null){llama.close();llama=null;}closeMainConversation();closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}if(engine!=null){try{if(engine.isInitialized())engine.close();}finally{engine=null;}}}
+    private void closeModels(){loaded=false;if(llama!=null){llama.close();llama=null;}closeMainConversation();closeAvatarConversation();if(conversation!=null){conversation.close();conversation=null;}}
     private void unload(){
         if(stopping)return;stopping=true;loaded=false;
         ModelSession active=activeConversation;if(active!=null)active.cancelProcess();if(llama!=null)llama.close();

@@ -1,0 +1,52 @@
+{
+  "installedAt": "2026-09-27T05:28:23.500277+00:00",
+  "package": "ai.cleo.ardyavatarvalidation",
+  "versionCode": 25,
+  "versionName": "0.9.0-module-workspace",
+  "apkSha256": "2d02ccc7e7f085cd3502c7997272b8ab882934a41d24c88d4eb27226f8ae8a52",
+  "apkBytes": 1126503406,
+  "originalPackage": "ai.cleo.ardymobile",
+  "originalVersion": null,
+  "originalPackagePresent": false,
+  "appLaunched": false,
+  "inferenceTest": false,
+  "models": [
+    {
+      "path": "files/ardy-models/core8-onnx/denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "b1c7f632622db28033a8092de3386eedec57ae478c8d2a602a0d4d9643874b3d",
+      "action": "retained"
+    },
+    {
+      "path": "files/ardy-models/core8-onnx/decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "8facfe5cb3cdd1a88db77d65ef9d1c1c18a5deaa3f72c2b5fe17c5564ac8b053",
+      "action": "retained"
+    },
+    {
+      "path": "files/ardy-models/core40-onnx/denoiser.onnx",
+      "bytes": 685175149,
+      "sha256": "c0745f310b373c93858eb02bb7f30bae0ee139258e608ef4a317e8882e9bfac3",
+      "action": "retained"
+    },
+    {
+      "path": "files/ardy-models/core40-onnx/decoder.onnx",
+      "bytes": 81925886,
+      "sha256": "5a9ba4e1d1f537c61f91d63d63685f7f2176dffc8b9dd12cc88783d205987d2e",
+      "action": "retained"
+    },
+    {
+      "path": "files/embedding-models/ardy-llm2vec-q4_k_m.gguf",
+      "bytes": 4625232928,
+      "sha256": "60ec43402975a1fa520c7c05193c02e63d793f0311a0f7e59cd17690ebca5fd4",
+      "action": "retained"
+    }
+  ],
+  "complete": true,
+  "installedVersion": {
+    "versionCode": "25",
+    "versionName": "0.9.0-module-workspace"
+  },
+  "originalVersionUnchanged": null,
+  "originalPackageStillAbsent": true
+}

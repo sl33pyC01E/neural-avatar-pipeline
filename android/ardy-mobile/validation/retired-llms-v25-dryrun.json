@@ -1,0 +1,221 @@
+{
+  "time": "2026-09-27T05:30:45.144293+00:00",
+  "removed": false,
+  "inferenceTest": false,
+  "appLaunched": false,
+  "originalAppTouched": false,
+  "files": [
+    {
+      "private": true,
+      "path": "files/benchmark/gemma-4-E2B-it.litertlm",
+      "bytes": 2588147712,
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/gemma-4-E2B-it.litertlm",
+      "bytes": 2588147712,
+      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    },
+    {
+      "private": true,
+      "path": "files/benchmark/gemma-4-E4B-it.litertlm",
+      "bytes": 3659530240,
+      "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
+    },
+    {
+      "private": false,
+      "path": "/data/local/tmp/cleopatra-bench/gemma-4-E4B-it.litertlm",
+      "bytes": 3659530240,
+      "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
+    },
+    {
+      "private": true,
+      "path": "cache/Qwen3.5-2B-Cleo-512-4k-int8.litertlm_1790451808_3148905040_mldrift_program_cache.bin",
+      "bytes": 242731456,
+      "sha256": "673b09badb528bdf150a9789721b3c6b417caa4efb6563bbdbb52b16545fb969",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm_1790434138_2588147712.vision_adapter.xnnpack_cache",
+      "bytes": 4724984,
+      "sha256": "5f5daafef36c727cb6e9e7a16657067e130642a630810378fe8336dc35075205",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm_1790459014_3659530240.audio_adapter.xnnpack_cache",
+      "bytes": 15739128,
+      "sha256": "d1962fd6896ac042657e20e2685089661428aec432c103bddc0fa0f1ae79dc84",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm.vision_encoder_1790459014_3659530240_mldrift_program_cache.bin",
+      "bytes": 7335480,
+      "sha256": "8a08fd86440189082928e22d2ce06b37e7b4b51bed24f775dec3664f9bfb9119",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm_1790434138_2588147712.audio_adapter.xnnpack_cache",
+      "bytes": 9443576,
+      "sha256": "33a8b0a846c2cab6d002822517a94ff43fdf70c0670d5f2571aff7b51bb05962",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm_1790434138_2588147712.static_audio_encoder.xnnpack_cache",
+      "bytes": 91462280,
+      "sha256": "4e99634bfbdc4a138ef0ecccff82ff9f346b70e5bf8885cdbd56f8d5bf026d18",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm.vision_encoder_1790434138_2588147712_mldrift_program_cache.bin",
+      "bytes": 7335480,
+      "sha256": "cba08b80217720529c8489a5ce56d5618988b1e0dc725466f7a21396fe4a68de",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm_1790459014_3659530240_mldrift_weight_cache.bin",
+      "bytes": 336,
+      "sha256": "80b8ff4bb35f338536ff1e7052e83ceb3f60253e4f6f08fa55002653008f6719",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm_1790459014_3659530240.static_audio_encoder.xnnpack_cache",
+      "bytes": 91462280,
+      "sha256": "4e99634bfbdc4a138ef0ecccff82ff9f346b70e5bf8885cdbd56f8d5bf026d18",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm.vision_encoder_1790459014_3659530240_mldrift_weight_cache.bin",
+      "bytes": 296,
+      "sha256": "38bb24a2fc5a9241aa10cd7004bc9e296a8abca89d50d666784982673ce9755c",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm_1790459014_3659530240.vision_adapter.xnnpack_cache",
+      "bytes": 7874808,
+      "sha256": "94f780e162ca817428c5e9a0e89ad3b22fda85437427d697a8dd9164bcc79c84",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/Qwen3.5-2B-Cleo-512-4k-int8.litertlm_1790451808_3148905040_mldrift_weight_cache.bin",
+      "bytes": 440,
+      "sha256": "f20b68727fcc8357e3fc0f180f3e11a93e868edf85f568b2ae1988e6be826d64",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/Qwen3.5-2B-Cleo-512-4k-int8.litertlm.vision_encoder_1790451808_3148905040_mldrift_weight_cache.bin",
+      "bytes": 208,
+      "sha256": "76db938e59a8b61465d04f2cfdc5a2c3db6f7f0d05fa3f1e88797f220ac539e0",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/Qwen3.5-2B-Cleo-512-4k-int8.litertlm.vision_encoder_1790451808_3148905040_mldrift_program_cache.bin",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm_1790434138_2588147712_mldrift_weight_cache.bin",
+      "bytes": 480,
+      "sha256": "cd3b46d800c57f6e0ef807b99b7115aeb560a625e43dbb06ec31962a11f253d9",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm_1790434138_2588147712_mldrift_program_cache.bin",
+      "bytes": 26978240,
+      "sha256": "0801525be906dda202c8a9fd0ac00fb01f38dd461360d3be162c5065f752aa9c",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E2B-it.litertlm.vision_encoder_1790434138_2588147712_mldrift_weight_cache.bin",
+      "bytes": 296,
+      "sha256": "7a929bf7e17fc613c0289c4b426b5804fa2bae765a5108a067bd3800b4ef33e9",
+      "kind": "retired-model-cache"
+    },
+    {
+      "private": true,
+      "path": "cache/gemma-4-E4B-it.litertlm_1790459014_3659530240_mldrift_program_cache.bin",
+      "bytes": 19895680,
+      "sha256": "6ed0453defa0be97bfa8c916d44783984c6ea75eed16fe74a9fa9d25355022d4",
+      "kind": "retired-model-cache"
+    }
+  ],
+  "alreadyAbsent": [
+    "files/benchmark/Qwen3.5-2B-Q4_K_M.gguf",
+    "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-Q4_K_M.gguf",
+    "files/benchmark/qwen35-mmproj-F16.gguf",
+    "/data/local/tmp/cleopatra-bench/qwen35-mmproj-F16.gguf",
+    "files/benchmark/ggml-tiny.en-q5_1.bin",
+    "/data/local/tmp/cleopatra-bench/ggml-tiny.en-q5_1.bin",
+    "files/benchmark/ggml-base.en-q5_1.bin",
+    "/data/local/tmp/cleopatra-bench/ggml-base.en-q5_1.bin",
+    "files/benchmark/ggml-small.en-q5_1.bin",
+    "/data/local/tmp/cleopatra-bench/ggml-small.en-q5_1.bin",
+    "files/benchmark/Qwen3.5-2B-VL_int8.litertlm",
+    "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-VL_int8.litertlm",
+    "files/benchmark/Qwen3.5-2B-Cleo-512-4k-int8.litertlm",
+    "/data/local/tmp/cleopatra-bench/Qwen3.5-2B-Cleo-512-4k-int8.litertlm",
+    "files/whisperx/base.en/model.bin",
+    "/data/local/tmp/cleopatra-whisperx/base.en/model.bin",
+    "files/whisperx/base.en/config.json",
+    "/data/local/tmp/cleopatra-whisperx/base.en/config.json",
+    "files/whisperx/base.en/vocabulary.txt",
+    "/data/local/tmp/cleopatra-whisperx/base.en/vocabulary.txt",
+    "files/whisperx/base.en/README.md",
+    "/data/local/tmp/cleopatra-whisperx/base.en/README.md",
+    "files/whisperx/alignment/model.onnx",
+    "/data/local/tmp/cleopatra-whisperx/alignment/model.onnx",
+    "files/whisperx/alignment/vocab.json",
+    "/data/local/tmp/cleopatra-whisperx/alignment/vocab.json",
+    "files/whisperx/alignment/preprocessor_config.json",
+    "/data/local/tmp/cleopatra-whisperx/alignment/preprocessor_config.json",
+    "files/whisperx/alignment/README.md",
+    "/data/local/tmp/cleopatra-whisperx/alignment/README.md",
+    "files/whisperx/vad/model.onnx",
+    "/data/local/tmp/cleopatra-whisperx/vad/model.onnx",
+    "files/whisperx/vad/LICENSE",
+    "/data/local/tmp/cleopatra-whisperx/vad/LICENSE",
+    "/data/local/tmp/cleopatra-bench/llama-server",
+    "/data/local/tmp/cleopatra-bench/whisper-server",
+    "/data/local/tmp/cleopatra-bench/llama-server-opencl"
+  ],
+  "bytesRemoved": 0,
+  "qatModelsPreserved": [
+    {
+      "path": "files/benchmark/gemma-4-E2B_q4_0-it.gguf",
+      "bytes": 3349516256,
+      "sha256": "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634"
+    },
+    {
+      "path": "files/benchmark/gemma-4-E2B-it-mmproj.gguf",
+      "bytes": 986833664,
+      "sha256": "021059cce659fe7f9170d5599761d7bbaf644b798dab9503aca30dc43e6beb14"
+    },
+    {
+      "path": "files/benchmark/gemma-4-E4B_q4_0-it.gguf",
+      "bytes": 5154941280,
+      "sha256": "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee"
+    },
+    {
+      "path": "files/benchmark/gemma-4-E4B-it-mmproj.gguf",
+      "bytes": 991552256,
+      "sha256": "7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578"
+    }
+  ]
+}

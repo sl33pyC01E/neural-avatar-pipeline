@@ -2,21 +2,33 @@
   "schema": 1,
   "models": [
     {
-      "repo": "litert-community/gemma-4-E2B-it-litert-lm",
-      "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
-      "source": "gemma-4-E2B-it.litertlm",
-      "file": "gemma-4-E2B-it.litertlm",
-      "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
-      "bytes": 2588147712
+      "file": "gemma-4-E2B_q4_0-it.gguf",
+      "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "revision": "675cff42a74c774d6cb76f76d8eacb49b48c9b93",
+      "bytes": 3349516256,
+      "sha256": "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634"
     },
     {
-      "repo": "litert-community/gemma-4-E4B-it-litert-lm",
-      "revision": "2eee7ac325f20eb8c9ac1d0e972f7c84663062da",
-      "source": "gemma-4-E4B-it.litertlm",
-      "file": "gemma-4-E4B-it.litertlm",
-      "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0",
-      "bytes": 3659530240
+      "file": "gemma-4-E2B-it-mmproj.gguf",
+      "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "revision": "675cff42a74c774d6cb76f76d8eacb49b48c9b93",
+      "bytes": 986833664,
+      "sha256": "021059cce659fe7f9170d5599761d7bbaf644b798dab9503aca30dc43e6beb14"
+    },
+    {
+      "file": "gemma-4-E4B_q4_0-it.gguf",
+      "repo": "google/gemma-4-E4B-it-qat-q4_0-gguf",
+      "revision": "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
+      "bytes": 5154941280,
+      "sha256": "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee"
+    },
+    {
+      "file": "gemma-4-E4B-it-mmproj.gguf",
+      "repo": "google/gemma-4-E4B-it-qat-q4_0-gguf",
+      "revision": "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
+      "bytes": 991552256,
+      "sha256": "7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578"
     }
   ],
-  "note": "Active app model: full Gemma audio/vision bundle on LiteRT CPU/GPU. Other payloads retired."
+  "note": "Active llama.cpp Gemma QAT models. Provision with tools/prepare_gemma_qat.py; legacy LiteRT benchmark tooling uses the archived manifest."
 }

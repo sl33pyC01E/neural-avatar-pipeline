@@ -1,4 +1,4 @@
-"""Provision the full Gemma LiteRT audio/vision bundle. Never launches phone code."""
+"""HISTORICAL (pre-v25). Provision the full Gemma LiteRT audio/vision bundle. Never launches phone code."""
 import argparse,hashlib,json,shutil,subprocess,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -61,7 +61,7 @@ def main():
     p.add_argument('--download',action='store_true');p.add_argument('--install',action='store_true')
     p.add_argument('--adb',default='adb');p.add_argument('--transport',type=int,required=True)
     args=p.parse_args();OUT.mkdir(parents=True,exist_ok=True)
-    models=json.loads((ROOT/'benchmark/models.json').read_text())['models']
+    models=json.loads((ROOT/'benchmark/archive/models-before-llama-only.json').read_text())['models']
     if args.download:
         for model in models:print(fetch(model),flush=True)
     if args.install:install(args.adb,args.transport,models)

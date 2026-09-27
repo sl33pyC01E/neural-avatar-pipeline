@@ -1,4 +1,4 @@
-"""USER-RUN ONLY. Measures Gemma LiteRT CPU/GPU alongside Cleopatra.
+"""HISTORICAL (pre-v25), USER-RUN ONLY. Measures Gemma LiteRT CPU/GPU alongside Cleopatra.
 
 The coding agent must not invoke --run. Preparation/installation is a separate tool.
 No UI taps or messages are sent: predictions on fixtures are scored offline.
@@ -160,7 +160,7 @@ def main():
         raise RuntimeError('Warm Together once with Benchmark workload enabled. For idle, press Stop all afterward. All three base engines must have a warm trace.')
     if a.load=='full' and not any(x['type']=='motion' and x.get('visible') and d.clock()-x['elapsedRealtimeMs']<15000 for x in initial[-20:]):
         raise RuntimeError('Start the user-controlled Repeat Together workload in tab 6 before this run.')
-    rows=[];servers=[];report=dict(config=vars(a),environmentBefore=before,fixtures=manifest,models=json.loads((ROOT/'benchmark/models.json').read_text()),
+    rows=[];servers=[];report=dict(config=vars(a),environmentBefore=before,fixtures=manifest,models=json.loads((ROOT/'benchmark/archive/models-before-llama-only.json').read_text()),
         runtimes={'Gemma':'LiteRT-LM 0.17.1'},phoneExecution=True,baseLoadRequested=a.load,
         limits=['Process-cold, filesystem cache uncontrolled; no cache eviction.',
         'Rank deviceRequestMs, not unequal HTTP versus ADB file/intent wall transport. Per-request timingScope is retained.',

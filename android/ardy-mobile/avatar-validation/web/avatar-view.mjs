@@ -20,15 +20,18 @@ export async function createAvatarView() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   function fitViewport() {
     const top = document.querySelector('header').getBoundingClientRect().bottom + 12;
-    const panel=document.querySelector('[role="tabpanel"]:not([hidden])');
-    const bottom = panel?panel.getBoundingClientRect().top-10:innerHeight;
+    const panel=document.querySelector('body > [role="tabpanel"]:not([hidden])');
+    const bounds=panel?.getBoundingClientRect();
+    const wide=document.body.classList.contains('debug')&&innerWidth>=900&&bounds?.left>=innerWidth*.5;
+    const bottom=wide?innerHeight-16:bounds?bounds.top-10:innerHeight;
+    canvas.style.left=wide?'16px':'0';canvas.style.width=wide?`${bounds.left-32}px`:'100%';
     canvas.style.top = `${top}px`;
     canvas.style.height = `${Math.max(100, bottom-top)}px`;
   }
   fitViewport(); window.addEventListener('resize',()=>{fitViewport();invalidate();});
   document.querySelectorAll('[role="tabpanel"] details').forEach(d=>d.addEventListener('toggle',()=>{fitViewport();invalidate();}));
   const resize=new ResizeObserver(()=>{fitViewport();invalidate();});
-  document.querySelectorAll('[role="tabpanel"]').forEach(panel=>resize.observe(panel));
+  document.querySelectorAll('body > [role="tabpanel"]').forEach(panel=>resize.observe(panel));
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();

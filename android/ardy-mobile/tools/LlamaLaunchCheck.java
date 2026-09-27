@@ -49,6 +49,18 @@ public final class LlamaLaunchCheck {
         try{LlamaLaunch.options("llama-bogus","mapped");throw new AssertionError("Unknown backend accepted");}catch(IOException expected){checks++;}
         try{LlamaLaunch.options("llama-cpu","bogus");throw new AssertionError("Unknown preset accepted");}catch(IOException expected){checks++;}
         try{LlamaLaunch.options("llama-hexagon","mapped","bogus");throw new AssertionError("Unknown encoder accepted");}catch(IOException expected){checks++;}
+        JSONObject defaultSettings=ModelSettings.select(new JSONObject());
+        check(defaultSettings.getString("pipeline").equals("gpu-npu"),"Hybrid pairing defaults on for new loads");
+        String[][] pairings={{"gpu-npu","llama-hexagon","gpu"},{"gpu-gpu","llama-opencl","gpu"},{"gpu-cpu","llama-cpu","gpu"},{"cpu-cpu","llama-cpu","cpu"}};
+        for(String model:List.of("gemma","gemma-e4b"))for(String[] pairing:pairings){
+            JSONObject settings=ModelSettings.select(new JSONObject().put("model",model).put("pipeline",pairing[0]));
+            check(settings.getString("backend").equals(pairing[1])&&settings.getString("llamaEncoder").equals(pairing[2]),"Both Gemmas share explicit encoder/decoder routing");
+            List<String> args=LlamaLaunch.options(settings.getString("backend"),"mapped",settings.getString("llamaEncoder"));
+            check(option(args,"--mmproj-device").equals(pairing[2].equals("gpu")?"GPUOpenCL":"none"),"Pairing reaches native projector device");
+        }
+        for(JSONObject invalid:List.of(new JSONObject().put("pipeline","cpu-npu"),new JSONObject().put("backend","litert-gpu"),new JSONObject().put("model","qwen"),new JSONObject().put("llamaEncoder","cpu"),new JSONObject().put("contextTokens",4096.5),new JSONObject().put("visualTokens",999),new JSONObject().put("contextTokens","8192"))){
+            try{ModelSettings.select(invalid);throw new AssertionError("Invalid settings accepted: "+invalid);}catch(IOException expected){checks++;}
+        }
         Path directory=Files.createTempDirectory("cleo-native-log-check-");Path file=directory.resolve("native.log");
         try{
             LlamaLog capture=new LlamaLog(file.toFile());

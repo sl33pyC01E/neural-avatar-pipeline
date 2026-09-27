@@ -1,6 +1,6 @@
 package ai.cleo.ardyavatarvalidation;
 
-import com.google.ai.edge.litertlm.*;
+import static ai.cleo.ardyavatarvalidation.ModelData.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,7 +18,7 @@ final class LlamaProtocol {
         if(tool!=null)r.put("tools",new JSONArray().put(new JSONObject().put("type","function").put("function",tool)));
         return r;
     }
-    static JSONArray input(com.google.ai.edge.litertlm.Message m,Deque<JSONObject> pending)throws Exception {
+    static JSONArray input(ModelMessage m,Deque<JSONObject> pending)throws Exception {
         JSONArray result=new JSONArray(),parts=new JSONArray();
         for(Content c:m.getContents().getContents()){
             if(c instanceof Content.Text)parts.put(new JSONObject().put("type","text").put("text",((Content.Text)c).getText()));
@@ -59,7 +59,7 @@ final class LlamaProtocol {
         final StringBuilder answer=new StringBuilder(),reasoning=new StringBuilder();
         final SortedMap<Integer,JSONObject> calls=new TreeMap<>();
         JSONObject timings=new JSONObject(),usage=new JSONObject();String finish="";
-        com.google.ai.edge.litertlm.Message accept(JSONObject chunk)throws Exception {
+        ModelMessage accept(JSONObject chunk)throws Exception {
             if(chunk.has("error"))throw new IOException(chunk.get("error").toString());
             if(chunk.optJSONObject("timings")!=null)timings=chunk.getJSONObject("timings");
             if(chunk.optJSONObject("usage")!=null)usage=chunk.getJSONObject("usage");
@@ -81,7 +81,7 @@ final class LlamaProtocol {
                 }
             }
             answer.append(text);reasoning.append(thought);
-            return new com.google.ai.edge.litertlm.Message(Role.MODEL,Contents.Companion.of(text.toString()),Collections.emptyList(),Map.of("analysis",thought.toString()));
+            return new ModelMessage(Role.MODEL,Contents.of(text.toString()),Collections.emptyList(),Map.of("analysis",thought.toString()));
         }
         List<ToolCall> finish()throws Exception {
             if(finish.isEmpty())throw new IOException("Gemma stream ended without a completion marker");

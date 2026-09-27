@@ -1,20 +1,21 @@
-# Cleopatra v24: Gemma QAT and persistent prefixes
+# Cleopatra v25: Gemma QAT and persistent prefixes
 
-Tab 7 **Models** selects Gemma 4 E2B IT or E4B IT and one runtime:
+Tab 7 **Models → Model** selects Gemma 4 E2B IT or E4B IT QAT on llama.cpp.
 
-| Runtime | Language model | Vision/audio | Disk KV |
+| Encoder → decoder | Vision/audio device | Language device | Disk KV |
 |---|---|---|---|
-| LiteRT GPU / CPU | Existing `.litertlm` bundle | Existing full bundle | No; RAM only |
-| llama.cpp CPU | Official Google QAT Q4_0 GGUF | CPU default; OpenCL selectable | Build / restore / clear |
-| llama.cpp OpenCL | Adreno GPU offload requested | OpenCL default; CPU selectable | Build / restore / clear |
-| llama.cpp Hexagon | Experimental NPU offload requested | CPU default; OpenCL selectable | Build / restore / clear |
+| GPU → NPU (default) | OpenCL GPU | Experimental Hexagon NPU | Build / restore / clear |
+| GPU → GPU | OpenCL GPU | OpenCL GPU | Build / restore / clear |
+| GPU → CPU | OpenCL GPU | CPU | Build / restore / clear |
+| CPU → CPU | CPU | CPU | Build / restore / clear |
 
-v24 adds a separate **vision + audio encoder** selector for llama.cpp. It uses
-`--mmproj-device` independently of the language `--device`, enabling GPU encoder
-+ NPU decoder. Both encoders share this setting in the pinned runtime. See
-[split placement, inherited settings and test limits](SPLIT_ENCODER.md).
+These are the only choices for both models. Main, Browser and tab 9 inherit them.
+LiteRT is no longer a runtime or dependency. Old independent device settings
+migrate to GPU→NPU; budgets and model choice remain saved. The pinned runtime uses
+`--mmproj-device` separately from language `--device`; vision and audio share the
+encoder device. See [placement and limits](SPLIT_ENCODER.md).
 
-The default remains LiteRT GPU. Readiness follows the native `/health` endpoint.
+Readiness follows the native `/health` endpoint.
 Backend evidence displays the requested device and the actual offloaded-layer
 count when available; missing diagnostic output is shown as unconfirmed, not a
 load failure. v22 incorrectly killed healthy OpenCL and Hexagon workers because
@@ -69,8 +70,7 @@ files. `--install --adb ... --transport ...` copies and verifies the model files
 in the existing app's private `files/benchmark`, then removes its own temporary
 transfer copies. It never launches the app or starts inference. The APK packages
 the worker, dependency libraries, DSP kernels and an NDK-built parent-death
-launcher. Model weights are provisioned separately, as with the existing Gemma
-LiteRT bundles; the APK alone does not contain both multi-GB QAT sets.
+launcher. Model weights are provisioned separately; the APK alone does not contain both multi-GB QAT sets.
 
 The worker listens only on localhost with a random per-process API key. One
 Gemma runtime is resident at a time. Explicit unload stops its child; parent
@@ -108,7 +108,7 @@ falls back to ordinary prompt evaluation and reports the reason. **Clear disk
 prefixes** only removes this cache; model weights and the live chat remain.
 
 Models shows saved/restored tokens, disk bytes, prefill/save/restore time and
-backend evidence. Bottom metrics show first answer token, total latency, CPU
+backend evidence. The Resources section shows first answer token, total latency, CPU
 time, current/peak PSS, actual reused tokens, prompt evaluation time and decode
 tokens/sec when supplied by the runtime. Restoring weights, allocating contexts
 and preparing a new user input still take time; disk KV does not eliminate model
@@ -136,3 +136,11 @@ encoder log evidence and cache invalidation. GPU/NPU operator support, native st
 tool/grammar quality, disk restore equivalence, speed, thermals and full-stack RAM
 still require the user's phone test. No phone UI test, generation, benchmark or
 audio playback was run by the agent.
+
+The v25 protocol checks run against app-owned message types after removing the
+LiteRT SDK. Launch checks include both models across the four pairings and reject
+retired backends, mismatched devices and invalid budgets. UI checks cover 60
+module/section layouts at 412×915, 360×520 and 1024×768, one scroll owner, no
+horizontal overflow, non-overlapping view controls, module scroll restoration,
+chat cancellation and streamed text that respects the reader. Reports use v25
+names; these are host checks with a fake native peer, not phone inference.
